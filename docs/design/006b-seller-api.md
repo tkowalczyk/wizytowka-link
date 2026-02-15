@@ -60,7 +60,7 @@ interface Seller {
 const VALID_STATUSES = ['pending', 'called', 'interested', 'rejected'] as const;
 
 export const PUT: APIRoute = async ({ params, request, locals }) => {
-  const db = locals.runtime.env.DB;
+  const db = locals.runtime.env.leadgen;
   const id = parseInt(params.id ?? '', 10);
   if (isNaN(id)) {
     return new Response(JSON.stringify({ error: 'nieprawidlowe ID' }), {
@@ -214,7 +214,8 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
 
 5. **call_log created** -- after PUT with status, verify:
    ```bash
-   wrangler d1 execute leadgen --command="SELECT * FROM call_log ORDER BY created_at DESC LIMIT 5"
+   pnpm wrangler d1 execute leadgen --command="SELECT * FROM call_log ORDER BY created_at DESC LIMIT 5"
+   pnpm wrangler d1 execute leadgen --command="SELECT * FROM call_log ORDER BY created_at DESC LIMIT 5" --remote
    ```
 
 6. **Comment-only update** -- no new call_log entry:

@@ -111,16 +111,16 @@ export default defineConfig({
   // D1
   "d1_databases": [
     {
-      "binding": "DB",
+      "binding": "leadgen",
       "database_name": "leadgen",
-      "database_id": "<UTWORZ: wrangler d1 create leadgen>"
+      "database_id": "<UTWORZ: pnpm wrangler d1 create leadgen>"
     }
   ],
 
   // R2
   "r2_buckets": [
     {
-      "binding": "R2",
+      "binding": "sites",
       "bucket_name": "sites"
     }
   ],
@@ -232,10 +232,10 @@ seed/localities-batch-*.sql
 ### 9. Generowanie typow
 
 ```bash
-wrangler types
+pnpm wrangler types
 ```
 
-Wygeneruje `worker-configuration.d.ts` z interfejsem `Env` zawierajacym `DB: D1Database`, `R2: R2Bucket` + sekrety.
+Wygeneruje `worker-configuration.d.ts` z interfejsem `Env` zawierajacym `leadgen: D1Database`, `sites: R2Bucket` + sekrety.
 
 ---
 
@@ -322,18 +322,18 @@ Brakujace w tym etapie (patrz DD-001b): `migrations/`, `src/types/`, `data/`.
 2. **Typy CF wygenerowane**
    ```bash
    pnpm run types
-   # sprawdz: worker-configuration.d.ts istnieje z Env { DB, R2 }
+   # sprawdz: worker-configuration.d.ts istnieje z Env { leadgen, sites }
    ```
 
 3. **Dev server startuje**
    ```bash
-   wrangler dev
+   pnpm wrangler dev
    # http://localhost:8787 zwraca strone
    ```
 
 4. **Cron stuby dzialaja**
    ```bash
-   wrangler dev --test-scheduled
+   pnpm wrangler dev --test-scheduled
    # w osobnym terminalu:
    curl "http://localhost:8787/__scheduled?cron=0+*+*+*+*"
    # oczekiwany: 200 + log "[geocoder] stub"
@@ -345,7 +345,7 @@ Brakujace w tym etapie (patrz DD-001b): `migrations/`, `src/types/`, `data/`.
 
 ## Decyzje
 
-- **`database_id`** — `wrangler d1 create leadgen` z CLI, jednorazowo. ID wpisac recznie do `wrangler.jsonc`.
+- **`database_id`** — `pnpm wrangler d1 create leadgen` z CLI, jednorazowo. ID wpisac recznie do `wrangler.jsonc`.
 - **`compatibility_date`** — pin do `2025-04-01`. Aktualizowac swiadomie co kilka miesiecy.
 - **R2 bucket** — jeden `sites`. MVP nie potrzebuje per-env.
 - **`assets.directory`** — explicit `"assets": { "directory": "./dist/client/" }` jako override.

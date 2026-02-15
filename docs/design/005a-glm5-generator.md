@@ -199,7 +199,7 @@ function validateSiteData(raw: string): SiteData {
 import { slugify } from './slug';
 
 export async function generateSites(env: Env): Promise<void> {
-  const { results } = await env.DB.prepare(`
+  const { results } = await env.leadgen.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
@@ -221,11 +221,11 @@ export async function generateSites(env: Env): Promise<void> {
 
       const key = `sites/${biz.loc_slug}/${biz.slug}.json`;
 
-      await env.R2.put(key, JSON.stringify(siteData), {
+      await env.sites.put(key, JSON.stringify(siteData), {
         httpMetadata: { contentType: 'application/json' },
       });
 
-      await env.DB.prepare(
+      await env.leadgen.prepare(
         `UPDATE businesses SET site_generated = 1 WHERE id = ?`
       ).bind(biz.id).run();
 
@@ -261,7 +261,7 @@ ZAI_API_KEY=...
 Binding w `wrangler.jsonc`:
 ```jsonc
 {
-  "r2_buckets": [{ "binding": "R2", "bucket_name": "sites" }]
+  "r2_buckets": [{ "binding": "sites", "bucket_name": "sites" }]
 }
 ```
 
@@ -284,7 +284,7 @@ Generator przetwarza 10 firm/run. Failures nie blokuja reszty batcha — `try/ca
 
 - [ ] `ZAI_API_KEY` ustawiony w `.production.vars`
 - [ ] Uruchom generator dla testowej firmy -> log `generated: sites/...`
-- [ ] `wrangler r2 object get sites/sites/stanislawow-pierwszy/firma-testowa.json` -> valid JSON ze wszystkimi polami
+- [ ] `pnpm wrangler r2 object get sites/sites/stanislawow-pierwszy/firma-testowa.json` -> valid JSON ze wszystkimi polami
 - [ ] Wszystkie pola obecne: hero, about, services (3-5), contact, seo
 - [ ] SEO title <= 60 znakow, description <= 155
 - [ ] `SELECT site_generated, slug FROM businesses WHERE id = ?` -> `1`
