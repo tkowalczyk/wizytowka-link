@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.wrangler/
+.production.vars
+worker-configuration.d.ts
+seed/.seed-state.json
+seed/localities-batch-*.sql
+.DS_Store

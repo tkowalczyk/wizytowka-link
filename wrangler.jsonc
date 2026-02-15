@@ -1,0 +1,38 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wizytowka-link",
+  "main": "./dist/_worker.js/index.js",
+  "compatibility_date": "2025-04-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // D1
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "leadgen",
+      "database_id": "<UTWORZ: wrangler d1 create leadgen>"
+    }
+  ],
+
+  // R2
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "sites"
+    }
+  ],
+
+  // Cron
+  "triggers": {
+    "crons": [
+      "0 * * * *",
+      "0 8 * * *"
+    ]
+  },
+
+  // Astro SSR asset serving
+  "assets": {
+    "directory": "./dist/",
+    "binding": "ASSETS"
+  }
+}
