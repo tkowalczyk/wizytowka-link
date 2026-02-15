@@ -1,0 +1,30 @@
+{
+  "name": "wizytowka-link",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "wrangler dev",
+    "types": "wrangler types",
+    "db:migrate": "wrangler d1 execute leadgen --file=./migrations/0001-init.sql"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.x",
+    "@astrojs/tailwind": "^6.x",
+    "astro": "^5.x",
+    "tailwindcss": "^3.x"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.3",
+    "tsx": "^4.x",
+    "typescript": "^5.x",
+    "wrangler": "^4.x"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ]
+  }
+}
