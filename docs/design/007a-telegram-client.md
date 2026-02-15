@@ -212,23 +212,23 @@ import { sendDailyReport } from './telegram';
 import type { SellerRow, LeadSummary, DailyReportStats } from './telegram';
 
 export async function scrapeBusinesses(env: Env): Promise<void> {
-  const locality = await getNextLocality(env.DB);
+  const locality = await getNextLocality(env.leadgen);
   if (!locality) return;
 
   // ... istniejaca logika scrapera (searchCategory, batchInsert) ...
 
-  await markSearched(env.DB, locality.id);
+  await markSearched(env.leadgen, locality.id);
 
   // --- raport Telegram ---
-  const totalResult = await env.DB.prepare(
+  const totalResult = await env.leadgen.prepare(
     'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ?'
   ).bind(locality.id).first<{ cnt: number }>();
 
-  const leadsResult = await env.DB.prepare(
+  const leadsResult = await env.leadgen.prepare(
     'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL'
   ).bind(locality.id).first<{ cnt: number }>();
 
-  const topLeads = await env.DB.prepare(`
+  const topLeads = await env.leadgen.prepare(`
     SELECT title, category, phone FROM businesses
     WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL
     ORDER BY id DESC LIMIT 5
@@ -241,7 +241,7 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
     top_leads: topLeads.results,
   };
 
-  const sellers = await env.DB.prepare(
+  const sellers = await env.leadgen.prepare(
     'SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL'
   ).all<SellerRow>();
 

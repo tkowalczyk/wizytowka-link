@@ -422,7 +422,8 @@ Key behaviors:
 
 4. **Comment saves without new call_log** -- click "Zapisz", verify call_log count unchanged:
    ```bash
-   wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM call_log"
+   pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM call_log"
+   pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM call_log" --remote
    # save comment
    # re-check count -- should be same
    ```

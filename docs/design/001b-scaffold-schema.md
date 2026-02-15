@@ -285,24 +285,27 @@ wizytowka-link/
 
 1. **D1 database utworzony**
    ```bash
-   wrangler d1 create leadgen
+   pnpm wrangler d1 create leadgen
    # wpisz database_id do wrangler.jsonc
    ```
 
 2. **Schema zaladowany**
    ```bash
-   wrangler d1 execute leadgen --file=./migrations/0001-init.sql
+   pnpm wrangler d1 execute leadgen --file=./migrations/0001-init.sql
+   pnpm wrangler d1 execute leadgen --file=./migrations/0001-init.sql --remote
    ```
 
 3. **Tabele istnieja**
    ```bash
-   wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+   pnpm wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+   pnpm wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='table' ORDER BY name" --remote
    # oczekiwany: businesses, call_log, localities, sellers
    ```
 
 4. **Indexy istnieja**
    ```bash
-   wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name"
+   pnpm wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name"
+   pnpm wrangler d1 execute leadgen --command="SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name" --remote
    # oczekiwany: idx_businesses_leads, idx_businesses_locality, idx_businesses_place_id,
    #   idx_businesses_ungenerated, idx_call_log_business, idx_call_log_seller_biz,
    #   idx_localities_slug, idx_localities_ungeolocated, idx_localities_unsearched
@@ -310,19 +313,21 @@ wizytowka-link/
 
 5. **FK wlaczone**
    ```bash
-   wrangler d1 execute leadgen --command="PRAGMA foreign_keys"
+   pnpm wrangler d1 execute leadgen --command="PRAGMA foreign_keys"
+   pnpm wrangler d1 execute leadgen --command="PRAGMA foreign_keys" --remote
    # oczekiwany: 1
    ```
 
 6. **Pusta baza**
    ```bash
-   wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities"
+   pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities"
+   pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities" --remote
    # oczekiwany: 0
    ```
 
 7. **R2 bucket utworzony**
    ```bash
-   wrangler r2 bucket create sites
+   pnpm wrangler r2 bucket create sites
    ```
 
 8. **Typy kompiluja sie**

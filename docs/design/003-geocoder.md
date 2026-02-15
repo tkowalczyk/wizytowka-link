@@ -71,7 +71,7 @@ interface GeocoderStats {
 }
 
 // Use wrangler-generated Env from worker-configuration.d.ts — do NOT redefine locally
-// interface Env { DB: D1Database; R2: R2Bucket; ... }
+// interface Env { leadgen: D1Database; sites: R2Bucket; ... }
 ```
 
 ---
@@ -131,7 +131,7 @@ async function fetchCoords(
 }
 
 export async function geocodeLocalities(env: Env): Promise<void> {
-  const { results } = await env.DB.prepare(
+  const { results } = await env.leadgen.prepare(
     `SELECT id, name, woj_name, pow_name, gmi_name
      FROM localities
      WHERE lat IS NULL AND geocode_failed = 0
@@ -182,13 +182,13 @@ export async function geocodeLocalities(env: Env): Promise<void> {
       }
 
       if (!coords) {
-        await env.DB.prepare(
+        await env.leadgen.prepare(
           `UPDATE localities SET geocode_failed = 1 WHERE id = ?`
         ).bind(loc.id).run();
         failed++;
       } else {
         const dist = haversine(START_LAT, START_LON, coords.lat, coords.lon);
-        await env.DB.prepare(
+        await env.leadgen.prepare(
           `UPDATE localities SET lat = ?, lng = ?, distance_km = ? WHERE id = ?`
         ).bind(coords.lat, coords.lon, Math.round(dist * 100) / 100, loc.id).run();
         processed++;
@@ -206,7 +206,7 @@ export async function geocodeLocalities(env: Env): Promise<void> {
     }
   }
 
-  const remaining = await env.DB.prepare(
+  const remaining = await env.leadgen.prepare(
     `SELECT COUNT(*) as cnt FROM localities WHERE lat IS NULL AND geocode_failed = 0`
   ).first<{ cnt: number }>();
 

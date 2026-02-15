@@ -86,7 +86,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       return new Response('ok');
     }
 
-    const seller = await env.DB.prepare(
+    const seller = await env.leadgen.prepare(
       'SELECT id, telegram_chat_id FROM sellers WHERE token = ?'
     ).bind(token).first<{ id: number; telegram_chat_id: string | null }>();
 
@@ -100,7 +100,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       return new Response('ok');
     }
 
-    await env.DB.prepare(
+    await env.leadgen.prepare(
       'UPDATE sellers SET telegram_chat_id = ? WHERE token = ?'
     ).bind(chatId, token).run();
 

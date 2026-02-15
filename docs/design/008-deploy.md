@@ -30,10 +30,10 @@ Etapy 1-7 gotowe. Worker obsluguje: geocoder (cron), scraper (cron), generator s
 ### Krok -1: Authenticate Wrangler
 
 ```bash
-wrangler login
+pnpm wrangler login
 ```
 
-Opens browser for Cloudflare OAuth. Required before any wrangler command.
+Opens browser for Cloudflare OAuth. Required before any pnpm wrangler command.
 
 ### Krok 0: SerpAPI Plan Upgrade
 
@@ -46,8 +46,8 @@ Kup `wizytowka.link` na [CF Registrar](https://dash.cloudflare.com/?to=/:account
 ### Krok 2: Utworz zasoby
 
 ```bash
-wrangler d1 create leadgen
-wrangler r2 bucket create sites
+pnpm wrangler d1 create leadgen
+pnpm wrangler r2 bucket create sites
 ```
 
 Zapisz `database_id` z outputu `d1 create`.
@@ -70,7 +70,7 @@ Zapisz `database_id` z outputu `d1 create`.
   // D1
   "d1_databases": [
     {
-      "binding": "DB",
+      "binding": "leadgen",
       "database_name": "leadgen",
       "database_id": "<ID-Z-KROKU-2>"
     }
@@ -79,7 +79,7 @@ Zapisz `database_id` z outputu `d1 create`.
   // R2
   "r2_buckets": [
     {
-      "binding": "R2",
+      "binding": "sites",
       "bucket_name": "sites"
     }
   ],
@@ -102,7 +102,8 @@ Zapisz `database_id` z outputu `d1 create`.
 ### Krok 4: Schema D1
 
 ```bash
-wrangler d1 execute leadgen --file=./migrations/0001-init.sql
+pnpm wrangler d1 execute leadgen --file=./migrations/0001-init.sql
+pnpm wrangler d1 execute leadgen --file=./migrations/0001-init.sql --remote
 ```
 
 ### Krok 5: Seed TERYT (DD-002)
@@ -117,7 +118,8 @@ Skrypt interaktywny — seeduje per-wojewodztwo, pyta po kazdym. Wznawiany po pr
 
 Weryfikacja:
 ```bash
-wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities"
+pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities"
+pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities" --remote
 # oczekiwane: ~95100
 ```
 
@@ -137,7 +139,7 @@ Generowanie webhook secret:
 python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-Wrangler automatycznie laduje ten plik przy `wrangler deploy`.
+Wrangler automatycznie laduje ten plik przy `pnpm wrangler deploy`.
 
 | Zmienna | Cel |
 |---|---|
@@ -149,7 +151,7 @@ Wrangler automatycznie laduje ten plik przy `wrangler deploy`.
 ### Krok 7: Deploy
 
 ```bash
-pnpm run build && wrangler deploy
+pnpm run build && pnpm wrangler deploy
 ```
 
 ### Krok 8: Telegram webhook
@@ -163,7 +165,8 @@ Oczekiwany response: `{"ok":true,"result":true,"description":"Webhook was set"}`
 ### Krok 9: Dodaj sprzedawce
 
 ```bash
-wrangler d1 execute leadgen --command="INSERT INTO sellers (name, token) VALUES ('Sprzedawca1', 'WYGENERUJ-UUID')"
+pnpm wrangler d1 execute leadgen --command="INSERT INTO sellers (name, token) VALUES ('Sprzedawca1', 'WYGENERUJ-UUID')"
+pnpm wrangler d1 execute leadgen --command="INSERT INTO sellers (name, token) VALUES ('Sprzedawca1', 'WYGENERUJ-UUID')" --remote
 ```
 
 Generowanie UUID:
@@ -229,7 +232,8 @@ curl "https://api.telegram.org/bot<TG_BOT_TOKEN>/getWebhookInfo"
 # oczekiwane: url = https://wizytowka.link/api/telegram/webhook/<SECRET>
 
 # 6. D1 dane
-wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL"
+pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL"
+pnpm wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL" --remote
 # oczekiwane: >0 (po geocoderze)
 
 # 7. Cron — nastepny dzien o 8:00
@@ -266,7 +270,7 @@ Supplement with daily Telegram report — if no report arrives by 11:00 CET, cro
 ### Worker code
 
 ```bash
-wrangler rollback
+pnpm wrangler rollback
 ```
 
 Przywraca poprzednia wersje workera. Natychmiastowe.
@@ -275,12 +279,12 @@ Przywraca poprzednia wersje workera. Natychmiastowe.
 
 Brak automatycznego rollbacku. Mitigacja:
 - Schema migrations wersjonowane w `migrations/`
-- Przed destructive migration: `wrangler d1 execute leadgen --command="SELECT * FROM ..." > backup.json`
-- D1 Time Travel (last 30 days): `wrangler d1 time-travel restore leadgen --timestamp=<ISO>`
+- Przed destructive migration: `pnpm wrangler d1 execute leadgen --command="SELECT * FROM ..." --remote > backup.json`
+- D1 Time Travel (last 30 days): `pnpm wrangler d1 time-travel restore leadgen --timestamp=<ISO>`
 
 ### R2
 
-Obiekty persistuja miedzy deployami. Usuwanie wymaga explicit `wrangler r2 object delete`.
+Obiekty persistuja miedzy deployami. Usuwanie wymaga explicit `pnpm wrangler r2 object delete`.
 
 ### Domena
 
@@ -364,6 +368,6 @@ DNS propagacja ~5 min. Jesli worker padnie — domena zwraca CF error page autom
 ### P2 — Consistency
 
 - [x] **Add www redirect**: added Krok 7.2 with CF redirect rule config.
-- [ ] **Add `wrangler dev --test-scheduled` step**: runbook says "nastepny dzien o 8:00" for cron verification. Add immediate test step using `--test-scheduled`.
+- [ ] **Add `pnpm wrangler dev --test-scheduled` step**: runbook says "nastepny dzien o 8:00" for cron verification. Add immediate test step using `--test-scheduled`.
 - [ ] **Fix secret generation commands**: uses Python (`secrets.token_urlsafe`, `uuid.uuid4`). Add Node alternative: `node -e "console.log(crypto.randomUUID())"`.
 - [ ] **Document D1 Time Travel usage**: show exact command with ISO timestamp format.

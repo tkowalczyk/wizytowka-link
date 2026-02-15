@@ -24,7 +24,7 @@ data/simc.csv ──┐
                 ├──> seed/parse-simc.ts ──> seed/localities-batch-{WOJ}-{N}.sql
 data/terc.csv ──┘                                      │
                                                        ▼
-                                            wrangler d1 execute
+                                         pnpm wrangler d1 execute
                                                        │
                                                        ▼
                                                D1 localities
@@ -55,7 +55,7 @@ Dla kazdego WOJ (02..32, 16 sztuk):
   │
   ├─ Zapisz batch SQL → seed/localities-batch-{WOJ}-{N}.sql
   │
-  ├─ Wykonaj kazdy batch: wrangler d1 execute leadgen --file=...
+  ├─ Wykonaj kazdy batch: pnpm wrangler d1 execute leadgen --file=...
   │
   ├─ Zapisz stan: dodaj WOJ do completedWoj
   │
@@ -126,7 +126,7 @@ async function main() {
       const sql = generateInsertSql(batches[i]);
       const file = `seed/localities-batch-${woj}-${i}.sql`;
       writeFileSync(file, sql);
-      execSync(`wrangler d1 execute leadgen --file=./${file}`, {
+      execSync(`pnpm wrangler d1 execute leadgen --file=./${file}`, {
         stdio: "inherit",
       });
       unlinkSync(file);
@@ -194,14 +194,14 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 ```
 
-Each batch: write SQL file -> `wrangler d1 execute leadgen --file=...` -> delete file.
+Each batch: write SQL file -> `pnpm wrangler d1 execute leadgen --file=...` -> delete file.
 
 ## Resume Logic
 
 ```ts
 function loadExistingSlugs(): Set<string> {
   const result = execSync(
-    `wrangler d1 execute leadgen --command="SELECT slug FROM localities" --json`,
+    `pnpm wrangler d1 execute leadgen --command="SELECT slug FROM localities" --json`,
     { encoding: "utf-8" }
   );
   const parsed = JSON.parse(result);
@@ -237,7 +237,7 @@ function askContinue(): Promise<boolean> {
 
 ## Error Handling
 
-Jesli `wrangler d1 execute` fails during batch:
+Jesli `pnpm wrangler d1 execute` fails during batch:
 1. WOJ NOT added to `completedWoj`
 2. State NOT saved for that WOJ
 3. User sees error, can retry
@@ -270,7 +270,7 @@ Requirements: `tsx` (TypeScript execution), `wrangler` in PATH.
 
 - ~95k rows / 100 per batch = ~950 batches
 - 16 WOJ, avg ~60 batches per WOJ
-- `wrangler d1 execute` per batch ~1-2s = ~15-30 min total
+- `pnpm wrangler d1 execute` per batch ~1-2s = ~15-30 min total
 - Can increase BATCH_SIZE to 500 if D1 100KB limit allows (500 rows * ~200B = ~100KB — borderline)
 
 ## File Structure

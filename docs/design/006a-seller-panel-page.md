@@ -66,7 +66,7 @@ interface Lead {
 }
 
 const { token } = Astro.params;
-const db = Astro.locals.runtime.env.DB;
+const db = Astro.locals.runtime.env.leadgen;
 
 // walidacja tokenu
 const seller = await db
@@ -271,7 +271,8 @@ ORDER BY l.name;
 
 1. **Seed test seller**
    ```bash
-   wrangler d1 execute leadgen --command="INSERT INTO sellers (name, telegram_chat_id, token) VALUES ('Jan', '123', 'test-token-abc')"
+   pnpm wrangler d1 execute leadgen --command="INSERT INTO sellers (name, telegram_chat_id, token) VALUES ('Jan', '123', 'test-token-abc')"
+   pnpm wrangler d1 execute leadgen --command="INSERT INTO sellers (name, telegram_chat_id, token) VALUES ('Jan', '123', 'test-token-abc')" --remote
    ```
 
 2. **Panel sie otwiera**

@@ -34,8 +34,8 @@ const { loc, slug } = Astro.params;
 
 if (!loc || !slug) return new Response(null, { status: 404 });
 
-const r2 = Astro.locals.runtime.env.R2 as R2Bucket;
-const db = Astro.locals.runtime.env.DB as D1Database;
+const r2 = Astro.locals.runtime.env.sites as R2Bucket;
+const db = Astro.locals.runtime.env.leadgen as D1Database;
 const obj = await r2.get(`sites/${loc}/${slug}.json`);
 
 if (!obj) return new Response('Not Found', { status: 404 });
@@ -53,7 +53,7 @@ const biz = await db.prepare(`
   gps_lat: number; gps_lng: number; rating: number | null;
 }>();
 
-// 7d edge cache. Purge on regeneration: wrangler r2 object delete + CF cache purge API
+// 7d edge cache. Purge on regeneration: pnpm wrangler r2 object delete + CF cache purge API
 // POST https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache {"files":["url"]}
 Astro.response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=604800');
 ---

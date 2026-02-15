@@ -77,7 +77,7 @@ const CATEGORIES = [
 const MAX_PAGES_PER_CATEGORY = 5;
 
 export async function scrapeBusinesses(env: Env): Promise<void> {
-  const locality = await getNextLocality(env.DB);
+  const locality = await getNextLocality(env.leadgen);
   if (!locality) return;
 
   const seen = new Set<string>();
@@ -87,7 +87,7 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
   let failedCategories = 0;
 
   // batch-fetch existing slugs for this locality once
-  const { results: existingSlugs } = await env.DB
+  const { results: existingSlugs } = await env.leadgen
     .prepare(`SELECT slug FROM businesses WHERE locality_id = ?`)
     .bind(locality.id)
     .all<{ slug: string }>();
@@ -137,16 +137,16 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
     }
   }
 
-  await batchInsert(env.DB, businesses);
+  await batchInsert(env.leadgen, businesses);
   console.log(`[scraper] ${locality.name}: ${businesses.length} biz, ${apiCalls} API calls, ${failedCategories} failed cats`);
 
   if (quotaExhausted) {
     console.log(`[scraper] skipping markSearched — quota exhausted`);
   } else if (failedCategories > 0) {
     console.log(`[scraper] markSearched despite ${failedCategories} failed categories — non-quota errors`);
-    await markSearched(env.DB, locality.id);
+    await markSearched(env.leadgen, locality.id);
   } else {
-    await markSearched(env.DB, locality.id);
+    await markSearched(env.leadgen, locality.id);
   }
 }
 ```
