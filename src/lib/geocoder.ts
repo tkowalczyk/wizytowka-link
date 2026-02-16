@@ -1,6 +1,6 @@
-const BATCH_SIZE = 800;
+const BATCH_SIZE = 300;
 const SLEEP_MS = 1100;
-const WALL_TIME_LIMIT_MS = 25 * 60 * 1000;
+const WALL_TIME_LIMIT_MS = 12 * 60 * 1000;
 const START_LAT = 52.3547;
 const START_LON = 21.0822;
 const USER_AGENT = 'LeadGen/1.0 (kontakt@wizytowka.link)';
@@ -107,6 +107,7 @@ export async function geocodeLocalities(env: Env): Promise<void> {
     return;
   }
 
+  console.log(`geocoder: starting batch of ${results.length}`);
   let processed = 0;
   let failed = 0;
   const startTime = Date.now();
@@ -174,6 +175,10 @@ export async function geocodeLocalities(env: Env): Promise<void> {
           loc.id
         ).run();
         processed++;
+      }
+
+      if ((processed + failed) % 50 === 0) {
+        console.log(`geocoder: progress ${processed + failed}/${results.length} ok=${processed} fail=${failed} elapsed=${Math.round((Date.now() - startTime) / 1000)}s`);
       }
 
       await sleep(SLEEP_MS);
