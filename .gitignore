@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .wrangler/
+.dev.vars
 .production.vars
 worker-configuration.d.ts
 seed/.seed-state.json

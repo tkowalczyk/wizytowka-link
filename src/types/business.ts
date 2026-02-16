@@ -67,3 +67,13 @@ export interface CallLogRow {
   comment: string | null;
   created_at: string;
 }
+
+export interface Locality {
+  id: number;
+  name: string;
+  slug: string;
+  lat: number;
+  lng: number;
+  distance_km: number;
+  searched_at: string | null;
+}
