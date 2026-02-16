@@ -1,0 +1,18 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "wizytowka-link",
+	"main": "./dist/_worker.js/index.js",
+	"compatibility_date": "2025-04-01",
+	"compatibility_flags": ["nodejs_compat"],
+	"d1_databases": [
+		{
+			"binding": "leadgen",
+			"database_name": "leadgen",
+			"database_id": "71456b08-2012-4b06-bb67-de685866a6a1",
+			"remote": true
+		}
+	],
+	"triggers": {
+		"crons": ["0 * * * *", "0 8 * * *"]
+	}
+}
