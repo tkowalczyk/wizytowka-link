@@ -6,6 +6,9 @@
 	"compatibility_flags": [
 		"nodejs_compat"
 	],
+	"observability": {
+		"enabled": true,
+	},
 	"d1_databases": [
 		{
 			"binding": "leadgen",
