@@ -52,8 +52,26 @@ interface NominatimResult {
   osm_id: number;
   lat: string;
   lon: string;
+  class: string;
+  type: string;
+  place_rank: number;
+  importance: number;
+  addresstype: string;
+  name: string;
   display_name: string;
   boundingbox: string[];
+}
+
+interface GeoResult {
+  lat: number;
+  lon: number;
+  nominatim_place_id: number;
+  osm_type: string;
+  osm_id: number;
+  nominatim_type: string;
+  place_rank: number;
+  address_type: string;
+  bbox: string; // JSON stringified
 }
 
 interface LocalityRow {
@@ -106,7 +124,7 @@ function sleep(ms: number): Promise<void> {
 
 async function fetchCoords(
   loc: LocalityRow
-): Promise<{ lat: number; lon: number } | null> {
+): Promise<GeoResult | null> {
   const q = `${loc.name}, ${loc.gmi_name}, ${loc.pow_name}, ${loc.woj_name}, Polska`;
   const url = `${NOMINATIM_URL}?${new URLSearchParams({
     q,
@@ -127,7 +145,17 @@ async function fetchCoords(
   const lat = parseFloat(data[0].lat);
   const lon = parseFloat(data[0].lon);
   if (isNaN(lat) || isNaN(lon)) return null;
-  return { lat, lon };
+  return {
+    lat,
+    lon,
+    nominatim_place_id: data[0].place_id,
+    osm_type: data[0].osm_type,
+    osm_id: data[0].osm_id,
+    nominatim_type: data[0].type,
+    place_rank: data[0].place_rank,
+    address_type: data[0].addresstype,
+    bbox: JSON.stringify(data[0].boundingbox),
+  };
 }
 
 export async function geocodeLocalities(env: Env): Promise<void> {
@@ -174,7 +202,17 @@ export async function geocodeLocalities(env: Env): Promise<void> {
             const fbLat = parseFloat(fallbackData[0].lat);
             const fbLon = parseFloat(fallbackData[0].lon);
             if (!isNaN(fbLat) && !isNaN(fbLon)) {
-              coords = { lat: fbLat, lon: fbLon };
+              coords = {
+                lat: fbLat,
+                lon: fbLon,
+                nominatim_place_id: fallbackData[0].place_id,
+                osm_type: fallbackData[0].osm_type,
+                osm_id: fallbackData[0].osm_id,
+                nominatim_type: fallbackData[0].type,
+                place_rank: fallbackData[0].place_rank,
+                address_type: fallbackData[0].addresstype,
+                bbox: JSON.stringify(fallbackData[0].boundingbox),
+              };
             }
           }
         }
@@ -189,8 +227,17 @@ export async function geocodeLocalities(env: Env): Promise<void> {
       } else {
         const dist = haversine(START_LAT, START_LON, coords.lat, coords.lon);
         await env.leadgen.prepare(
-          `UPDATE localities SET lat = ?, lng = ?, distance_km = ? WHERE id = ?`
-        ).bind(coords.lat, coords.lon, Math.round(dist * 100) / 100, loc.id).run();
+          `UPDATE localities
+           SET lat = ?, lng = ?, distance_km = ?,
+               nominatim_place_id = ?, osm_type = ?, osm_id = ?,
+               nominatim_type = ?, place_rank = ?, address_type = ?, bbox = ?
+           WHERE id = ?`
+        ).bind(
+          coords.lat, coords.lon, Math.round(dist * 100) / 100,
+          coords.nominatim_place_id, coords.osm_type, coords.osm_id,
+          coords.nominatim_type, coords.place_rank, coords.address_type, coords.bbox,
+          loc.id
+        ).run();
         processed++;
       }
 
@@ -216,11 +263,41 @@ export async function geocodeLocalities(env: Env): Promise<void> {
 
 ---
 
+## Migracja
+
+`migrations/0002-geocoder-columns.sql`:
+
+```sql
+ALTER TABLE localities ADD COLUMN nominatim_place_id INTEGER;
+ALTER TABLE localities ADD COLUMN osm_type TEXT;
+ALTER TABLE localities ADD COLUMN osm_id INTEGER;
+ALTER TABLE localities ADD COLUMN nominatim_type TEXT;
+ALTER TABLE localities ADD COLUMN place_rank INTEGER;
+ALTER TABLE localities ADD COLUMN address_type TEXT;
+ALTER TABLE localities ADD COLUMN bbox TEXT;
+```
+
+Mapowanie z Nominatim response:
+
+| Nominatim field | DB column | Uwaga |
+|---|---|---|
+| `place_id` | `nominatim_place_id` | unikniecie kolizji z naszym `id` |
+| `osm_type` | `osm_type` | |
+| `osm_id` | `osm_id` | |
+| `type` | `nominatim_type` | `type` to reserved word |
+| `place_rank` | `place_rank` | |
+| `addresstype` | `address_type` | snake_case consistency |
+| `boundingbox` | `bbox` | JSON TEXT, np. `'["52.33","52.40","21.02","21.11"]'` |
+
+---
+
 ## Schemat D1
 
 Kolumny `lat`, `lng`, `distance_km`, `geocode_failed` zdefiniowane w DD-001 `localities` schema od poczatku. Indeksy w DD-001:
 - `idx_localities_ungeolocated` — partial na `lat IS NULL`
 - `idx_localities_unsearched` — partial na `searched_at IS NULL AND lat IS NOT NULL`
+
+Migracja `0002-geocoder-columns.sql` dodaje kolumny: `nominatim_place_id`, `osm_type`, `osm_id`, `nominatim_type`, `place_rank`, `address_type`, `bbox`.
 
 ---
 
@@ -279,14 +356,148 @@ User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)
 
 ---
 
-## Weryfikacja
+## Weryfikacja lokalna (curl przed deploy)
 
-- [ ] `curl http://localhost:8787/__scheduled?cron=0+*+*+*+*` → uruchamia geocoder
-- [ ] `SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL` → rosnie po kazdym runie
-- [ ] `SELECT name, lat, lng, distance_km FROM localities ORDER BY distance_km LIMIT 10` → Stanislawow Pierwszy pierwszy
-- [ ] `SELECT COUNT(*) FROM localities WHERE geocode_failed = 1` → kilka failures expected
-- [ ] Logi: `geocoder: processed=N failed=M remaining=R`
-- [ ] Po 429 batch konczy sie early, nastepny run kontynuuje
+Przed deployem na prod — reczne sprawdzenie ze Nominatim odpowiada poprawnie na dokladnie takie requesty jakie worker wysyla.
+
+**Format URL workera (primary):**
+```
+https://nominatim.openstreetmap.org/search?q={name},{gmi_name},{pow_name},{woj_name},Polska&format=json&limit=1
+```
+
+**Format URL workera (fallback — gdy primary zwraca `[]`):**
+```
+https://nominatim.openstreetmap.org/search?q={name},{woj_name},Polska&format=json&limit=1
+```
+
+### Przyklad 1: Stanislawow Pierwszy (baseline)
+
+```bash
+# primary
+curl -s -H 'User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)' \
+  'https://nominatim.openstreetmap.org/search?q=Stanis%C5%82aw%C3%B3w+Pierwszy%2CNiepor%C4%99t%2Clegionowski%2CMAZOWIECKIE%2CPolska&format=json&limit=1' | jq .
+
+# oczekiwany wynik: lat ~52.35, lon ~21.08, display_name zawiera "Nieporet"
+```
+
+### Przyklad 2: Zakopane (duze miasto, powinno byc latwe)
+
+```bash
+# primary
+curl -s -H 'User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)' \
+  'https://nominatim.openstreetmap.org/search?q=Zakopane%2CZakopane%2Ctatrza%C5%84ski%2CMA%C5%81OPOLSKIE%2CPolska&format=json&limit=1' | jq .
+
+# oczekiwany wynik: lat ~49.30, lon ~19.95
+```
+
+### Przyklad 3: mala wies — primary fail, fallback success
+
+```bash
+# primary (moze zwrocic [])
+curl -s -H 'User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)' \
+  'https://nominatim.openstreetmap.org/search?q=Budy+Zaklasztorne%2CGrojec%2Cgrojecki%2CMAZOWIECKIE%2CPolska&format=json&limit=1' | jq .
+
+# fallback
+curl -s -H 'User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)' \
+  'https://nominatim.openstreetmap.org/search?q=Budy+Zaklasztorne%2CMAZOWIECKIE%2CPolska&format=json&limit=1' | jq .
+```
+
+### Przyklad 4: Hel (krotka nazwa, test edge case)
+
+```bash
+# primary
+curl -s -H 'User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)' \
+  'https://nominatim.openstreetmap.org/search?q=Hel%2CHel%2Cpucki%2CPOMORSKIE%2CPolska&format=json&limit=1' | jq .
+
+# oczekiwany wynik: lat ~54.61, lon ~18.80
+```
+
+### Co sprawdzic w odpowiedzi
+
+```json
+[
+  {
+    "place_id": 123456,
+    "licence": "Data © OpenStreetMap contributors",
+    "osm_type": "node",
+    "osm_id": 789012,
+    "lat": "52.3547",          // <-- string, parseFloat w workerze
+    "lon": "21.0822",          // <-- string
+    "display_name": "...",     // <-- powinien zawierac nazwe miejscowosci + woj
+    "boundingbox": [...]
+  }
+]
+```
+
+Checklist:
+- [ ] Odpowiedz to array (nie object)
+- [ ] `lat` i `lon` to stringi liczbowe (nie NaN)
+- [ ] `display_name` zawiera nazwe szukanej miejscowosci
+- [ ] Dla malych wsi — jesli primary `[]`, fallback zwraca cos
+- [ ] Zadnego HTTP 429 (respektuj 1 req/s miedzy curlami)
+
+---
+
+## Deploy na prod (Cloudflare Workers)
+
+### 1. Deploy workera
+
+```bash
+npx wrangler deploy
+```
+
+Wrangler buduje z `wrangler.jsonc`, deployuje do CF. Cron trigger `0 * * * *` jest zarejestrowany w `triggers.crons`.
+
+### 2. Weryfikacja crona
+
+```bash
+# sprawdz ze cron jest zarejestrowany
+npx wrangler triggers list
+```
+
+Powinien pokazac `0 * * * *` i `0 8 * * *`.
+
+Alternatywnie w dashboardzie: Workers & Pages → wizytowka-link → Triggers → Cron Triggers.
+
+### 3. Monitoring logow
+
+```bash
+# tail na zywo — pokazuje console.log z workera
+npx wrangler tail
+```
+
+Po uruchomieniu crona (co pelna godzine) powinien pojawic sie log:
+```
+geocoder: processed=N failed=M remaining=R
+```
+
+Ctrl+C zeby zakonczyc tail.
+
+### 4. Weryfikacja danych w D1
+
+```bash
+# ile juz zgeolokalizowanych
+npx wrangler d1 execute leadgen --command "SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL"
+
+# top 10 najblizszych Stanislawowowi
+npx wrangler d1 execute leadgen --command "SELECT name, lat, lng, distance_km FROM localities ORDER BY distance_km LIMIT 10"
+
+# ile failow
+npx wrangler d1 execute leadgen --command "SELECT COUNT(*) FROM localities WHERE geocode_failed = 1"
+
+# ile zostalo
+npx wrangler d1 execute leadgen --command "SELECT COUNT(*) FROM localities WHERE lat IS NULL AND geocode_failed = 0"
+```
+
+### 5. Checklist prod
+
+- [ ] `wrangler deploy` ukonczony bez bledow
+- [ ] Cron `0 * * * *` widoczny w triggers
+- [ ] `wrangler tail` — po pelnej godzinie widac logi geocodera
+- [ ] `COUNT(*) WHERE lat IS NOT NULL` rosnie co godzine
+- [ ] `ORDER BY distance_km LIMIT 1` → Stanislawow Pierwszy
+- [ ] `COUNT(*) WHERE geocode_failed = 1` → kilka (expected)
+- [ ] Po 429 batch konczy sie early, nastepny run kontynuuje (sprawdz w tail)
 
 ---
 
