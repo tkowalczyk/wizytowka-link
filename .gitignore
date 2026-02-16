@@ -5,4 +5,5 @@ dist/
 worker-configuration.d.ts
 seed/.seed-state.json
 seed/localities-batch-*.sql
+data/sql/
 .DS_Store
