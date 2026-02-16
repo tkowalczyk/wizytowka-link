@@ -16,8 +16,13 @@ export interface SerpApiLocalResult {
   gps_coordinates: SerpApiGpsCoordinates;
 }
 
+export interface SerpApiPagination {
+  next?: string;
+}
+
 export interface SerpApiMapsResponse {
   local_results?: SerpApiLocalResult[];
+  serpapi_pagination?: SerpApiPagination;
   search_metadata: {
     status: string;
     id: string;
