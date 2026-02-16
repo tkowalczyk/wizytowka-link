@@ -8,7 +8,8 @@
     "types": "wrangler types",
     "db:migrate": "wrangler d1 execute leadgen --file=./migrations/0001-init.sql",
     "seed:create-sql": "tsx scripts/seed-localities.ts",
-    "seed:into-d1": "tsx scripts/parse-simc.ts"
+    "seed:into-d1": "tsx scripts/parse-simc.ts",
+    "deploy": "wrangler deploy"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.x",
