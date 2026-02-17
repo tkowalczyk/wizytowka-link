@@ -198,14 +198,14 @@ function validateSiteData(raw: string): SiteData {
 // slugify z src/lib/slug.ts (kanoniczna implementacja, patrz DD-004)
 import { slugify } from './slug';
 
-export async function generateSites(env: Env): Promise<void> {
+export async function generateSites(env: Env, limit = 1): Promise<void> {
   const { results } = await env.leadgen.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
     WHERE b.website IS NULL AND b.phone IS NOT NULL AND b.site_generated = 0
-    LIMIT 10
-  `).all<BusinessRow>();
+    LIMIT ?
+  `).bind(limit).all<BusinessRow>();
 
   if (!results?.length) return;
 
@@ -247,7 +247,15 @@ sites/{loc_slug}/{biz_slug}.json
 
 ## Integracja z cron
 
-Zintegrowane w DD-001a `src/worker.ts` — cron `0 8 * * *` uruchamia `scrapeBusinesses(env)` a nastepnie `generateSites(env)` sekwencyjnie.
+Oddzielny cron `*/5 * * * *` w `src/worker.ts`. Generator zdekuplowany od scrapera — 1 firma/run, ~288 stron/dzien.
+
+```ts
+case '*/5 * * * *': {
+  const { generateSites } = await import('./lib/generator');
+  await generateSites(env);
+  break;
+}
+```
 
 ---
 
@@ -276,7 +284,7 @@ Binding w `wrangler.jsonc`:
 | R2 put fail | catch, log, nie aktualizuj `site_generated` |
 | GLM-5 429 rate limit | catch, stop batch |
 
-Generator przetwarza 10 firm/run. Failures nie blokuja reszty batcha — `try/catch` per firma.
+Generator przetwarza 1 firme/run (default). `limit` param accepts overrides for manual/bulk runs. Failures nie blokuja reszty batcha — `try/catch` per firma.
 
 ---
 
@@ -304,8 +312,8 @@ Generator przetwarza 10 firm/run. Failures nie blokuja reszty batcha — `try/ca
 ## Decyzje
 
 - **Retry GLM-5** — brak. Skip on fail, `site_generated` stays 0, retry w nastepnym runie.
-- **Rate limit GLM-5** — nieudokumentowany. 10 firm/run jest konserwatywne. Jesli 429 -> catch, stop batch.
-- **Batch >10** — raz dziennie po scraperze (ten sam cron `0 8 * * *`). 10/run, backlog znika w kilka dni.
+- **Rate limit GLM-5** — nieudokumentowany. 1 firma/5min konserwatywne. Jesli 429 -> catch, skip.
+- **Oddzielny cron** — `*/5 * * * *`, 1 firma/run, ~288/dzien. Zdekuplowany od scrapera. `limit` param pozwala na bulk runs manualnie.
 - **Slug collision** — obsluzony w DD-004: `UNIQUE(slug, locality_id)` + suffix `-2`, `-3`.
 - **`slugify()`** — wspoldzielone z DD-004 (`src/lib/slug.ts`). Jedna kanoniczna implementacja.
 - **Phone filter** — `b.phone IS NOT NULL` w query. Bez telefonu strona wizytowkowa bezuzyteczna.

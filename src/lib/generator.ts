@@ -124,7 +124,7 @@ function validateSiteData(raw: string): SiteData {
   };
 }
 
-export async function generateSites(env: Env, limit = 10): Promise<void> {
+export async function generateSites(env: Env, limit = 1): Promise<void> {
   const { results } = await env.leadgen.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
     FROM businesses b
