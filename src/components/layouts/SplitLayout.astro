@@ -1,0 +1,72 @@
+---
+import type { SiteData } from '../../types/site';
+import type { ThemeColors } from '../../lib/themes';
+
+interface Props {
+  site: SiteData;
+  theme: ThemeColors;
+}
+
+const { site, theme: t } = Astro.props;
+---
+
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+
+  <section class={`${t.heroBg} ${t.heroText} py-20 px-4`}>
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+      <div class="md:w-2/3">
+        <h1 class="text-4xl md:text-5xl font-bold mb-4">{site.hero.headline}</h1>
+        <p class={`text-xl ${t.heroAccent}`}>{site.hero.subheadline}</p>
+      </div>
+      <div class="md:w-1/3 md:text-right">
+        <a
+          href={`tel:${site.contact.phone}`}
+          class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
+        >
+          {site.contact.cta_text}
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="py-16 px-4">
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl font-bold mb-4">{site.about.title}</h2>
+      <p class="text-lg text-gray-600 leading-relaxed max-w-3xl">{site.about.text}</p>
+    </div>
+  </section>
+
+  <section class={`${t.sectionBg} py-16 px-4`}>
+    <div class="max-w-5xl mx-auto">
+      <h2 class="text-3xl font-bold mb-10">Uslugi</h2>
+      <div class="grid md:grid-cols-2 gap-6">
+        {site.services.map((s) => (
+          <div class={`${t.cardBg} rounded-xl p-6 border border-gray-100`}>
+            <h3 class="text-xl font-semibold mb-2">{s.name}</h3>
+            <p class="text-gray-600">{s.description}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class={`${t.contactBg} ${t.contactText} py-16 px-4`}>
+    <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div>
+        <h2 class="text-3xl font-bold mb-2">Kontakt</h2>
+        <p class="text-lg">{site.contact.address}</p>
+      </div>
+      <a
+        href={`tel:${site.contact.phone}`}
+        class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
+      >
+        {site.contact.phone}
+      </a>
+    </div>
+  </section>
+
+  <footer class="py-6 text-center text-sm text-gray-400">
+    <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline">wizytowka.link</a></p>
+  </footer>
+
+</body>

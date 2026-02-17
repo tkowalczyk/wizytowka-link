@@ -58,6 +58,7 @@ interface SiteData {
   services: SiteService[];
   contact: SiteContact;
   seo: SiteSeo;
+  theme?: string; // palette ID from themes.ts, assigned at generation time
 }
 ```
 
@@ -96,6 +97,7 @@ interface GLMResponse {
 
 ```ts
 import type { SiteData, SiteService } from '../types/site';
+import { resolveTheme } from './themes';
 
 // types: BusinessRow, GLMMessage, GLMChoice, GLMResponse (see above)
 
@@ -218,6 +220,7 @@ export async function generateSites(env: Env, limit = 1): Promise<void> {
 
       const raw = await callGLM5(messages, env.ZAI_API_KEY);
       const siteData = validateSiteData(raw);
+      siteData.theme = resolveTheme(biz.slug, biz.category).id;
 
       const key = `sites/${biz.loc_slug}/${biz.slug}.json`;
 
@@ -293,7 +296,7 @@ Generator przetwarza 1 firme/run (default). `limit` param accepts overrides for 
 - [ ] `ZAI_API_KEY` ustawiony w `.production.vars`
 - [ ] Uruchom generator dla testowej firmy -> log `generated: sites/...`
 - [ ] `pnpm wrangler r2 object get sites/sites/stanislawow-pierwszy/firma-testowa.json` -> valid JSON ze wszystkimi polami
-- [ ] Wszystkie pola obecne: hero, about, services (3-5), contact, seo
+- [ ] Wszystkie pola obecne: hero, about, services (3-5), contact, seo, theme
 - [ ] SEO title <= 60 znakow, description <= 155
 - [ ] `SELECT site_generated, slug FROM businesses WHERE id = ?` -> `1`
 - [ ] Firma z `rating IS NULL` -> generator nie crashuje, prompt pokazuje "brak"
