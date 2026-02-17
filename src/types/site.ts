@@ -1,21 +1,33 @@
 export interface SiteHero {
+  headline: string;
+  subheadline: string;
+}
+
+export interface SiteAbout {
   title: string;
-  subtitle: string;
+  text: string;
+}
+
+export interface SiteService {
+  name: string;
+  description: string;
+}
+
+export interface SiteContact {
+  cta_text: string;
+  phone: string;
+  address: string;
+}
+
+export interface SiteSeo {
+  title: string;
+  description: string;
 }
 
 export interface SiteData {
-  business: {
-    title: string;
-    slug: string;
-    phone: string;
-    address: string | null;
-    category: string;
-    rating: number | null;
-  };
-  locality: {
-    name: string;
-    slug: string;
-  };
   hero: SiteHero;
-  generated_at: string;
+  about: SiteAbout;
+  services: SiteService[];
+  contact: SiteContact;
+  seo: SiteSeo;
 }

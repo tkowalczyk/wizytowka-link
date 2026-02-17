@@ -10,6 +10,7 @@ declare namespace Cloudflare {
 		leadgen: D1Database;
 		ASSETS: Fetcher;
 		SERP_API_KEY: string;
+		ZAI_API_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
@@ -17,7 +18,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "SERP_API_KEY">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "SERP_API_KEY" | "ZAI_API_KEY">> {}
 }
 
 // Begin runtime types
