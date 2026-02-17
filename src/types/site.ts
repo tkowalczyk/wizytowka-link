@@ -30,4 +30,5 @@ export interface SiteData {
   services: SiteService[];
   contact: SiteContact;
   seo: SiteSeo;
+  theme?: string;
 }
