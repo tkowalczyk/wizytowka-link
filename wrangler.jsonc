@@ -31,6 +31,12 @@
 			"*/5 * * * *"
 		]
 	},
+	"routes": [
+		{
+			"pattern": "wizytowka.link",
+			"custom_domain": true
+		}
+	],
 	"assets": {
 		"directory": "./dist/",
 		"binding": "ASSETS"

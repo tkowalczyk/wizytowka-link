@@ -1,12 +1,408 @@
 ---
+const title = "wizytowka.link — Twoja wizytówka w internecie"
+const description =
+  "Automatycznie generowane strony wizytówkowe dla polskich firm. Profesjonalna obecność online bez wysiłku — SEO, mobile, Google Maps."
+const url = "https://wizytowka.link"
 ---
+
 <html lang="pl">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>wizytowka.link</title>
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={url} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content="pl_PL" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <script
+      is:inline
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            name: "wizytowka.link",
+            url,
+            description,
+            inLanguage: "pl-PL",
+          },
+          {
+            "@type": "Organization",
+            name: "wizytowka.link",
+            url,
+            description:
+              "Platforma automatycznie generowanych stron wizytówkowych dla polskich firm.",
+          },
+          {
+            "@type": "SoftwareApplication",
+            name: "wizytowka.link",
+            applicationCategory: "BusinessApplication",
+            operatingSystem: "Web",
+            offers: { "@type": "Offer", price: "0", priceCurrency: "PLN" },
+            description,
+          },
+        ],
+      })}
+    />
+
+    <style>
+      html {
+        font-family: "Inter", system-ui, sans-serif;
+        scroll-behavior: smooth;
+      }
+    </style>
   </head>
-  <body class="flex items-center justify-center min-h-screen bg-gray-50">
-    <h1 class="text-3xl font-bold text-gray-800">wizytowka.link</h1>
+
+  <body class="bg-white text-gray-900 antialiased">
+    <!-- Nav -->
+    <header
+      id="navbar"
+      class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+    >
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <a href="#" class="text-xl font-extrabold tracking-tight">
+          <span class="text-blue-600">wizytowka</span><span class="text-gray-800">.link</span>
+        </a>
+        <div class="hidden items-center gap-6 md:flex">
+          <a href="#jak-to-dziala" class="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">Jak to działa</a>
+          <a href="#funkcje" class="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">Funkcje</a>
+          <a href="#faq" class="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors">FAQ</a>
+          <a
+            href="#kontakt"
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 transition-colors"
+          >
+            Sprawdź swoją firmę
+          </a>
+        </div>
+        <button
+          id="menu-toggle"
+          class="md:hidden p-2 text-gray-600"
+          aria-label="Otwórz menu"
+          aria-expanded="false"
+        >
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path id="menu-icon" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      </nav>
+      <div id="mobile-menu" class="hidden md:hidden border-t border-gray-100 bg-white/95 backdrop-blur px-4 pb-4">
+        <a href="#jak-to-dziala" class="block py-2 text-sm font-medium text-gray-600">Jak to działa</a>
+        <a href="#funkcje" class="block py-2 text-sm font-medium text-gray-600">Funkcje</a>
+        <a href="#faq" class="block py-2 text-sm font-medium text-gray-600">FAQ</a>
+        <a
+          href="#kontakt"
+          class="mt-2 block rounded-lg bg-blue-600 px-4 py-2 text-center text-sm font-semibold text-white"
+        >
+          Sprawdź swoją firmę
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero -->
+      <section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
+        <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50"></div>
+        <div class="absolute top-20 right-0 h-72 w-72 rounded-full bg-blue-100 opacity-40 blur-3xl"></div>
+        <div class="absolute bottom-0 left-10 h-60 w-60 rounded-full bg-indigo-100 opacity-30 blur-3xl"></div>
+        <div class="relative mx-auto max-w-4xl px-4 text-center">
+          <h1 class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-6xl md:leading-tight">
+            Twoja wizytówka<br />
+            <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">w internecie</span>
+          </h1>
+          <p class="mx-auto mt-6 max-w-2xl text-lg text-gray-600 md:text-xl">
+            Automatycznie tworzymy profesjonalną stronę dla Twojej firmy — z mapą, danymi kontaktowymi i&nbsp;optymalizacją pod wyszukiwarki.
+          </p>
+          <div class="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+            <a
+              href="#kontakt"
+              class="rounded-xl bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700 transition-all hover:shadow-blue-600/40"
+            >
+              Sprawdź swoją firmę
+            </a>
+            <a
+              href="#jak-to-dziala"
+              class="rounded-xl border border-gray-200 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-all"
+            >
+              Jak to działa?
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Problem -->
+      <section class="py-20 bg-white">
+        <div class="mx-auto max-w-6xl px-4">
+          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+            Dlaczego Twoja firma potrzebuje strony?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
+            Klienci szukają usług online — jeśli Cię nie znajdą, wybiorą konkurencję.
+          </p>
+          <div class="mt-14 grid gap-8 md:grid-cols-3">
+            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+              <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
+                97%
+              </div>
+              <h3 class="text-lg font-semibold">Klientów szuka online</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Zdecydowana większość konsumentów szuka lokalnych usług w&nbsp;internecie przed wizytą.
+              </p>
+            </div>
+            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+              <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl font-bold text-amber-600">
+                70%
+              </div>
+              <h3 class="text-lg font-semibold">Firm bez strony</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Większość małych firm w&nbsp;Polsce wciąż nie posiada własnej strony internetowej.
+              </p>
+            </div>
+            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+              <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-600">
+                3×
+              </div>
+              <h3 class="text-lg font-semibold">Więcej zapytań</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Firmy z&nbsp;profesjonalną stroną otrzymują wielokrotnie więcej kontaktów od klientów.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- How it works -->
+      <section id="jak-to-dziala" class="py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div class="mx-auto max-w-6xl px-4">
+          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+            Jak to działa?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
+            Trzy proste kroki — bez wysiłku z&nbsp;Twojej strony.
+          </p>
+          <div class="mt-14 grid gap-10 md:grid-cols-3">
+            <div class="text-center">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+                1
+              </div>
+              <h3 class="text-lg font-semibold">Znajdujemy Twoją firmę</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Automatycznie wyszukujemy dane Twojej firmy w&nbsp;publicznych rejestrach i&nbsp;mapach.
+              </p>
+            </div>
+            <div class="text-center">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+                2
+              </div>
+              <h3 class="text-lg font-semibold">Generujemy stronę</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                AI tworzy unikalną wizytówkę z&nbsp;opisem działalności, mapą i&nbsp;danymi kontaktowymi.
+              </p>
+            </div>
+            <div class="text-center">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+                3
+              </div>
+              <h3 class="text-lg font-semibold">Publikujemy online</h3>
+              <p class="mt-2 text-sm text-gray-600">
+                Strona trafia pod unikalny adres i&nbsp;jest natychmiast widoczna w&nbsp;wyszukiwarkach.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Features -->
+      <section id="funkcje" class="py-20 bg-white">
+        <div class="mx-auto max-w-6xl px-4">
+          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+            Co otrzymujesz?
+          </h2>
+          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
+            Każda wizytówka to kompletna strona — gotowa do pracy.
+          </p>
+          <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { icon: "🔍", title: "Optymalizacja SEO", desc: "Meta tagi, schema.org, semantyczny HTML — Twoja firma wyżej w&nbsp;wynikach Google." },
+              { icon: "📱", title: "Mobile-first", desc: "Responsywny design dopasowany do każdego urządzenia — telefon, tablet, komputer." },
+              { icon: "🎨", title: "Unikalne motywy", desc: "24 profesjonalne szablony — każda wizytówka wygląda inaczej." },
+              { icon: "📍", title: "Mapa Google", desc: "Interaktywna mapa z&nbsp;lokalizacją firmy — klienci od razu wiedzą, gdzie Cię znaleźć." },
+              { icon: "📞", title: "Dane kontaktowe", desc: "Telefon, adres, godziny otwarcia — wszystko w&nbsp;jednym miejscu." },
+              { icon: "⚡", title: "Błyskawiczne ładowanie", desc: "Statyczne strony na globalnym CDN — ładowanie poniżej sekundy." },
+            ].map(({ icon, title, desc }) => (
+              <article class="rounded-2xl border border-gray-100 p-6 hover:border-blue-100 hover:bg-blue-50/30 transition-colors">
+                <div class="mb-3 text-3xl">{icon}</div>
+                <h3 class="text-base font-semibold">{title}</h3>
+                <p class="mt-2 text-sm text-gray-600" set:html={desc} />
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <!-- Social proof -->
+      <section class="py-20 bg-gradient-to-b from-gray-50 to-white">
+        <div class="mx-auto max-w-6xl px-4">
+          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+            Platforma w&nbsp;liczbach
+          </h2>
+          <div class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { value: "95 000+", label: "Polskich miejscowości" },
+              { value: "24", label: "Motywy graficzne" },
+              { value: "<1s", label: "Czas ładowania strony" },
+              { value: "100%", label: "Automatyzacja" },
+            ].map(({ value, label }) => (
+              <div class="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
+                <div class="text-3xl font-extrabold text-blue-600">{value}</div>
+                <div class="mt-2 text-sm font-medium text-gray-600">{label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section id="faq" class="py-20 bg-white">
+        <div class="mx-auto max-w-3xl px-4">
+          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+            Najczęstsze pytania
+          </h2>
+          <div class="mt-12 divide-y divide-gray-200">
+            {[
+              {
+                q: "Czy muszę cokolwiek robić, żeby mieć stronę?",
+                a: "Nie. Automatycznie znajdujemy Twoją firmę i generujemy stronę wizytówkową. Nie wymagamy rejestracji ani żadnych działań z Twojej strony.",
+              },
+              {
+                q: "Ile to kosztuje?",
+                a: "Wygenerowana wizytówka jest bezpłatna. Oferujemy też rozszerzone opcje — własna domena, edycja treści, statystyki — w ramach płatnych planów.",
+              },
+              {
+                q: "Czy mogę edytować treść swojej wizytówki?",
+                a: "Tak. Po skontaktowaniu się z nami otrzymasz dostęp do panelu, w którym możesz zaktualizować dane firmy, opis i zdjęcia.",
+              },
+              {
+                q: "Skąd bierzecie dane mojej firmy?",
+                a: "Korzystamy z publicznych źródeł — Google Maps, rejestry firm. Dane kontaktowe są zawsze do weryfikacji i edycji przez właściciela.",
+              },
+              {
+                q: "Czy strona jest widoczna w Google?",
+                a: "Tak. Każda wizytówka ma pełną optymalizację SEO — meta tagi, schema.org, semantyczny HTML, szybkie ładowanie — i jest indeksowana przez wyszukiwarki.",
+              },
+            ].map(({ q, a }) => (
+              <details class="group" data-faq>
+                <summary class="flex cursor-pointer items-center justify-between py-5 text-left text-base font-semibold text-gray-900">
+                  {q}
+                  <svg
+                    class="ml-4 h-5 w-5 shrink-0 text-gray-400 transition-transform group-open:rotate-180"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <p class="pb-5 text-sm text-gray-600">{a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section id="kontakt" class="py-20 bg-gradient-to-br from-blue-600 to-indigo-700">
+        <div class="mx-auto max-w-3xl px-4 text-center">
+          <h2 class="text-3xl font-bold text-white md:text-4xl">
+            Sprawdź, czy Twoja firma ma już wizytówkę
+          </h2>
+          <p class="mx-auto mt-4 max-w-xl text-blue-100">
+            Wpisz nazwę firmy lub miejscowość — pokażemy, czy wizytówka jest już gotowa.
+          </p>
+          <div class="mx-auto mt-10 flex max-w-lg flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Nazwa firmy lub miejscowość…"
+              class="flex-1 rounded-xl border-0 px-5 py-3.5 text-base text-gray-900 shadow-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+            />
+            <button
+              id="search-btn"
+              class="rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-blue-600 shadow-lg hover:bg-blue-50 transition-colors"
+            >
+              Szukaj
+            </button>
+          </div>
+          <p class="mt-4 text-sm text-blue-200">Bezpłatnie. Bez rejestracji.</p>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-100 bg-gray-50 py-10">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center text-sm text-gray-500 sm:flex-row sm:justify-between sm:text-left">
+        <div>&copy; {new Date().getFullYear()} wizytowka.link</div>
+        <div class="flex gap-6">
+          <a href="#" class="hover:text-gray-700 transition-colors">Regulamin</a>
+          <a href="#" class="hover:text-gray-700 transition-colors">Polityka prywatności</a>
+          <a href="#" class="hover:text-gray-700 transition-colors">Kontakt</a>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      // Navbar bg on scroll
+      const nav = document.getElementById("navbar")!;
+      const update = () => {
+        if (window.scrollY > 20) {
+          nav.classList.add("bg-white/95", "backdrop-blur", "shadow-sm");
+        } else {
+          nav.classList.remove("bg-white/95", "backdrop-blur", "shadow-sm");
+        }
+      };
+      window.addEventListener("scroll", update, { passive: true });
+      update();
+
+      // Mobile menu
+      const toggle = document.getElementById("menu-toggle")!;
+      const menu = document.getElementById("mobile-menu")!;
+      toggle.addEventListener("click", () => {
+        const open = !menu.classList.contains("hidden");
+        menu.classList.toggle("hidden");
+        toggle.setAttribute("aria-expanded", String(!open));
+      });
+      menu.querySelectorAll("a").forEach((a) =>
+        a.addEventListener("click", () => menu.classList.add("hidden"))
+      );
+
+      // FAQ: close others on open
+      document.querySelectorAll("[data-faq]").forEach((el) => {
+        el.addEventListener("toggle", () => {
+          if ((el as HTMLDetailsElement).open) {
+            document.querySelectorAll("[data-faq]").forEach((other) => {
+              if (other !== el) (other as HTMLDetailsElement).open = false;
+            });
+          }
+        });
+      });
+    </script>
   </body>
 </html>

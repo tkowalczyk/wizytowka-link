@@ -59,7 +59,7 @@ const jsonLd = biz ? JSON.stringify({
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
 </head>
 
-{layout === 'centered' && <CenteredLayout site={site} theme={colors} />}
-{layout === 'split' && <SplitLayout site={site} theme={colors} />}
-{layout === 'minimal' && <MinimalLayout site={site} theme={colors} />}
+{layout === 'centered' ? <CenteredLayout site={site} theme={colors} />
+: layout === 'split' ? <SplitLayout site={site} theme={colors} />
+: <MinimalLayout site={site} theme={colors} />}
 </html>
