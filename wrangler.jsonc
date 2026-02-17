@@ -28,7 +28,7 @@
 	"triggers": {
 		"crons": [
 			"0 * * * *",
-			"0 8 * * *"
+			"0 10 * * *"
 		]
 	},
 	// Astro SSR asset serving
