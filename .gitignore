@@ -3,7 +3,6 @@ dist/
 .wrangler/
 .dev.vars
 .production.vars
-worker-configuration.d.ts
 seed/.seed-state.json
 seed/localities-batch-*.sql
 data/sql/
