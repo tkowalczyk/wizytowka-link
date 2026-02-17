@@ -21,8 +21,11 @@ export function createExports(manifest: SSRManifest) {
             }
             case '0 8 * * *': {
               const { scrapeBusinesses } = await import('./lib/scraper');
-              const { generateSites } = await import('./lib/generator');
               await scrapeBusinesses(env);
+              break;
+            }
+            case '*/5 * * * *': {
+              const { generateSites } = await import('./lib/generator');
               await generateSites(env);
               break;
             }

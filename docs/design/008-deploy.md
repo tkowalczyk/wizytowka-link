@@ -88,7 +88,8 @@ Zapisz `database_id` z outputu `d1 create`.
   "triggers": {
     "crons": [
       "0 * * * *",
-      "0 8 * * *"
+      "0 8 * * *",
+      "*/5 * * * *"
     ]
   },
 
@@ -316,7 +317,8 @@ DNS propagacja ~5 min. Jesli worker padnie — domena zwraca CF error page autom
               │  └────────────────┘  │
               │  ┌─ scheduled() ──┐  │
               │  │ 0 * * * *      │──┼──► geocoder → Nominatim
-              │  │ 0 8 * * *      │──┼──► scraper → SerpAPI → Z.AI → Telegram
+              │  │ 0 8 * * *      │──┼──► scraper → SerpAPI → Telegram
+              │  │ */5 * * * *    │──┼──► generator → Z.AI → R2
               │  └────────────────┘  │
               └───┬────┬────┬────────┘
                   │    │    │
@@ -348,7 +350,7 @@ DNS propagacja ~5 min. Jesli worker padnie — domena zwraca CF error page autom
 - **D1 backup** — Time Travel (30 dni). Wystarczy na MVP. Brak exportu SQL.
 - **Healthcheck** — nie. Manualny monitoring via CF Dashboard.
 - **SerpAPI Free** — ~1 miejscowosc/mies. Potrzebny plan $50 (5000 req) dla sensownego throughputu.
-- **Z.AI rate limits** — nieznane. 10 firm/run konserwatywne. Monitorowac i dostosowyac.
+- **Z.AI rate limits** — nieznane. 1 firma/5min via `*/5 * * * *` cron (~288/dzien). Monitorowac i dostosowyac.
 - **Telegram webhook secret** — tak. Secret w URL path, generowany przez `secrets.token_urlsafe(32)`. Patrz DD-007.
 
 ---

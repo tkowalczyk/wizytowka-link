@@ -284,14 +284,12 @@ From DD-001a `src/worker.ts`:
 ```ts
 case '0 8 * * *': {
   const { scrapeBusinesses } = await import('./lib/scraper');
-  const { generateSites } = await import('./lib/generator');
   await scrapeBusinesses(env);
-  await generateSites(env);
   break;
 }
 ```
 
-Daily 8:00 UTC. `scrapeBusinesses` runs first, then `generateSites` (DD-005). Dynamic import — lazy loaded.
+Daily 8:00 UTC. Scraper only — generator decoupled to own cron `*/5 * * * *` (see DD-005a).
 
 ---
 
