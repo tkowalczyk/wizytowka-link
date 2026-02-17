@@ -1,0 +1,154 @@
+---
+import SellerPanel from '../../components/SellerPanel.astro';
+
+interface Seller {
+  id: number;
+  name: string;
+  token: string;
+}
+
+interface Lead {
+  id: number;
+  title: string;
+  phone: string;
+  address: string;
+  category: string;
+  rating: number | null;
+  biz_slug: string;
+  loc_slug: string;
+  locality_name: string;
+  site_generated: number;
+  status: string;
+  comment: string | null;
+  created_at: string;
+}
+
+const { token } = Astro.params;
+const db = Astro.locals.runtime.env.leadgen as D1Database;
+
+const seller = await db
+  .prepare('SELECT * FROM sellers WHERE token = ?')
+  .bind(token)
+  .first<Seller>();
+
+if (!seller) {
+  return new Response(null, { status: 404 });
+}
+
+const url = new URL(Astro.request.url);
+const statusFilter = url.searchParams.get('status');
+const localityFilter = url.searchParams.get('locality');
+const sortBy = url.searchParams.get('sort') || 'date';
+const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+const PAGE_SIZE = 50;
+
+let query = `
+  SELECT
+    b.id, b.title, b.phone, b.address, b.category, b.rating,
+    b.slug as biz_slug, l.slug as loc_slug, l.name as locality_name,
+    b.site_generated,
+    COALESCE(cl.status, 'pending') as status,
+    cl.comment,
+    b.created_at
+  FROM businesses b
+  JOIN localities l ON b.locality_id = l.id
+  LEFT JOIN (
+    SELECT business_id, status, comment,
+      ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC) as rn
+    FROM call_log WHERE seller_id = ?1
+  ) cl ON cl.business_id = b.id AND cl.rn = 1
+  WHERE b.website IS NULL AND b.phone IS NOT NULL
+`;
+
+const params: (string | number)[] = [seller.id];
+
+if (statusFilter && statusFilter !== 'all') {
+  if (statusFilter === 'pending') {
+    query += ` AND (cl.status IS NULL OR cl.status = 'pending')`;
+  } else {
+    query += ` AND cl.status = ?${params.length + 1}`;
+    params.push(statusFilter);
+  }
+}
+
+if (localityFilter) {
+  query += ` AND l.slug = ?${params.length + 1}`;
+  params.push(localityFilter);
+}
+
+if (sortBy === 'status') {
+  query += ` ORDER BY cl.status ASC, b.created_at DESC`;
+} else {
+  query += ` ORDER BY b.created_at DESC`;
+}
+
+query += ` LIMIT ?${params.length + 1} OFFSET ?${params.length + 2}`;
+params.push(PAGE_SIZE, (page - 1) * PAGE_SIZE);
+
+const leads = await db
+  .prepare(query)
+  .bind(...params)
+  .all<Lead>();
+
+let countQuery = `
+  SELECT COUNT(*) as cnt
+  FROM businesses b
+  JOIN localities l ON b.locality_id = l.id
+  LEFT JOIN (
+    SELECT business_id, status,
+      ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC) as rn
+    FROM call_log WHERE seller_id = ?1
+  ) cl ON cl.business_id = b.id AND cl.rn = 1
+  WHERE b.website IS NULL AND b.phone IS NOT NULL
+`;
+const countParams: (string | number)[] = [seller.id];
+if (statusFilter && statusFilter !== 'all') {
+  if (statusFilter === 'pending') {
+    countQuery += ` AND (cl.status IS NULL OR cl.status = 'pending')`;
+  } else {
+    countQuery += ` AND cl.status = ?${countParams.length + 1}`;
+    countParams.push(statusFilter);
+  }
+}
+if (localityFilter) {
+  countQuery += ` AND l.slug = ?${countParams.length + 1}`;
+  countParams.push(localityFilter);
+}
+const totalResult = await db.prepare(countQuery).bind(...countParams).first<{ cnt: number }>();
+const totalLeads = totalResult?.cnt ?? 0;
+const totalPages = Math.ceil(totalLeads / PAGE_SIZE);
+
+const localities = await db
+  .prepare(`
+    SELECT DISTINCT l.slug, l.name
+    FROM localities l
+    JOIN businesses b ON b.locality_id = l.id
+    WHERE b.website IS NULL AND b.phone IS NOT NULL
+    ORDER BY l.name
+  `)
+  .all<{ slug: string; name: string }>();
+---
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Panel - {seller.name}</title>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <SellerPanel
+    seller={seller}
+    leads={leads.results ?? []}
+    localities={localities.results ?? []}
+    currentStatus={statusFilter || 'all'}
+    currentLocality={localityFilter || ''}
+    currentSort={sortBy}
+    token={token!}
+    page={page}
+    totalPages={totalPages}
+    totalLeads={totalLeads}
+  />
+</body>
+</html>

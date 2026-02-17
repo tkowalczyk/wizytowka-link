@@ -1,0 +1,60 @@
+---
+interface Seller {
+  id: number;
+  name: string;
+  token: string;
+}
+
+interface Lead {
+  id: number;
+  title: string;
+  phone: string;
+  address: string;
+  category: string;
+  rating: number | null;
+  biz_slug: string;
+  loc_slug: string;
+  locality_name: string;
+  site_generated: number;
+  status: string;
+  comment: string | null;
+  created_at: string;
+}
+
+interface Locality {
+  slug: string;
+  name: string;
+}
+
+interface Props {
+  seller: Seller;
+  leads: Lead[];
+  localities: Locality[];
+  currentStatus: string;
+  currentLocality: string;
+  currentSort: string;
+  token: string;
+  page: number;
+  totalPages: number;
+  totalLeads: number;
+}
+
+const { seller, leads, totalLeads, page, totalPages } = Astro.props;
+---
+
+<main class="max-w-4xl mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-4">Panel - {seller.name}</h1>
+  <p class="text-gray-600 mb-4">{totalLeads} leadow, strona {page}/{Math.max(totalPages, 1)}</p>
+
+  {leads.length === 0 && (
+    <p class="text-gray-500">Brak leadow do wyswietlenia.</p>
+  )}
+
+  {leads.map((lead) => (
+    <div class="bg-white rounded shadow p-4 mb-3">
+      <div class="font-semibold">{lead.title}</div>
+      <div class="text-sm text-gray-500">{lead.locality_name} &middot; {lead.category}</div>
+      <div class="text-sm">{lead.phone}</div>
+    </div>
+  ))}
+</main>
