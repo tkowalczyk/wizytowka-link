@@ -29,7 +29,7 @@ while IFS='=' read -r key value || [ -n "$key" ]; do
   value=$(echo "$value" | xargs)
 
   echo "Setting $key..."
-  echo "$value" | pnpm wrangler secret put "$key" --env "$ENV"
+  echo "$value" | pnpm wrangler secret put "$key" #--env "$ENV"
 done < "$VARS_FILE"
 
 echo "✓ All secrets synced to $ENV environment"

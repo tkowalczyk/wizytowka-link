@@ -6,6 +6,7 @@ export default defineConfig({
   output: 'server',
   integrations: [tailwind()],
   adapter: cloudflare({
+    imageService: 'cloudflare',
     workerEntryPoint: {
       path: 'src/worker.ts',
     },
