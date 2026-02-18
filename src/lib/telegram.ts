@@ -16,18 +16,23 @@ interface TelegramSendMessageResponse {
   parameters?: { retry_after?: number };
 }
 
-interface TelegramMessage {
+export interface TelegramMessage {
   message_id: number;
   chat: TelegramChat;
   text?: string;
   date: number;
 }
 
-interface TelegramChat {
+export interface TelegramChat {
   id: number;
   type: 'private' | 'group' | 'supergroup' | 'channel';
   first_name?: string;
   username?: string;
+}
+
+export interface TelegramUpdate {
+  update_id: number;
+  message?: TelegramMessage;
 }
 
 export interface SellerRow {
