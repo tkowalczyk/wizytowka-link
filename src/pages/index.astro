@@ -3,6 +3,7 @@ const title = "wizytowka.link — Twoja wizytówka w internecie"
 const description =
   "Automatycznie generowane strony wizytówkowe dla polskich firm. Profesjonalna obecność online bez wysiłku — SEO, mobile, Google Maps."
 const url = "https://wizytowka.link"
+const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
 ---
 
 <html lang="pl">
@@ -70,6 +71,7 @@ const url = "https://wizytowka.link"
         scroll-behavior: smooth;
       }
     </style>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </head>
 
   <body class="bg-white text-gray-900 antialiased">
@@ -335,23 +337,27 @@ const url = "https://wizytowka.link"
             Sprawdź, czy Twoja firma ma już wizytówkę
           </h2>
           <p class="mx-auto mt-4 max-w-xl text-blue-100">
-            Wpisz nazwę firmy lub miejscowość — pokażemy, czy wizytówka jest już gotowa.
+            Zostaw numer telefonu — oddzwonimy i pomożemy założyć wizytówkę.
           </p>
-          <div class="mx-auto mt-10 flex max-w-lg flex-col gap-3 sm:flex-row">
+          <form id="contact-form" class="mx-auto mt-10 flex max-w-lg flex-col gap-3 sm:flex-row">
             <input
-              type="text"
-              id="search-input"
-              placeholder="Nazwa firmy lub miejscowość…"
+              type="tel"
+              id="phone-input"
+              placeholder="+48 600 123 456"
+              required
               class="flex-1 rounded-xl border-0 px-5 py-3.5 text-base text-gray-900 shadow-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50"
             />
             <button
-              id="search-btn"
-              class="rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-blue-600 shadow-lg hover:bg-blue-50 transition-colors"
+              type="submit"
+              id="contact-btn"
+              class="rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-blue-600 shadow-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
             >
-              Szukaj
+              Wyślij
             </button>
-          </div>
-          <p class="mt-4 text-sm text-blue-200">Bezpłatnie. Bez rejestracji.</p>
+          </form>
+          <div class="cf-turnstile mx-auto mt-4" data-sitekey={turnstileSiteKey} data-callback="onTurnstile" data-theme="dark"></div>
+          <p id="contact-msg" class="mt-4 text-sm text-blue-200 hidden"></p>
+          <p class="mt-2 text-sm text-blue-200">Bezpłatnie. Bez rejestracji.</p>
         </div>
       </section>
     </main>
@@ -401,6 +407,62 @@ const url = "https://wizytowka.link"
             });
           }
         });
+      });
+
+      // Contact form
+      let turnstileToken = "";
+      (window as any).onTurnstile = (token: string) => { turnstileToken = token; };
+
+      const phoneRe = /^\+?48?\s?\d{3}\s?\d{3}\s?\d{3}$|^\d{9}$/;
+      const form = document.getElementById("contact-form") as HTMLFormElement;
+      const phoneInput = document.getElementById("phone-input") as HTMLInputElement;
+      const btn = document.getElementById("contact-btn") as HTMLButtonElement;
+      const msg = document.getElementById("contact-msg") as HTMLParagraphElement;
+
+      function showMsg(text: string, ok: boolean) {
+        msg.textContent = text;
+        msg.className = `mt-4 text-sm ${ok ? "text-green-200" : "text-red-200"}`;
+        msg.classList.remove("hidden");
+      }
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const phone = phoneInput.value.trim();
+
+        if (!phoneRe.test(phone)) {
+          showMsg("Podaj prawidłowy numer (9 cyfr lub +48...)", false);
+          return;
+        }
+        if (!turnstileToken) {
+          showMsg("Poczekaj na weryfikację...", false);
+          return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "Wysyłanie...";
+        msg.classList.add("hidden");
+
+        try {
+          const res = await fetch("/api/contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone, token: turnstileToken }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showMsg("Dziękujemy! Oddzwonimy wkrótce.", true);
+            phoneInput.value = "";
+          } else {
+            showMsg(data.error || "Wystąpił błąd", false);
+          }
+        } catch {
+          showMsg("Błąd połączenia", false);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Wyślij";
+          turnstileToken = "";
+          (window as any).turnstile?.reset();
+        }
       });
     </script>
   </body>

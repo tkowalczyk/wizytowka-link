@@ -13,6 +13,8 @@ declare namespace Cloudflare {
 		ZAI_API_KEY: string;
 		TG_BOT_TOKEN: string;
 		TG_WEBHOOK_SECRET: string;
+		TURNSTILE_SITE_KEY: string;
+		TURNSTILE_SECRET_KEY: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
