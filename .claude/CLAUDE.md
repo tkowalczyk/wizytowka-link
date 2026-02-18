@@ -23,15 +23,17 @@ src/
     scraper.ts       # SerpAPI business scraper (daily cron)
     scraper-api.ts   # SerpAPI client + pagination
     generator.ts     # Site JSON generator (Workers AI → R2)
+    telegram.ts      # Telegram bot client + daily report
+    themes.ts        # Color palettes + category→theme mapping
     slug.ts          # Polish-aware slug util
   types/
-    business.ts      # LocalityRow, BusinessRow, BusinessInsert
-    site.ts          # SiteData (generated content)
-    serpapi.ts        # SerpAPI response types
-migrations/          # D1 SQL migrations (0001-init, 0002-geocoder-columns)
+    business.ts      # LocalityRow, BusinessRow, BusinessInsert, SellerRow, CallLogRow
+    site.ts          # SiteData (generated content + theme)
+    serpapi.ts       # SerpAPI response types
+migrations/          # D1 SQL migrations (0001–0003)
 scripts/             # TERYT CSV parsers + seed runners
 data/                # SIMC/TERC CSVs + generated SQL batches
-docs/design/         # Numbered design docs (001–008)
+docs/design/         # Numbered design docs (001–009)
 ```
 
 ## Key commands
@@ -48,7 +50,7 @@ curl "http://localhost:8787/cdn-cgi/handler/scheduled"
 
 ## Architecture
 
-- **Cron-driven pipeline**: geocoder (hourly, `0 * * * *`) → scraper+generator (daily, `0 10 * * *`)
+- **Cron-driven pipeline**: geocoder (hourly, `0 * * * *`) → scraper (daily, `0 8 * * *`) → generator (every 5min, `*/5 * * * *`)
 - **D1 schema**: `localities` (~95k Polish TERYT records), `businesses`, `sellers`, `call_log` (append-only)
 - **R2 keys**: `sites/{locality_slug}/{business_slug}.json`
 - **Seller auth**: token-based (URL path `/s/{token}` or API header)
