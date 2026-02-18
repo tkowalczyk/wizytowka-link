@@ -11,6 +11,7 @@ declare namespace Cloudflare {
 		ASSETS: Fetcher;
 		SERP_API_KEY: string;
 		ZAI_API_KEY: string;
+		TG_BOT_TOKEN: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
