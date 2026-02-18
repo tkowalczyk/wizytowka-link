@@ -11,4 +11,9 @@ export default defineConfig({
       path: 'src/worker.ts',
     },
   }),
+  vite: {
+    ssr: {
+      external: ['node:fs/promises', 'node:path', 'node:url', 'node:crypto'],
+    },
+  },
 });
