@@ -1,6 +1,8 @@
 import type { BusinessInsert, Locality } from '../types/business';
 import { searchCategory } from './scraper-api';
 import { slugify } from './slug';
+import { sendDailyReport } from './telegram';
+import type { SellerRow, LeadSummary, DailyReportStats } from './telegram';
 
 const CATEGORIES = [
   'firma', 'sklep', 'restauracja', 'hydraulik', 'elektryk',
@@ -81,6 +83,40 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
     await markSearched(env.leadgen, locality.id);
   } else {
     await markSearched(env.leadgen, locality.id);
+  }
+
+  // --- Telegram daily report ---
+  const totalResult = await env.leadgen.prepare(
+    'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ?'
+  ).bind(locality.id).first<{ cnt: number }>();
+
+  const leadsResult = await env.leadgen.prepare(
+    'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL'
+  ).bind(locality.id).first<{ cnt: number }>();
+
+  const topLeads = await env.leadgen.prepare(`
+    SELECT title, category, phone FROM businesses
+    WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL
+    ORDER BY id DESC LIMIT 5
+  `).bind(locality.id).all<LeadSummary>();
+
+  const stats: DailyReportStats = {
+    locality_name: locality.name,
+    total_businesses: totalResult?.cnt ?? 0,
+    new_leads: leadsResult?.cnt ?? 0,
+    top_leads: topLeads.results,
+  };
+
+  const sellers = await env.leadgen.prepare(
+    'SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL'
+  ).all<SellerRow>();
+
+  for (const seller of sellers.results) {
+    try {
+      await sendDailyReport(env, seller, stats);
+    } catch (err) {
+      console.log(`telegram: failed for seller ${seller.id}: ${err}`);
+    }
   }
 }
 
