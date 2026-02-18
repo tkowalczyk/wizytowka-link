@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import type { TelegramUpdate } from '../../../lib/telegram';
+import type { TelegramUpdate } from '../../../../lib/telegram';
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const env = locals.runtime.env;
@@ -51,6 +51,6 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 };
 
 async function sendReply(env: Env, chatId: string, text: string): Promise<void> {
-  const { sendMessage } = await import('../../../lib/telegram');
+  const { sendMessage } = await import('../../../../lib/telegram');
   await sendMessage(env, chatId, text);
 }

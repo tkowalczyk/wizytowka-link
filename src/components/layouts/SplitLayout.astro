@@ -10,7 +10,7 @@ interface Props {
 const { site, theme: t } = Astro.props;
 ---
 
-<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+<Fragment>
 
   <section class={`${t.heroBg} ${t.heroText} py-20 px-4`}>
     <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-8">
@@ -69,4 +69,4 @@ const { site, theme: t } = Astro.props;
     <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline">wizytowka.link</a></p>
   </footer>
 
-</body>
+</Fragment>
