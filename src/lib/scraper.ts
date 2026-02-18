@@ -11,8 +11,8 @@ const CATEGORIES = [
   'fizjoterapia', 'przedszkole', 'autokomis', 'usługi',
 ] as const;
 
-// D1 max 100 bound params; 12 cols = max 8 rows/batch
-const BATCH_SIZE = 8;
+// D1 max 100 bound params; 19 cols × 5 = 95
+const BATCH_SIZE = 5;
 
 export async function scrapeBusinesses(env: Env): Promise<void> {
   const locality = await getNextLocality(env.leadgen);
@@ -60,6 +60,13 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
           place_id: r.place_id,
           data_cid: r.data_cid ?? null,
           locality_id: locality.id,
+          reviews_count: r.reviews ?? null,
+          google_type: r.type ?? null,
+          google_types: r.types ? JSON.stringify(r.types) : null,
+          description: r.description ?? null,
+          operating_hours: r.operating_hours ? JSON.stringify(r.operating_hours) : null,
+          thumbnail_url: r.thumbnail ?? null,
+          unclaimed: r.unclaimed_listing ? 1 : 0,
         });
       }
     } catch (err) {
@@ -134,19 +141,23 @@ async function batchInsert(db: D1Database, businesses: BusinessInsert[]): Promis
   for (let i = 0; i < businesses.length; i += BATCH_SIZE) {
     const chunk = businesses.slice(i, i + BATCH_SIZE);
     const placeholders = chunk
-      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .join(', ');
     const values = chunk.flatMap((b) => [
       b.title, b.slug, b.phone, b.address, b.website,
       b.category, b.rating, b.gps_lat, b.gps_lng,
       b.place_id, b.data_cid, b.locality_id,
+      b.reviews_count, b.google_type, b.google_types,
+      b.description, b.operating_hours, b.thumbnail_url, b.unclaimed,
     ]);
 
     await db
       .prepare(
         `INSERT OR IGNORE INTO businesses
          (title, slug, phone, address, website, category, rating,
-          gps_lat, gps_lng, place_id, data_cid, locality_id)
+          gps_lat, gps_lng, place_id, data_cid, locality_id,
+          reviews_count, google_type, google_types, description,
+          operating_hours, thumbnail_url, unclaimed)
          VALUES ${placeholders}`
       )
       .bind(...values)

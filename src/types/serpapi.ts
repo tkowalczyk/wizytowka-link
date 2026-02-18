@@ -9,10 +9,16 @@ export interface SerpApiLocalResult {
   place_id: string;
   data_cid?: string;
   rating?: number;
+  reviews?: number;
   address?: string;
   phone?: string;
   website?: string;
   type?: string;
+  types?: string[];
+  description?: string;
+  operating_hours?: Record<string, string>;
+  thumbnail?: string;
+  unclaimed_listing?: boolean;
   gps_coordinates: SerpApiGpsCoordinates;
 }
 

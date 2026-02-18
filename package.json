@@ -6,7 +6,8 @@
     "build": "astro build",
     "preview": "wrangler dev",
     "types": "wrangler types",
-    "db:migrate": "wrangler d1 execute leadgen --file=./migrations/0001-init.sql",
+    "db:migrate": "wrangler d1 migrations apply leadgen --local",
+    "db:migrate:remote": "wrangler d1 migrations apply leadgen --remote",
     "seed:create-sql": "tsx scripts/seed-localities.ts",
     "seed:into-d1": "tsx scripts/parse-simc.ts",
     "deploy": "wrangler deploy"

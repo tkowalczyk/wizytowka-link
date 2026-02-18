@@ -32,6 +32,13 @@ export interface BusinessRow {
   gps_lat: number;
   gps_lng: number;
   data_cid: string | null;
+  reviews_count: number | null;
+  google_type: string | null;
+  google_types: string | null;
+  description: string | null;
+  operating_hours: string | null;
+  thumbnail_url: string | null;
+  unclaimed: number;
   site_generated: number;
   created_at: string;
 }
@@ -49,6 +56,13 @@ export interface BusinessInsert {
   gps_lat: number;
   gps_lng: number;
   data_cid: string | null;
+  reviews_count: number | null;
+  google_type: string | null;
+  google_types: string | null;
+  description: string | null;
+  operating_hours: string | null;
+  thumbnail_url: string | null;
+  unclaimed: number;
 }
 
 export interface SellerRow {

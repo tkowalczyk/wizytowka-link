@@ -8,34 +8,51 @@ System automatycznie wyszukuje lokalne firmy w Polsce, ktore nie posiadaja stron
 
 ## Etap 1: Scaffold projektu + infrastruktura
 
-Astro + Cloudflare Worker z dwoma cron triggerami, D1, R2.
+Astro + Cloudflare Worker z trzema cron triggerami, D1, R2.
 
 ### Zadania
 - `npm create astro@latest` z adapterem `@astrojs/cloudflare`
 - Skonfigurowac `workerEntryPoint` w `astro.config.mjs` — custom entry point eksportujacy `fetch` (Astro SSR) + `scheduled` handler
-- `wrangler.jsonc` z bindingami D1 (`DB`), R2 (`R2`), zmiennymi srodowiskowymi (klucze API jako secrets)
+- `wrangler.jsonc` z bindingami D1 (`leadgen`), R2 (`sites`), zmiennymi srodowiskowymi (klucze API jako secrets)
 - D1 schema: `localities`, `businesses`, `sellers`, `call_log`
 - Wygenerowac typy CF: `wrangler types`
 
 ### Custom entry point (`src/worker.ts`)
 ```ts
-import { handler } from '@astrojs/cloudflare/handler';
-import { geocodeLocalities } from './lib/geocoder';
-import { scrapeBusinesses } from './lib/scraper';
+import type { SSRManifest } from 'astro';
+import { App } from 'astro/app';
+import { handle } from '@astrojs/cloudflare/handler';
 
-export default {
-  fetch: handler.fetch,
-  async scheduled(controller, env, ctx) {
-    switch (controller.cron) {
-      case '0 * * * *': return geocodeLocalities(env);
-      case '0 8 * * *': return scrapeBusinesses(env);
-    }
-  }
-};
+export function createExports(manifest: SSRManifest) {
+  const app = new App(manifest);
+  return {
+    default: {
+      async fetch(request, env: Env, ctx: ExecutionContext) {
+        return handle(manifest, app, request, env, ctx);
+      },
+      async scheduled(controller: ScheduledController, env: Env, _ctx: ExecutionContext) {
+        switch (controller.cron) {
+          case '0 * * * *':   // geocoder
+            const { geocodeLocalities } = await import('./lib/geocoder');
+            await geocodeLocalities(env);
+            break;
+          case '0 8 * * *':   // scraper
+            const { scrapeBusinesses } = await import('./lib/scraper');
+            await scrapeBusinesses(env);
+            break;
+          case '*/5 * * * *': // site generator
+            const { generateSites } = await import('./lib/generator');
+            await generateSites(env);
+            break;
+        }
+      },
+    } satisfies ExportedHandler<Env>,
+  };
+}
 ```
 
 ### Weryfikacja
-- `wrangler dev --test-scheduled` → `curl http://localhost:8787/__scheduled?cron=0+*+*+*+*` zwraca 200
+- `curl "http://localhost:8787/cdn-cgi/handler/scheduled"` → uruchom scheduled handler
 - `wrangler d1 execute leadgen --command="SELECT COUNT(*) FROM localities"` zwraca 0 (pusta tabela)
 
 ### Dokumentacja
@@ -55,11 +72,11 @@ Zaladowanie ~102k polskich miejscowosci do D1.
 
 ### Zadania
 - Plik SIMC CSV dostepny w `data/simc.csv`
-- Skrypt Node `seed/parse-simc.ts`: CSV → SQL INSERT
+- Skrypt Node `scripts/parse-simc.ts`: CSV → SQL INSERT
   - Kolumny SIMC: `WOJ`, `POW`, `GMI`, `RODZ_GMI`, `NAZWA`, `SYM`, `SYMPOD`
   - Wzbogacic o nazwy wojewodztw/powiatow/gmin z TERC
   - Wygenerowac slug lokalizacji z nazwy (`Stanisławów Pierwszy` → `stanislawow-pierwszy`)
-- `wrangler d1 execute leadgen --file=./seed/localities.sql`
+- Seed runner: `scripts/seed-localities.ts`
 
 ### Weryfikacja
 - `SELECT COUNT(*) FROM localities` → ~102 000
@@ -80,11 +97,11 @@ Uzupelnianie koordynatow GPS dla miejscowosci z Nominatim.
 - `src/lib/geocoder.ts`: pobiera batch miejscowosci z D1 (`WHERE lat IS NULL`), odpytuje Nominatim, zapisuje lat/lng
 - Haversine distance od punktu startowego (52.3547, 21.0822) → kolumna `distance_km`
 - Rate limit: `await sleep(1100)` miedzy requestami (Nominatim wymaga 1 req/s)
-- Worker CPU limit: cron co godzine = max 15min → ~800 miejscowosci/run
+- Wall-time guard: 25min timeout
 - Header `User-Agent: LeadGen/1.0 (kontakt@wizytowka.link)` — wymagany przez Nominatim
 
 ### Weryfikacja
-- `curl http://localhost:8787/__scheduled?cron=0+*+*+*+*` → uruchom geocoder
+- `curl "http://localhost:8787/cdn-cgi/handler/scheduled"` → uruchom geocoder
 - `SELECT COUNT(*) FROM localities WHERE lat IS NOT NULL` → rosnie po kazdym runie
 - `SELECT name, lat, lng, distance_km FROM localities ORDER BY distance_km LIMIT 10` → Stanislawow Pierwszy pierwszy, sensowne koordynaty
 
@@ -100,13 +117,13 @@ Uzupelnianie koordynatow GPS dla miejscowosci z Nominatim.
 Wyszukiwanie firm w kolejnej miejscowosci przez SerpAPI Google Maps.
 
 ### Zadania
-- `src/lib/scraper.ts`:
+- `src/lib/scraper.ts` (orchestrator) + `src/lib/scraper-api.ts` (SerpAPI client):
   1. Pobierz nastepna nieprzeszukana miejscowosc (`WHERE searched_at IS NULL AND lat IS NOT NULL ORDER BY distance_km LIMIT 1`)
   2. Dla kazdej z 18 kategorii (`firma`, `sklep`, `restauracja`, `hydraulik`, `elektryk`, `mechanik`, `fryzjer`, `dentysta`, `weterynarz`, `kwiaciarnia`, `piekarnia`, `zakład pogrzebowy`, `fotograf`, `księgowość`, `fizjoterapia`, `przedszkole`, `autokomis`, `usługi`):
      - `GET https://serpapi.com/search.json?engine=google_maps&q={query}&ll=@{lat},{lng},14z&api_key={key}`
      - Paginacja: follow `serpapi_pagination.next` do wyczerpania (max 5 stron)
   3. Deduplikacja po `place_id` lub `data_cid`
-  4. INSERT do `businesses` — pola: `title`, `phone`, `address`, `website` (NULL = lead), `category`, `rating`, `gps_coordinates`
+  4. INSERT do `businesses` — batch max 8 rows (D1 100-param limit)
   5. UPDATE `localities SET searched_at = datetime('now')`
 - Filtr leadow: `website IS NULL AND phone IS NOT NULL`
 
@@ -122,29 +139,29 @@ Wyszukiwanie firm w kolejnej miejscowosci przez SerpAPI Google Maps.
 
 ---
 
-## Etap 5: Generator stron (xAI Grok)
+## Etap 5: Generator stron (Workers AI GLM-5)
 
 Generowanie tresci strony wizytowkowej dla firm bez www.
 
 ### Zadania
-- `src/lib/generator.ts`:
+- `src/lib/generator.ts` + osobny cron `*/5 * * * *`:
   1. Pobierz firmy z `businesses WHERE website IS NULL AND site_generated = 0`
-  2. Wywolaj xAI Grok: `POST https://api.x.ai/v1/responses` z modelem `grok-4-1-fast-non-reasoning`
+  2. Wywolaj Workers AI (GLM-5) — bound via `env.AI`
   3. Prompt: na bazie nazwy, kategorii, adresu, telefonu, ratingu → wygeneruj JSON z sekcjami strony (hero, about, services, contact, CTA)
   4. Zapisz JSON do R2: `sites/{loc_slug}/{biz_slug}.json`
   5. UPDATE `businesses SET site_generated = 1`
+- `src/lib/themes.ts`: 8 palet kolorow + category→palette mapping + hash-based layout
 - Astro SSR route `src/pages/[loc]/[slug].astro`:
-  1. Odczytaj JSON z R2 przez `Astro.locals.runtime.env.R2`
-  2. Renderuj przez komponent `BusinessSite.astro` — czysta, responsywna strona z Tailwind
+  1. Odczytaj JSON z R2 przez `Astro.locals.runtime.env.sites`
+  2. Renderuj responsywna strone z Tailwind + tematem
 
 ### Weryfikacja
 - Uruchom generator dla testowej firmy
-- `wrangler r2 object get sites/stanislawow-pierwszy/firma-testowa.json` → poprawny JSON
+- `wrangler r2 object get sites/stanislawow-pierwszy/firma-testowa.json` → poprawny JSON (SiteData)
 - `curl http://localhost:4321/stanislawow-pierwszy/firma-testowa` → wyrenderowana strona HTML
 
 ### Dokumentacja
-- [xAI API Responses](https://docs.x.ai/docs/guides/chat)
-- [xAI Models & Pricing](https://docs.x.ai/developers/models)
+- [Workers AI](https://developers.cloudflare.com/workers-ai/)
 - [R2 Workers API put/get](https://developers.cloudflare.com/r2/api/workers/workers-api-reference/)
 - [Astro dynamic routes](https://docs.astro.build/en/guides/routing/#dynamic-routes)
 - [Astro CF bindings access](https://docs.astro.build/en/guides/integrations-guide/cloudflare/#cloudflare-runtime)
@@ -165,11 +182,6 @@ Deep-linked panel (bez logowania) z lista leadow do obdzwonienia.
   1. Walidacja seller tokenu (z headera lub query param)
   2. Update `call_log`: status + komentarz
   3. Zwroc 200
-- Komponent `SellerPanel.astro`:
-  1. Tabela/lista leadow
-  2. Inline edycja statusu (dropdown) + pole komentarza
-  3. Click-to-call link (`tel:{phone}`)
-  4. Link do wygenerowanej strony wizytowkowej (do pokazania klientowi podczas rozmowy)
 
 ### Weryfikacja
 - Dodaj test sellera do D1: `INSERT INTO sellers (name, telegram_chat_id, token) VALUES ('Jan', '123', 'test-token-abc')`
@@ -191,13 +203,13 @@ Bot wysylajacy codzienny raport do sprzedawcy.
 ### Zadania
 - Utworzyc bota: `/newbot` w BotFather → token jako CF secret
 - `src/lib/telegram.ts`:
-  1. `sendMessage` z `parse_mode: 'Markdown'`
+  1. `sendMessage` + `sendDailyReport` z formatowaniem DailyReport
   2. Tresc: ile nowych leadow, ile firm przeszukano, ile bez www
   3. Deep link do panelu: `[Otworz panel →](https://wizytowka.link/s/{token})`
   4. Max 4096 znakow — jesli wiecej, skroc do top 5 + summary
 - Wywolanie na koncu cron scraper (Etap 4) po zapisaniu wynikow
 - Sprzedawca musi napisac `/start` do bota zeby uzyskac `chat_id`
-- Endpoint `src/pages/api/telegram/webhook.ts` — obsluga `/start` → zapisz `chat_id` do `sellers`
+- Endpoint `src/pages/api/telegram/webhook/[secret].ts` — obsluga `/start` → zapisz `chat_id` do `sellers`
 
 ### Weryfikacja
 - Wyslij testowa wiadomosc: `curl "https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={ID}&text=test"`
@@ -218,17 +230,23 @@ Produkcyjny deploy na wizytowka.link.
 
 ### Zadania
 - Kupic `wizytowka.link` na Cloudflare Registrar
-- Dodac custom domain do workera w `wrangler.jsonc`:
+- Custom domain w `wrangler.jsonc`:
   ```jsonc
   "routes": [
-    { "pattern": "wizytowka.link/*", "custom_domain": true }
+    { "pattern": "wizytowka.link", "custom_domain": true }
   ]
   ```
-- Ustawic secrets: `wrangler secret put SERP_API_KEY`, `XAI_API_KEY`, `TG_BOT_TOKEN`
+- Ustawic secrets: `wrangler secret put SERP_API_KEY`, `TELEGRAM_BOT_TOKEN`
 - `wrangler deploy`
-- Ustawic Telegram webhook: `https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://wizytowka.link/api/telegram/webhook`
+- Ustawic Telegram webhook: `https://api.telegram.org/bot{TOKEN}/setWebhook?url=https://wizytowka.link/api/telegram/webhook/{SECRET}`
 - Dodac sellera do D1 (jednorazowo)
 - Uruchomic pelny flow: geocoder → scraper → generator → telegram → panel
+
+### Dodatkowe strony
+- `src/pages/index.astro` — strona glowna
+- `src/pages/polityka-prywatnosci.astro` — polityka prywatnosci
+- `src/pages/regulamin.astro` — regulamin
+- `src/pages/api/contact.ts` — formularz kontaktowy
 
 ### Weryfikacja
 - `curl https://wizytowka.link/s/{token}` → panel sprzedawcy
