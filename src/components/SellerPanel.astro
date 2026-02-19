@@ -32,6 +32,7 @@ interface Props {
   localities: Locality[];
   currentStatus: string;
   currentLocality: string;
+  currentSite: string;
   currentSort: string;
   token: string;
   page: number;
@@ -39,7 +40,7 @@ interface Props {
   totalLeads: number;
 }
 
-const { seller, leads, localities, currentStatus, currentLocality, currentSort, token, page, totalPages, totalLeads } = Astro.props;
+const { seller, leads, localities, currentStatus, currentLocality, currentSite, currentSort, token, page, totalPages, totalLeads } = Astro.props;
 
 const STATUS_CONFIG = {
   pending:     { color: 'bg-gray-200 text-gray-700',  label: 'Oczekujacy' },
@@ -50,6 +51,12 @@ const STATUS_CONFIG = {
 
 type StatusKey = keyof typeof STATUS_CONFIG;
 const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested', 'rejected'];
+
+const SITE_FILTER = [
+  { value: 'all', label: 'Wszystkie' },
+  { value: 'generated', label: 'Ze strona' },
+  { value: 'none', label: 'Bez strony' },
+] as const;
 ---
 
 <div class="max-w-7xl mx-auto px-4 py-6">
@@ -63,13 +70,28 @@ const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested
   <div class="flex flex-wrap gap-2 mb-4">
     {statuses.map((s) => (
       <a
-        href={`/s/${token}?status=${s}&locality=${currentLocality}&sort=${currentSort}`}
+        href={`/s/${token}?status=${s}&locality=${currentLocality}&site=${currentSite}&sort=${currentSort}`}
         class={`px-3 py-1 rounded-full text-sm font-medium transition
           ${currentStatus === s
             ? 'bg-indigo-600 text-white'
             : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
       >
         {s === 'all' ? 'Wszystkie' : STATUS_CONFIG[s].label}
+      </a>
+    ))}
+  </div>
+
+  <!-- Filtr strony -->
+  <div class="flex flex-wrap gap-2 mb-4">
+    {SITE_FILTER.map((sf) => (
+      <a
+        href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&site=${sf.value}&sort=${currentSort}`}
+        class={`px-3 py-1 rounded-full text-sm font-medium transition
+          ${currentSite === sf.value
+            ? 'bg-indigo-600 text-white'
+            : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
+      >
+        {sf.label}
       </a>
     ))}
   </div>
@@ -81,6 +103,7 @@ const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested
       class="border rounded-lg px-3 py-2 text-sm bg-white"
       data-token={token}
       data-status={currentStatus}
+      data-site={currentSite}
       data-sort={currentSort}
     >
       <option value="">Wszystkie miejscowosci</option>
@@ -96,6 +119,7 @@ const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested
       class="border rounded-lg px-3 py-2 text-sm bg-white"
       data-token={token}
       data-status={currentStatus}
+      data-site={currentSite}
       data-locality={currentLocality}
     >
       <option value="date" selected={currentSort === 'date'}>Wg daty</option>
@@ -206,14 +230,14 @@ const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested
     <div class="flex justify-center gap-2 mt-6">
       {page > 1 && (
         <a
-          href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&sort=${currentSort}&page=${page - 1}`}
+          href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&site=${currentSite}&sort=${currentSort}&page=${page - 1}`}
           class="px-3 py-1 rounded border text-sm hover:bg-gray-50"
         >Poprzednia</a>
       )}
       <span class="px-3 py-1 text-sm text-gray-500">{page} / {totalPages}</span>
       {page < totalPages && (
         <a
-          href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&sort=${currentSort}&page=${page + 1}`}
+          href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&site=${currentSite}&sort=${currentSort}&page=${page + 1}`}
           class="px-3 py-1 rounded border text-sm hover:bg-gray-50"
         >Nastepna</a>
       )}
@@ -226,16 +250,18 @@ const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested
     const el = e.target as HTMLSelectElement;
     const token = el.dataset.token;
     const status = el.dataset.status;
+    const site = el.dataset.site;
     const sort = el.dataset.sort;
-    window.location.href = `/s/${token}?status=${status}&locality=${el.value}&sort=${sort}`;
+    window.location.href = `/s/${token}?status=${status}&locality=${el.value}&site=${site}&sort=${sort}`;
   });
 
   document.getElementById('sort-select')?.addEventListener('change', (e) => {
     const el = e.target as HTMLSelectElement;
     const token = el.dataset.token;
     const status = el.dataset.status;
+    const site = el.dataset.site;
     const locality = el.dataset.locality;
-    window.location.href = `/s/${token}?status=${status}&locality=${locality}&sort=${el.value}`;
+    window.location.href = `/s/${token}?status=${status}&locality=${locality}&site=${site}&sort=${el.value}`;
   });
 
   document.querySelectorAll('.status-select').forEach((select) => {
