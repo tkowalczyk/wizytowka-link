@@ -1,6 +1,7 @@
 import type { BusinessInsert, Locality } from '../types/business';
 import { searchCategory } from './scraper-api';
-import { slugify } from './slug';
+import { generateUniqueSlug } from './slug';
+import { resolveLocality } from './locality-matcher';
 import { sendDailyReport } from './telegram';
 import type { SellerRow, LeadSummary, DailyReportStats } from './telegram';
 
@@ -24,12 +25,6 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
   let apiCalls = 0;
   let failedCategories = 0;
 
-  const { results: existingSlugs } = await env.leadgen
-    .prepare(`SELECT slug FROM businesses WHERE locality_id = ?`)
-    .bind(locality.id)
-    .all<{ slug: string }>();
-  const usedSlugs = new Set(existingSlugs.map(r => r.slug));
-
   for (const category of CATEGORIES) {
     if (quotaExhausted) break;
     try {
@@ -39,13 +34,15 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
         if (seen.has(r.place_id)) continue;
         seen.add(r.place_id);
 
-        let slug = slugify(r.title);
-        let suffix = 2;
-        const base = slug;
-        while (usedSlugs.has(slug)) {
-          slug = `${base}-${suffix++}`;
-        }
-        usedSlugs.add(slug);
+        const resolved = await resolveLocality(
+          env.leadgen,
+          r.address ?? null,
+          r.gps_coordinates.latitude,
+          r.gps_coordinates.longitude
+        );
+        const localityId = resolved?.id ?? locality.id;
+
+        const slug = await generateUniqueSlug(r.title, localityId, env.leadgen);
 
         businesses.push({
           title: r.title,
@@ -59,7 +56,7 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
           gps_lng: r.gps_coordinates.longitude,
           place_id: r.place_id,
           data_cid: r.data_cid ?? null,
-          locality_id: locality.id,
+          locality_id: localityId,
           reviews_count: r.reviews ?? null,
           google_type: r.type ?? null,
           google_types: r.types ? JSON.stringify(r.types) : null,
