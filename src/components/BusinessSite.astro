@@ -78,13 +78,6 @@ const breadcrumbLd = JSON.stringify({
 
 <body class="text-gray-900 font-sans antialiased">
 <main>
-<nav aria-label="Breadcrumb" class="max-w-5xl mx-auto px-4 pt-4 pb-0">
-  <ol class="flex flex-wrap text-sm text-gray-500 gap-1">
-    <li><a href="https://wizytowka.link/" class="hover:text-gray-700 underline">Strona główna</a></li>
-    <li class="before:content-['/'] before:mx-1">{locName}</li>
-    <li class="before:content-['/'] before:mx-1 text-gray-900 font-medium truncate">{site.seo.title}</li>
-  </ol>
-</nav>
 {layout === 'centered' ? <CenteredLayout site={site} theme={colors} />
 : layout === 'split' ? <SplitLayout site={site} theme={colors} />
 : <MinimalLayout site={site} theme={colors} />}
