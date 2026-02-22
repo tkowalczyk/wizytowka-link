@@ -56,12 +56,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'weryfikacja nieudana' }, 403);
   }
 
+  // Match businesses by phone
+  const matches = await env.leadgen.prepare(`
+    SELECT b.title, b.category, l.name as locality_name
+    FROM businesses b
+    JOIN localities l ON b.locality_id = l.id
+    WHERE b.phone = ?
+  `).bind(phone).all<{ title: string; category: string; locality_name: string }>();
+
+  const matchBlock = matches.results.length > 0
+    ? `Pasujace firmy w bazie: ${matches.results.length}\n\n` +
+      matches.results.map((m, i) =>
+        `${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`
+      ).join('\n')
+    : 'Brak firm z tym numerem w bazie';
+
   // Query sellers with Telegram
   const sellers = await env.leadgen
     .prepare('SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL')
     .all<SellerRow>();
 
-  const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}`;
+  const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n${matchBlock}`;
 
   for (const seller of sellers.results) {
     await sendMessage(env, seller.telegram_chat_id!, msg);
