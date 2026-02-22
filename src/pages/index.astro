@@ -6,7 +6,7 @@ const url = "https://wizytowka.link"
 const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
 ---
 
-<html lang="pl">
+<html lang="pl" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -26,12 +26,11 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
 
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
 
     <script
       is:inline
@@ -70,11 +69,14 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
         font-family: "Inter", system-ui, sans-serif;
         scroll-behavior: smooth;
       }
+      .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+      :target, :focus { scroll-margin-top: 5rem; }
     </style>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </head>
 
   <body class="bg-white text-gray-900 antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow">Przejdź do treści</a>
     <!-- Nav -->
     <header
       id="navbar"
@@ -119,7 +121,7 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
       </div>
     </header>
 
-    <main>
+    <main id="main-content">
       <!-- Hero -->
       <section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
         <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50"></div>
@@ -340,6 +342,7 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
             Zostaw numer telefonu — oddzwonimy i pomożemy założyć wizytówkę.
           </p>
           <form id="contact-form" class="mx-auto mt-10 flex max-w-lg flex-col gap-3 sm:flex-row">
+            <label for="phone-input" class="sr-only">Numer telefonu</label>
             <input
               type="tel"
               id="phone-input"

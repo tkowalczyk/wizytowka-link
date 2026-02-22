@@ -34,15 +34,15 @@ const jsonLd = biz ? JSON.stringify({
   '@type': 'LocalBusiness',
   name: biz.title,
   telephone: biz.phone,
-  address: { '@type': 'PostalAddress', streetAddress: biz.address },
+  address: { '@type': 'PostalAddress', streetAddress: biz.address, addressCountry: 'PL' },
   geo: { '@type': 'GeoCoordinates', latitude: biz.gps_lat, longitude: biz.gps_lng },
-  ...(biz.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, bestRating: 5, reviewCount: 1 } } : {}),
+  ...(biz.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, bestRating: 5 } } : {}),
   url: Astro.url.href,
 }) : null;
 ---
 
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="pl" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -55,13 +55,18 @@ const jsonLd = biz ? JSON.stringify({
   <meta property="og:description" content={site.seo.description} />
   <meta property="og:type" content="website" />
   <meta property="og:url" content={Astro.url.href} />
+  <meta property="og:locale" content="pl_PL" />
+  <meta name="twitter:card" content="summary" />
 
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 </head>
 
 <body class="text-gray-900 font-sans antialiased">
+<main>
 {layout === 'centered' ? <CenteredLayout site={site} theme={colors} />
 : layout === 'split' ? <SplitLayout site={site} theme={colors} />
 : <MinimalLayout site={site} theme={colors} />}
+</main>
 </body>
 </html>
