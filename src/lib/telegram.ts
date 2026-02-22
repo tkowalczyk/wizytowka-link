@@ -30,9 +30,17 @@ export interface TelegramChat {
   username?: string;
 }
 
+export interface TelegramCallbackQuery {
+  id: string;
+  from: { id: number };
+  message?: TelegramMessage;
+  data?: string;
+}
+
 export interface TelegramUpdate {
   update_id: number;
   message?: TelegramMessage;
+  callback_query?: TelegramCallbackQuery;
 }
 
 export interface SellerRow {
@@ -88,7 +96,42 @@ export async function sendMessage(
   return data;
 }
 
-function escapeHtml(s: string): string {
+export interface InlineKeyboardButton {
+  text: string;
+  callback_data: string;
+}
+
+export async function answerCallback(
+  env: Env,
+  callbackId: string,
+  text: string
+): Promise<void> {
+  await fetch(`${TG_API}${env.TG_BOT_TOKEN}/answerCallbackQuery`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ callback_query_id: callbackId, text }),
+  });
+}
+
+export async function sendMessageWithKeyboard(
+  env: Env,
+  chatId: string,
+  text: string,
+  keyboard: InlineKeyboardButton[][]
+): Promise<void> {
+  await fetch(`${TG_API}${env.TG_BOT_TOKEN}/sendMessage`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard },
+    }),
+  });
+}
+
+export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
