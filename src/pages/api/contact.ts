@@ -61,8 +61,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     SELECT b.title, b.category, l.name as locality_name
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
-    WHERE b.phone = ?
-  `).bind(phone).all<{ title: string; category: string; locality_name: string }>();
+    WHERE REPLACE(REPLACE(REPLACE(b.phone, ' ', ''), '-', ''), '+48', '') = ?
+  `).bind(phone.replace('+48', '')).all<{ title: string; category: string; locality_name: string }>();
 
   const matchBlock = matches.results.length > 0
     ? `Pasujace firmy w bazie: ${matches.results.length}\n\n` +
