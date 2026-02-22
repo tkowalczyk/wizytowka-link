@@ -89,7 +89,7 @@ const SITE_FILTER = [
     {statuses.map((s) => (
       <a
         href={`/s/${token}?status=${s}&locality=${currentLocality}&site=${currentSite}&sort=${currentSort}`}
-        class={`px-3 py-1 rounded-full text-sm font-medium transition
+        class={`px-3 py-2 rounded-full text-sm font-medium transition
           ${currentStatus === s
             ? 'bg-indigo-600 text-white'
             : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
@@ -104,7 +104,7 @@ const SITE_FILTER = [
     {SITE_FILTER.map((sf) => (
       <a
         href={`/s/${token}?status=${currentStatus}&locality=${currentLocality}&site=${sf.value}&sort=${currentSort}`}
-        class={`px-3 py-1 rounded-full text-sm font-medium transition
+        class={`px-3 py-2 rounded-full text-sm font-medium transition
           ${currentSite === sf.value
             ? 'bg-indigo-600 text-white'
             : 'bg-white text-gray-600 border hover:bg-gray-50'}`}
@@ -116,6 +116,7 @@ const SITE_FILTER = [
 
   <!-- Filtr miejscowosci + sortowanie -->
   <div class="flex gap-4 mb-6">
+    <label for="locality-filter" class="sr-only">Filtruj miejscowość</label>
     <select
       id="locality-filter"
       class="border rounded-lg px-3 py-2 text-sm bg-white"
@@ -132,6 +133,7 @@ const SITE_FILTER = [
       ))}
     </select>
 
+    <label for="sort-select" class="sr-only">Sortowanie</label>
     <select
       id="sort-select"
       class="border rounded-lg px-3 py-2 text-sm bg-white"
@@ -262,6 +264,10 @@ const SITE_FILTER = [
     </div>
   )}
 </div>
+
+<style>
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
+</style>
 
 <script>
   document.getElementById('locality-filter')?.addEventListener('change', (e) => {

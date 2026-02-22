@@ -3,21 +3,25 @@ const title = "Polityka prywatności — wizytowka.link"
 const url = "https://wizytowka.link/polityka-prywatnosci"
 ---
 
-<html lang="pl">
+<html lang="pl" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
+    <meta name="description" content="Polityka prywatności wizytowka.link — jakie dane przetwarzamy, prawa właścicieli firm, bezpieczeństwo, RODO." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href={url} />
     <meta name="robots" content="noindex" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" /></noscript>
     <style>
       html { font-family: "Inter", system-ui, sans-serif; }
     </style>
   </head>
   <body class="bg-white text-gray-900 antialiased">
+    <main>
     <div class="mx-auto max-w-3xl px-4 py-20">
       <a href="/" class="text-sm text-blue-600 hover:underline">&larr; Strona główna</a>
 
@@ -110,5 +114,6 @@ const url = "https://wizytowka.link/polityka-prywatnosci"
 
       </div>
     </div>
+    </main>
   </body>
 </html>
