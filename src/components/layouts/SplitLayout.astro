@@ -21,6 +21,7 @@ const { site, theme: t } = Astro.props;
       <div class="md:w-1/3 md:text-right">
         <a
           href={`tel:${site.contact.phone}`}
+          aria-label={`Zadzwoń: ${site.contact.phone}`}
           class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
         >
           {site.contact.cta_text}
@@ -38,15 +39,15 @@ const { site, theme: t } = Astro.props;
 
   <section class={`${t.sectionBg} py-16 px-4`}>
     <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-bold mb-10">Uslugi</h2>
-      <div class="grid md:grid-cols-2 gap-6">
+      <h2 class="text-3xl font-bold mb-10">Usługi</h2>
+      <ul class="grid md:grid-cols-2 gap-6 list-none p-0 m-0">
         {site.services.map((s) => (
-          <div class={`${t.cardBg} rounded-xl p-6 border border-gray-100`}>
+          <li class={`${t.cardBg} rounded-xl p-6 border border-gray-100`}>
             <h3 class="text-xl font-semibold mb-2">{s.name}</h3>
             <p class="text-gray-600">{s.description}</p>
-          </div>
+          </li>
         ))}
-      </div>
+      </ul>
     </div>
   </section>
 
@@ -54,10 +55,11 @@ const { site, theme: t } = Astro.props;
     <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
       <div>
         <h2 class="text-3xl font-bold mb-2">Kontakt</h2>
-        <p class="text-lg">{site.contact.address}</p>
+        <address class="text-lg not-italic">{site.contact.address}</address>
       </div>
       <a
         href={`tel:${site.contact.phone}`}
+        aria-label={`Zadzwoń: ${site.contact.phone}`}
         class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
       >
         {site.contact.phone}

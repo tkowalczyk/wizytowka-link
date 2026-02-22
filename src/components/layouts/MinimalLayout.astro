@@ -18,6 +18,7 @@ const { site, theme: t } = Astro.props;
       <p class="text-xl text-gray-500 mb-8">{site.hero.subheadline}</p>
       <a
         href={`tel:${site.contact.phone}`}
+        aria-label={`Zadzwoń: ${site.contact.phone}`}
         class={`inline-block ${t.contactBg} ${t.contactText} font-semibold px-8 py-3 rounded-lg transition-opacity hover:opacity-90 text-lg`}
       >
         {site.contact.cta_text}
@@ -34,7 +35,7 @@ const { site, theme: t } = Astro.props;
 
   <section class="py-16 px-4 border-t border-gray-100">
     <div class="max-w-3xl mx-auto">
-      <h2 class="text-2xl font-bold mb-8">Uslugi</h2>
+      <h2 class="text-2xl font-bold mb-8">Usługi</h2>
       <ul class="space-y-6">
         {site.services.map((s) => (
           <li class="border-b border-gray-100 pb-6 last:border-0">
@@ -50,10 +51,11 @@ const { site, theme: t } = Astro.props;
     <div class="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h2 class="text-xl font-bold">Kontakt</h2>
-        <p class="text-sm opacity-90">{site.contact.address}</p>
+        <address class="text-sm opacity-90 not-italic">{site.contact.address}</address>
       </div>
       <a
         href={`tel:${site.contact.phone}`}
+        aria-label={`Zadzwoń: ${site.contact.phone}`}
         class="inline-block bg-white/20 backdrop-blur font-semibold px-6 py-2 rounded-lg transition-colors hover:bg-white/30 text-lg"
       >
         {site.contact.phone}
