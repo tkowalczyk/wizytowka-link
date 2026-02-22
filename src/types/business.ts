@@ -73,6 +73,14 @@ export interface SellerRow {
   created_at: string;
 }
 
+export interface BusinessOwnerRow {
+  id: number;
+  business_id: number;
+  chat_id: string;
+  token: string;
+  created_at: string;
+}
+
 export interface CallLogRow {
   id: number;
   business_id: number;

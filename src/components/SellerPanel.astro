@@ -182,10 +182,16 @@ const SITE_FILTER = [
             <div class="flex items-center gap-2 flex-shrink-0">
               <a
                 href={`tel:${lead.phone}`}
-                class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700"
+                class="inline-flex items-center px-3 py-1.5 bg-green-600 text-white text-sm rounded-l-lg hover:bg-green-700"
               >
                 {lead.phone}
-              </a>
+              </a><button
+                class="copy-phone px-2 py-1.5 bg-green-700 text-white text-sm rounded-r-lg hover:bg-green-800"
+                data-phone={lead.phone}
+                title="Kopiuj numer"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
+              </button>
               {lead.site_generated ? (
                 <a
                   href={`/${lead.loc_slug}/${lead.biz_slug}`}
@@ -288,6 +294,17 @@ const SITE_FILTER = [
     window.location.href = `/s/${token}?status=${status}&locality=${locality}&site=${site}&sort=${el.value}`;
   });
 
+  document.querySelectorAll('.copy-phone').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const el = btn as HTMLButtonElement;
+      await navigator.clipboard.writeText(el.dataset.phone ?? '');
+      el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>';
+      setTimeout(() => {
+        el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>';
+      }, 1500);
+    });
+  });
+
   document.querySelectorAll('.status-select').forEach((select) => {
     select.addEventListener('change', async (e) => {
       const el = e.target as HTMLSelectElement;
@@ -334,7 +351,7 @@ const SITE_FILTER = [
       ) as HTMLInputElement;
       const statusSelect = document.querySelector(
         `.status-select[data-lead-id="${leadId}"]`
-      ) as HTMLSelectElement;
+      ) as unknown as HTMLSelectElement | null;
       const token = statusSelect?.dataset.token;
 
       const res = await fetch(`/api/leads/${leadId}?token=${token}`, {

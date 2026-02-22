@@ -13,7 +13,7 @@ interface BusinessRow {
   loc_slug: string;
 }
 
-interface GLMMessage {
+export interface GLMMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
 }
@@ -52,7 +52,7 @@ Zasady:
 - Odpowiedz TYLKO JSON, bez markdown`;
 }
 
-async function callGLM5(
+export async function callGLM5(
   messages: GLMMessage[],
   apiKey: string
 ): Promise<string> {
@@ -83,7 +83,7 @@ function isStr(v: unknown): v is string {
   return typeof v === 'string' && v.length > 0;
 }
 
-function validateSiteData(raw: string): SiteData {
+export function validateSiteData(raw: string): SiteData {
   const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
   const p = JSON.parse(cleaned) as Record<string, unknown>;
 
