@@ -132,13 +132,13 @@ const totalPages = Math.ceil(totalLeads / PAGE_SIZE);
 
 const localities = await db
   .prepare(`
-    SELECT DISTINCT l.slug, l.name
+    SELECT DISTINCT l.slug, l.name, l.pow_name, l.woj_name, l.gmi_name
     FROM localities l
     JOIN businesses b ON b.locality_id = l.id
     WHERE b.website IS NULL AND b.phone IS NOT NULL
     ORDER BY l.name
   `)
-  .all<{ slug: string; name: string }>();
+  .all<{ slug: string; name: string; pow_name: string; woj_name: string; gmi_name: string }>();
 ---
 
 <!DOCTYPE html>

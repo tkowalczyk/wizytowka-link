@@ -24,6 +24,9 @@ interface Lead {
 interface Locality {
   slug: string;
   name: string;
+  pow_name: string;
+  woj_name: string;
+  gmi_name: string;
 }
 
 interface Props {
@@ -51,6 +54,21 @@ const STATUS_CONFIG = {
 
 type StatusKey = keyof typeof STATUS_CONFIG;
 const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested', 'rejected'];
+
+const nameKey = (l: Locality) => `${l.name}|${l.pow_name}|${l.woj_name}`;
+const nameCounts = new Map<string, number>();
+const fullCounts = new Map<string, number>();
+for (const loc of localities) {
+  nameCounts.set(loc.name, (nameCounts.get(loc.name) ?? 0) + 1);
+  const k = nameKey(loc);
+  fullCounts.set(k, (fullCounts.get(k) ?? 0) + 1);
+}
+function locLabel(loc: Locality): string {
+  if ((nameCounts.get(loc.name) ?? 0) <= 1) return loc.name;
+  if (loc.pow_name === loc.name) return `${loc.name} (${loc.gmi_name})`;
+  if ((fullCounts.get(nameKey(loc)) ?? 0) > 1) return `${loc.name} (gm. ${loc.gmi_name})`;
+  return `${loc.name} (${loc.pow_name}, ${loc.woj_name})`;
+}
 
 const SITE_FILTER = [
   { value: 'all', label: 'Wszystkie' },
@@ -109,7 +127,7 @@ const SITE_FILTER = [
       <option value="">Wszystkie miejscowosci</option>
       {localities.map((loc) => (
         <option value={loc.slug} selected={currentLocality === loc.slug}>
-          {loc.name}
+          {locLabel(loc)}
         </option>
       ))}
     </select>

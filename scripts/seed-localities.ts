@@ -184,8 +184,11 @@ function main() {
     `  woj=${tercMaps.wojMap.size} pow=${tercMaps.powMap.size} gmi=${tercMaps.gmiMap.size}`
   );
 
+  const mainOnly = simc.filter(r => r.sym === r.symPod);
+  console.log(`  ${mainOnly.length} MAIN rows (filtered ${simc.length - mainOnly.length} SUB)`);
+
   console.log("Enriching SIMC rows...");
-  const localities = enrichRows(simc, tercMaps);
+  const localities = enrichRows(mainOnly, tercMaps);
   console.log(`  ${localities.length} localities, ${globalSlugs.size} unique slugs`);
 
   if (localities.length !== globalSlugs.size) {

@@ -60,7 +60,7 @@ export async function matchLocalityByName(
   lng?: number | null
 ): Promise<LocalityMatch | null> {
   const { results } = await db
-    .prepare('SELECT id, name, slug, lat, lng FROM localities WHERE name = ? COLLATE NOCASE')
+    .prepare('SELECT id, name, slug, lat, lng FROM localities WHERE name = ? COLLATE NOCASE AND sym = sym_pod')
     .bind(cityName)
     .all<LocalityMatch & { lat: number | null; lng: number | null }>();
 
@@ -106,7 +106,7 @@ export async function matchLocalityByGps(
   let { results } = await db
     .prepare(
       `SELECT id, name, slug, lat, lng FROM localities
-       WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?`
+       WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? AND sym = sym_pod`
     )
     .bind(lat - NARROW, lat + NARROW, lng - NARROW, lng + NARROW)
     .all<LocalityGpsRow>();
@@ -115,7 +115,7 @@ export async function matchLocalityByGps(
     ({ results } = await db
       .prepare(
         `SELECT id, name, slug, lat, lng FROM localities
-         WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ?`
+         WHERE lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? AND sym = sym_pod`
       )
       .bind(lat - WIDE, lat + WIDE, lng - WIDE, lng + WIDE)
       .all<LocalityGpsRow>());
