@@ -225,6 +225,7 @@ function rebuildSlugsForCompletedWoj(
   const completed = new Set(completedWoj);
   for (const r of simc) {
     if (!completed.has(r.woj)) continue;
+    if (r.sym !== r.symPod) continue;
     let slug = slugify(r.nazwa);
     if (globalSlugs.has(slug)) slug = `${slug}-${r.sym}`;
     globalSlugs.add(slug);
@@ -269,7 +270,7 @@ async function main() {
       continue;
     }
 
-    const rows = simc.filter((r) => r.woj === woj);
+    const rows = simc.filter((r) => r.woj === woj && r.sym === r.symPod);
     const localities = enrichRows(rows, tercMaps);
     const batches = chunk(localities, BATCH_SIZE);
 
