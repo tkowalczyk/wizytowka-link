@@ -1,0 +1,53 @@
+---
+import warmFood from '../assets/logos/warm-food.svg?raw';
+import warmCafe from '../assets/logos/warm-cafe.svg?raw';
+import warmFlorist from '../assets/logos/warm-florist.svg?raw';
+import clinicalMedical from '../assets/logos/clinical-medical.svg?raw';
+import clinicalVet from '../assets/logos/clinical-vet.svg?raw';
+import clinicalPharmacy from '../assets/logos/clinical-pharmacy.svg?raw';
+import industrialMechanic from '../assets/logos/industrial-mechanic.svg?raw';
+import industrialPlumber from '../assets/logos/industrial-plumber.svg?raw';
+import industrialElectric from '../assets/logos/industrial-electric.svg?raw';
+import defaultLogo from '../assets/logos/default.svg?raw';
+
+interface Props {
+  category: string;
+  class?: string;
+}
+
+const LOGO_MAP: Record<string, string> = {
+  restauracja: 'warm-food',
+  piekarnia: 'warm-food',
+  cukiernia: 'warm-food',
+  kawiarnia: 'warm-cafe',
+  kwiaciarnia: 'warm-florist',
+  dentysta: 'clinical-medical',
+  lekarz: 'clinical-medical',
+  fizjoterapia: 'clinical-medical',
+  weterynarz: 'clinical-vet',
+  apteka: 'clinical-pharmacy',
+  mechanik: 'industrial-mechanic',
+  warsztat: 'industrial-mechanic',
+  hydraulik: 'industrial-plumber',
+  elektryk: 'industrial-electric',
+};
+
+const SVG_MAP: Record<string, string> = {
+  'warm-food': warmFood,
+  'warm-cafe': warmCafe,
+  'warm-florist': warmFlorist,
+  'clinical-medical': clinicalMedical,
+  'clinical-vet': clinicalVet,
+  'clinical-pharmacy': clinicalPharmacy,
+  'industrial-mechanic': industrialMechanic,
+  'industrial-plumber': industrialPlumber,
+  'industrial-electric': industrialElectric,
+  'default': defaultLogo,
+};
+
+const { category, class: className } = Astro.props;
+const logoKey = LOGO_MAP[category.toLowerCase()] ?? 'default';
+const svg = SVG_MAP[logoKey];
+---
+
+<span class:list={['logo-icon', className]} style="color: var(--color-hero-accent)" set:html={svg} />
