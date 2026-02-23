@@ -91,7 +91,15 @@ for (const [slug, data] of Object.entries(siteTemplates)) {
   console.log(`R2: ${key}`);
 }
 
+// seller
+sql(`INSERT OR IGNORE INTO sellers (id, name, token) VALUES (1, 'Jan Testowy', 'test-seller-token-1234')`);
+
+// call_log — 2 businesses with varied statuses
+sql(`INSERT OR IGNORE INTO call_log (id, business_id, seller_id, status, comment) VALUES (1, 7, 1, 'called', 'nie odbieral')`);
+sql(`INSERT OR IGNORE INTO call_log (id, business_id, seller_id, status, comment) VALUES (2, 8, 1, 'interested', 'chce wiedziec wiecej')`);
+
 console.log('\nDone! Test URLs:');
 for (const b of businesses) {
   console.log(`  http://localhost:8787/wybranowo/${b.slug}`);
 }
+console.log(`  http://localhost:8787/s/test-seller-token-1234?status=all (seller panel)`);

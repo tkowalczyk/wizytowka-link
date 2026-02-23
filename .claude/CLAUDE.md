@@ -7,7 +7,7 @@ Lead-gen platform: scrapes Polish businesses via SerpAPI, generates static "wizy
 - **Runtime**: Cloudflare Workers (D1 + R2 + Cron triggers)
 - **Framework**: Astro 5 SSR (`@astrojs/cloudflare` adapter)
 - **Language**: TypeScript strict
-- **Styling**: TailwindCSS 3
+- **Styling**: TailwindCSS 4 (`@tailwindcss/vite` plugin, `@theme inline` in base.css, no config file)
 - **Package manager**: pnpm
 - **Deploy**: `wrangler deploy`
 - **Dev**: `astro dev` (local), `wrangler dev` (CF emulation)
@@ -24,13 +24,18 @@ src/
     scraper-api.ts   # SerpAPI client + pagination
     generator.ts     # Site JSON generator (Workers AI → R2)
     telegram.ts      # Telegram bot client + daily report
-    themes.ts        # Color palettes + category→theme mapping
+    themes.ts        # OKLCH palettes, style/layout variants, category→palette mapping
     slug.ts          # Polish-aware slug util
   types/
     business.ts      # LocalityRow, BusinessRow, BusinessInsert, SellerRow, CallLogRow
     site.ts          # SiteData (generated content + theme)
     serpapi.ts       # SerpAPI response types
-migrations/          # D1 SQL migrations (0001–0003)
+  styles/
+    base.css         # Tailwind import, @theme inline tokens, style-variant rules
+  components/
+    BusinessSite.astro  # Main biz page wrapper (theme resolution + CSS vars injection)
+    layouts/         # 3 layout variants: centered, split, minimal
+migrations/          # D1 SQL migrations (0001–0005)
 scripts/             # TERYT CSV parsers + seed runners
 data/                # SIMC/TERC CSVs + generated SQL batches
 docs/design/         # Numbered design docs (001–009)
@@ -44,6 +49,7 @@ pnpm build            # Build SSR to dist/
 pnpm preview          # wrangler dev (local CF emulation)
 pnpm deploy           # wrangler deploy
 pnpm db:migrate       # Run D1 migrations (local)
+pnpm seed             # Wipe local D1+R2, migrate, seed test data
 # Cron trigger (local dev):
 curl "http://localhost:8787/cdn-cgi/handler/scheduled"
 ```
@@ -64,6 +70,15 @@ curl "http://localhost:8787/cdn-cgi/handler/scheduled"
 - DB: `INSERT OR IGNORE` for idempotency, partial indexes for cron queries, `datetime('now')` for timestamps
 - Migrations: sequential numbered SQL files in `migrations/`
 - Env secrets: `.dev.vars` / `.production.vars` (gitignored) — never commit
+
+## Theme system
+
+- 8 OKLCH palettes (`ocean`, `forest`, `sunset`, `royal`, `crimson`, `slate`, `teal`, `earth`) with light+dark variants
+- Palettes mapped to categories (warm→food, clinical→medical, industrial→trades)
+- 3 style variants (`modern`, `elegant`, `bold`) — applied via `[data-style]` in base.css
+- 3 layout variants (`centered`, `split`, `minimal`) — separate Astro components
+- Selection: deterministic hash from slug (same business = same look always)
+- CSS vars injected per-page via `<style set:html>`, referenced by Tailwind semantic tokens
 
 ## D1 param limit
 

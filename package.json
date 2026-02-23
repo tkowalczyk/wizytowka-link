@@ -10,6 +10,8 @@
     "db:migrate:remote": "wrangler d1 migrations apply leadgen --remote",
     "seed:create-sql": "tsx scripts/seed-localities.ts",
     "seed:into-d1": "tsx scripts/parse-simc.ts",
+    "db:migrate:fresh": "rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2 && pnpm db:migrate",
+    "seed": "pnpm db:migrate:fresh && pnpm tsx scripts/seed-local-test.ts",
     "deploy": "wrangler deploy"
   },
   "dependencies": {
