@@ -143,7 +143,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
     try {
       const { patchSiteData, summarizeChanges } = await import('../../../../lib/editor');
-      const { escapeHtml, sendMessageWithKeyboard } = await import('../../../../lib/telegram');
+      const { escapeHtml, sendMessageWithKeyboard, sendChatAction } = await import('../../../../lib/telegram');
+
+      await sendChatAction(token, chatId);
 
       const patched = await patchSiteData(env, currentSite, text);
 
