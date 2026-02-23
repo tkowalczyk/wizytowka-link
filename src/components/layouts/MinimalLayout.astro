@@ -1,25 +1,24 @@
 ---
 import type { SiteData } from '../../types/site';
-import type { ThemeColors } from '../../lib/themes';
 
 interface Props {
   site: SiteData;
-  theme: ThemeColors;
 }
 
-const { site, theme: t } = Astro.props;
+const { site } = Astro.props;
 ---
 
 <Fragment>
 
-  <section class="py-20 px-4 border-b border-gray-100">
+  <section class="hero-section border-b border-border px-4">
     <div class="max-w-3xl mx-auto">
-      <h1 class={`text-4xl md:text-5xl font-bold mb-4 ${t.ctaText}`}>{site.hero.headline}</h1>
-      <p class="text-xl text-gray-500 mb-8">{site.hero.subheadline}</p>
+      <h1 class="hero-title text-primary">{site.hero.headline}</h1>
+      <p class="hero-sub text-muted-foreground">{site.hero.subheadline}</p>
+      <span class="hero-divider !mx-0" aria-hidden="true"></span>
       <a
         href={`tel:${site.contact.phone}`}
         aria-label={`Zadzwoń: ${site.contact.phone}`}
-        class={`inline-block ${t.contactBg} ${t.contactText} font-semibold px-8 py-3 rounded-lg transition-opacity hover:opacity-90 text-lg`}
+        class="cta bg-primary text-primary-foreground mt-8"
       >
         {site.contact.cta_text}
       </a>
@@ -28,26 +27,26 @@ const { site, theme: t } = Astro.props;
 
   <section class="py-16 px-4">
     <div class="max-w-3xl mx-auto">
-      <h2 class="text-2xl font-bold mb-4">{site.about.title}</h2>
-      <p class="text-lg text-gray-600 leading-relaxed">{site.about.text}</p>
+      <h2 class="section-title mb-4">{site.about.title}</h2>
+      <p class="text-lg text-muted-foreground leading-relaxed">{site.about.text}</p>
     </div>
   </section>
 
-  <section class="py-16 px-4 border-t border-gray-100">
+  <section class="py-16 px-4 border-t border-border">
     <div class="max-w-3xl mx-auto">
-      <h2 class="text-2xl font-bold mb-8">Usługi</h2>
-      <ul class="space-y-6">
+      <h2 class="section-title mb-8">Usługi</h2>
+      <ul class="space-y-6 list-none p-0 m-0">
         {site.services.map((s) => (
-          <li class="border-b border-gray-100 pb-6 last:border-0">
+          <li class="border-b border-border pb-6 last:border-0">
             <h3 class="text-lg font-semibold mb-1">{s.name}</h3>
-            <p class="text-gray-600">{s.description}</p>
+            <p class="text-muted-foreground">{s.description}</p>
           </li>
         ))}
       </ul>
     </div>
   </section>
 
-  <section class={`${t.contactBg} ${t.contactText} py-12 px-4`}>
+  <section class="bg-primary text-primary-foreground py-12 px-4">
     <div class="max-w-3xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
       <div>
         <h2 class="text-xl font-bold">Kontakt</h2>
@@ -56,15 +55,15 @@ const { site, theme: t } = Astro.props;
       <a
         href={`tel:${site.contact.phone}`}
         aria-label={`Zadzwoń: ${site.contact.phone}`}
-        class="inline-block bg-white/20 backdrop-blur font-semibold px-6 py-2 rounded-lg transition-colors hover:bg-white/30 text-lg"
+        class="cta bg-accent text-accent-foreground"
       >
         {site.contact.phone}
       </a>
     </div>
   </section>
 
-  <footer class="py-6 text-center text-sm text-gray-400">
-    <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline">wizytowka.link</a></p>
+  <footer class="py-6 text-center text-sm text-muted-foreground">
+    <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline hover:text-foreground transition-colors">wizytowka.link</a></p>
   </footer>
 
 </Fragment>

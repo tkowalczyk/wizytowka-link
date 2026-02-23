@@ -145,7 +145,7 @@ export async function generateSites(env: Env, limit = 1): Promise<void> {
 
       const raw = await callGLM5(messages, env.ZAI_API_KEY);
       const siteData = validateSiteData(raw);
-      siteData.theme = resolveTheme(biz.slug, biz.category).id;
+      siteData.theme = resolveTheme(biz.slug, biz.category).paletteId;
 
       const key = `sites/${biz.loc_slug}/${biz.slug}.json`;
 

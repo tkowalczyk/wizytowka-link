@@ -1,28 +1,27 @@
 ---
 import type { SiteData } from '../../types/site';
-import type { ThemeColors } from '../../lib/themes';
 
 interface Props {
   site: SiteData;
-  theme: ThemeColors;
 }
 
-const { site, theme: t } = Astro.props;
+const { site } = Astro.props;
 ---
 
 <Fragment>
 
-  <section class={`${t.heroBg} ${t.heroText} py-20 px-4`}>
+  <section class="hero-section bg-gradient-to-br from-hero to-hero-end text-hero-foreground px-4">
     <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-8">
       <div class="md:w-2/3">
-        <h1 class="text-4xl md:text-5xl font-bold mb-4">{site.hero.headline}</h1>
-        <p class={`text-xl ${t.heroAccent}`}>{site.hero.subheadline}</p>
+        <h1 class="hero-title">{site.hero.headline}</h1>
+        <p class="hero-sub text-hero-accent">{site.hero.subheadline}</p>
+        <span class="hero-divider !mx-0" aria-hidden="true"></span>
       </div>
       <div class="md:w-1/3 md:text-right">
         <a
           href={`tel:${site.contact.phone}`}
           aria-label={`Zadzwoń: ${site.contact.phone}`}
-          class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
+          class="cta bg-accent text-accent-foreground"
         >
           {site.contact.cta_text}
         </a>
@@ -32,43 +31,43 @@ const { site, theme: t } = Astro.props;
 
   <section class="py-16 px-4">
     <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-bold mb-4">{site.about.title}</h2>
-      <p class="text-lg text-gray-600 leading-relaxed max-w-3xl">{site.about.text}</p>
+      <h2 class="section-title mb-4">{site.about.title}</h2>
+      <p class="text-lg text-muted-foreground leading-relaxed max-w-3xl">{site.about.text}</p>
     </div>
   </section>
 
-  <section class={`${t.sectionBg} py-16 px-4`}>
+  <section class="bg-muted py-16 px-4">
     <div class="max-w-5xl mx-auto">
-      <h2 class="text-3xl font-bold mb-10">Usługi</h2>
+      <h2 class="section-title mb-10">Usługi</h2>
       <ul class="grid md:grid-cols-2 gap-6 list-none p-0 m-0">
         {site.services.map((s) => (
-          <li class={`${t.cardBg} rounded-xl p-6 border border-gray-100`}>
+          <li class="card bg-card text-card-foreground">
             <h3 class="text-xl font-semibold mb-2">{s.name}</h3>
-            <p class="text-gray-600">{s.description}</p>
+            <p class="text-muted-foreground">{s.description}</p>
           </li>
         ))}
       </ul>
     </div>
   </section>
 
-  <section class={`${t.contactBg} ${t.contactText} py-16 px-4`}>
+  <section class="bg-primary text-primary-foreground py-16 px-4">
     <div class="max-w-5xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-6">
       <div>
-        <h2 class="text-3xl font-bold mb-2">Kontakt</h2>
-        <address class="text-lg not-italic">{site.contact.address}</address>
+        <h2 class="section-title mb-2">Kontakt</h2>
+        <address class="text-lg not-italic opacity-90">{site.contact.address}</address>
       </div>
       <a
         href={`tel:${site.contact.phone}`}
         aria-label={`Zadzwoń: ${site.contact.phone}`}
-        class={`inline-block ${t.ctaBg} ${t.ctaText} font-semibold px-8 py-3 rounded-lg ${t.ctaHover} transition-colors text-lg`}
+        class="cta bg-accent text-accent-foreground"
       >
         {site.contact.phone}
       </a>
     </div>
   </section>
 
-  <footer class="py-6 text-center text-sm text-gray-400">
-    <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline">wizytowka.link</a></p>
+  <footer class="py-6 text-center text-sm text-muted-foreground">
+    <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline hover:text-foreground transition-colors">wizytowka.link</a></p>
   </footer>
 
 </Fragment>
