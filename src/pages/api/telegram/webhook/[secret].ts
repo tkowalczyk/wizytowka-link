@@ -95,7 +95,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         return new Response('ok');
       }
 
-      if (owner.chat_id === chatId) {
+      if (owner.chat_id && owner.chat_id === chatId) {
         await sendReply(env, chatId, 'Juz jestes polaczony. Wyslij wiadomosc aby edytowac wizytowke.');
         return new Response('ok');
       }

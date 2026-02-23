@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { sendMessage, type SellerRow } from '../../lib/telegram';
+import { generateOwnerToken } from '../../lib/token';
 
 interface ContactBody {
   phone: string;
@@ -9,6 +10,15 @@ interface ContactBody {
 interface TurnstileResponse {
   success: boolean;
   'error-codes'?: string[];
+}
+
+interface MatchRow {
+  id: number;
+  title: string;
+  category: string;
+  slug: string;
+  locality_name: string;
+  locality_slug: string;
 }
 
 function json(data: Record<string, unknown>, status = 200) {
@@ -58,25 +68,64 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Match businesses by phone
   const matches = await env.leadgen.prepare(`
-    SELECT b.title, b.category, l.name as locality_name
+    SELECT b.id, b.title, b.category, b.slug, l.name as locality_name, l.slug as locality_slug
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
     WHERE REPLACE(REPLACE(REPLACE(b.phone, ' ', ''), '-', ''), '+48', '') = ?
-  `).bind(phone.replace('+48', '')).all<{ title: string; category: string; locality_name: string }>();
+  `).bind(phone.replace('+48', '')).all<MatchRow>();
 
-  const matchBlock = matches.results.length > 0
-    ? `Pasujace firmy w bazie: ${matches.results.length}\n\n` +
-      matches.results.map((m, i) =>
-        `${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`
-      ).join('\n')
-    : 'Brak firm z tym numerem w bazie';
+  let matchBlock: string;
+
+  if (matches.results.length > 0) {
+    const lines: string[] = [];
+    lines.push(`Pasujace firmy: ${matches.results.length}`);
+
+    for (let i = 0; i < matches.results.length; i++) {
+      const m = matches.results[i];
+
+      // Check/create business_owners entry
+      const existing = await env.leadgen.prepare(
+        'SELECT token FROM business_owners WHERE business_id = ?'
+      ).bind(m.id).first<{ token: string }>();
+
+      let ownerToken: string;
+      if (existing) {
+        ownerToken = existing.token;
+      } else {
+        ownerToken = generateOwnerToken();
+        await env.leadgen.prepare(
+          'INSERT INTO business_owners (business_id, token) VALUES (?, ?)'
+        ).bind(m.id, ownerToken).run();
+      }
+
+      // Check if site exists in R2
+      const siteKey = `sites/${m.locality_slug}/${m.slug}.json`;
+      const siteObj = await env.sites.head(siteKey);
+
+      const deepLink = `t.me/wizytowka_link_bot?start=${ownerToken}`;
+      let line = `\n${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`;
+      if (siteObj) {
+        line += `\n   🌐 wizytowka.link/${m.locality_slug}/${m.slug}`;
+      }
+      line += `\n   🤖 ${deepLink}`;
+      if (!siteObj) {
+        line += `\n   (strona nie wygenerowana)`;
+      }
+
+      lines.push(line);
+    }
+
+    matchBlock = lines.join('\n');
+  } else {
+    matchBlock = 'Brak firm z tym numerem w bazie';
+  }
 
   // Query sellers with Telegram
   const sellers = await env.leadgen
     .prepare('SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL')
     .all<SellerRow>();
 
-  const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n${matchBlock}`;
+  const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n\n${matchBlock}`;
 
   for (const seller of sellers.results) {
     await sendMessage(env, seller.telegram_chat_id!, msg);
