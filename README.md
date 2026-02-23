@@ -52,6 +52,16 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 
 **Telegram** — codzienny raport ile nowych firm znaleziono, z linkiem do panelu.
 
+## Local dev
+
+```bash
+pnpm install
+pnpm seed        # wipe local D1+R2, run migrations, seed test data
+pnpm build && pnpm preview
+```
+
+Seed tworzy miejscowosc, 4 firmy z wizytowkami, sprzedawce i logi kontaktow. Panel sprzedawcy: `http://localhost:8787/s/test-seller-token-1234?status=all`
+
 ## Stack
 
 - Astro 5 SSR + Cloudflare Workers
@@ -59,4 +69,4 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 - SerpAPI (wyszukiwanie firm na Google Maps)
 - Workers AI (generowanie tresci)
 - Telegram Bot API (powiadomienia)
-- TailwindCSS (stylowanie stron)
+- TailwindCSS 4 + system tematow (8 palet kolorow OKLCH, 3 style wizualne, 3 layouty, dark mode)
