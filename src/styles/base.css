@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* ── Semantic color tokens (mapped from palette CSS vars) ── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  --color-hero: var(--hero);
+  --color-hero-end: var(--hero-end);
+  --color-hero-foreground: var(--hero-foreground);
+  --color-hero-accent: var(--hero-accent);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+}
+
+/* ═══════════════════════════════════════════════
+   VISUAL STYLES — modern / elegant / bold
+   Applied via [data-style] on <html>
+   ═══════════════════════════════════════════════ */
+
+/* ── Modern: clean, subtle shadows, smooth transitions ── */
+[data-style="modern"] {
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-style="modern"] .hero-section {
+  @apply py-28 px-6;
+}
+[data-style="modern"] .hero-title {
+  @apply text-4xl md:text-5xl font-bold tracking-tight;
+}
+[data-style="modern"] .hero-sub {
+  @apply text-xl md:text-2xl font-normal mt-4 opacity-90;
+}
+[data-style="modern"] .cta {
+  @apply inline-block font-semibold px-8 py-3 rounded-lg shadow-md
+         transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+}
+[data-style="modern"] .card {
+  @apply rounded-xl p-6 shadow-sm ring-1 ring-border
+         transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+}
+[data-style="modern"] .section-title {
+  @apply text-3xl font-bold tracking-tight;
+}
+
+/* ── Elegant: serif accents, border details, refined ── */
+[data-style="elegant"] {
+  --font-heading: Georgia, "Times New Roman", serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-style="elegant"] .hero-section {
+  @apply py-24 px-6;
+}
+[data-style="elegant"] .hero-title {
+  @apply text-4xl md:text-5xl font-bold tracking-wide;
+  font-family: var(--font-heading);
+}
+[data-style="elegant"] .hero-sub {
+  @apply text-lg md:text-xl font-normal mt-6 tracking-wide opacity-85;
+}
+[data-style="elegant"] .hero-divider {
+  @apply block w-16 h-0.5 bg-current opacity-30 mx-auto mt-8 mb-6;
+}
+[data-style="elegant"] .cta {
+  @apply inline-block font-semibold px-8 py-3 rounded-md
+         border-2 border-current bg-transparent
+         transition-all duration-300 hover:bg-accent hover:text-accent-foreground hover:border-accent;
+}
+[data-style="elegant"] .card {
+  @apply rounded-md p-6 border-t-2 border-primary
+         transition-all duration-200 hover:shadow-md;
+}
+[data-style="elegant"] .section-title {
+  @apply text-3xl font-bold tracking-wide;
+  font-family: var(--font-heading);
+}
+
+/* ── Bold: expressive, large type, heavy shadows ── */
+[data-style="bold"] {
+  --font-heading: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+[data-style="bold"] .hero-section {
+  @apply min-h-[60vh] flex items-center py-20 px-6;
+}
+[data-style="bold"] .hero-title {
+  @apply text-5xl md:text-6xl font-black tracking-tight leading-tight;
+}
+[data-style="bold"] .hero-sub {
+  @apply text-xl md:text-2xl font-medium mt-6;
+}
+[data-style="bold"] .cta {
+  @apply inline-block font-bold px-10 py-4 rounded-2xl text-lg
+         shadow-2xl transition-all duration-200
+         hover:scale-105 hover:shadow-2xl;
+}
+[data-style="bold"] .card {
+  @apply rounded-2xl p-8 shadow-xl
+         transition-all duration-200 hover:shadow-2xl hover:scale-[1.02];
+}
+[data-style="bold"] .section-title {
+  @apply text-4xl font-black tracking-tight;
+}
+
+/* ── Shared defaults ── */
+.hero-divider { display: none; }
