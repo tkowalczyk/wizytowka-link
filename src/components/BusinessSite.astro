@@ -1,9 +1,10 @@
 ---
 import type { SiteData } from '../types/site';
-import { resolveTheme, getThemeById } from '../lib/themes';
+import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
+import '../styles/base.css';
 
 interface BizData {
   title: string;
@@ -24,10 +25,11 @@ interface Props {
 const { site, biz, slug } = Astro.props;
 
 const category = biz?.category ?? '';
-const themeConfig = site.theme
-  ? { id: site.theme, colors: getThemeById(site.theme)!, layout: resolveTheme(slug, category).layout }
-  : resolveTheme(slug, category);
-const { colors, layout } = themeConfig;
+const resolved = resolveTheme(slug, category);
+const palette = site.theme ? (getPaletteById(site.theme) ?? resolved.palette) : resolved.palette;
+const layout = resolved.layout;
+const style = resolved.style;
+const cssVars = paletteToCSS(palette);
 
 const jsonLd = biz ? JSON.stringify({
   '@context': 'https://schema.org',
@@ -52,13 +54,24 @@ const breadcrumbLd = JSON.stringify({
     { '@type': 'ListItem', position: 3, name: site.seo.title },
   ],
 });
+
+const fontLink = style === 'elegant'
+  ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'
+  : '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">';
 ---
 
 <!DOCTYPE html>
-<html lang="pl" dir="ltr">
+<html lang="pl" dir="ltr" data-style={style}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script is:inline>
+    (function(){
+      var s=localStorage.getItem('theme');
+      if(s==='dark'||(s!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches))
+        document.documentElement.classList.add('dark');
+    })();
+  </script>
   <title>{site.seo.title}</title>
   <meta name="description" content={site.seo.description} />
   <meta name="robots" content="index, follow" />
@@ -71,16 +84,70 @@ const breadcrumbLd = JSON.stringify({
   <meta property="og:locale" content="pl_PL" />
   <meta name="twitter:card" content="summary" />
 
+  <Fragment set:html={fontLink} />
+  <style set:html={cssVars} />
+
   {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
   <script type="application/ld+json" set:html={breadcrumbLd} />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 </head>
 
-<body class="text-gray-900 font-sans antialiased">
+<body class="bg-background text-foreground font-sans antialiased">
 <main>
-{layout === 'centered' ? <CenteredLayout site={site} theme={colors} />
-: layout === 'split' ? <SplitLayout site={site} theme={colors} />
-: <MinimalLayout site={site} theme={colors} />}
+{layout === 'centered' ? <CenteredLayout site={site} />
+: layout === 'split' ? <SplitLayout site={site} />
+: <MinimalLayout site={site} />}
 </main>
+
+<div id="theme-toggle" class="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-card text-card-foreground shadow-lg ring-1 ring-border p-1">
+  <button data-set="light" aria-label="Jasny motyw" class="theme-btn rounded-full p-2 transition-colors hover:bg-muted">
+    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+  </button>
+  <button data-set="system" aria-label="Systemowy motyw" class="theme-btn rounded-full p-2 transition-colors hover:bg-muted">
+    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+  </button>
+  <button data-set="dark" aria-label="Ciemny motyw" class="theme-btn rounded-full p-2 transition-colors hover:bg-muted">
+    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
+</div>
+
+<script is:inline>
+(function(){
+  var root = document.documentElement;
+  var btns = document.querySelectorAll('#theme-toggle .theme-btn');
+  var stored = localStorage.getItem('theme') || 'system';
+
+  function apply(mode) {
+    if (mode === 'dark') {
+      root.classList.add('dark');
+    } else if (mode === 'light') {
+      root.classList.remove('dark');
+    } else {
+      if (matchMedia('(prefers-color-scheme:dark)').matches) {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    }
+    btns.forEach(function(b) {
+      b.classList.toggle('bg-muted', b.dataset.set === mode);
+    });
+  }
+
+  btns.forEach(function(b) {
+    b.addEventListener('click', function() {
+      var mode = b.dataset.set;
+      localStorage.setItem('theme', mode);
+      apply(mode);
+    });
+  });
+
+  matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function() {
+    if ((localStorage.getItem('theme') || 'system') === 'system') apply('system');
+  });
+
+  apply(stored);
+})();
+</script>
 </body>
 </html>
