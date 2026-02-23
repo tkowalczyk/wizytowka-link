@@ -94,9 +94,9 @@ const fontLink = style === 'elegant'
 
 <body class="bg-background text-foreground font-sans antialiased">
 <main>
-{layout === 'centered' ? <CenteredLayout site={site} />
-: layout === 'split' ? <SplitLayout site={site} />
-: <MinimalLayout site={site} />}
+{layout === 'centered' ? <CenteredLayout site={site} category={category} />
+: layout === 'split' ? <SplitLayout site={site} category={category} />
+: <MinimalLayout site={site} category={category} />}
 </main>
 
 <div id="theme-toggle" class="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-card text-card-foreground shadow-lg ring-1 ring-border p-1">

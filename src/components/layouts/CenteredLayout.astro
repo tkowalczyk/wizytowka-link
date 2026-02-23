@@ -1,17 +1,20 @@
 ---
 import type { SiteData } from '../../types/site';
+import CategoryLogo from '../CategoryLogo.astro';
 
 interface Props {
   site: SiteData;
+  category: string;
 }
 
-const { site } = Astro.props;
+const { site, category } = Astro.props;
 ---
 
 <Fragment>
 
   <section class="hero-section bg-gradient-to-br from-hero to-hero-end text-hero-foreground px-4">
     <div class="max-w-3xl mx-auto text-center">
+      <CategoryLogo category={category} class="mx-auto mb-6" />
       <h1 class="hero-title">{site.hero.headline}</h1>
       <p class="hero-sub text-hero-accent">{site.hero.subheadline}</p>
       <span class="hero-divider" aria-hidden="true"></span>
