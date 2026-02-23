@@ -124,6 +124,18 @@ export async function sendMessageWithKeyboard(
   });
 }
 
+export async function sendChatAction(
+  token: string,
+  chatId: string,
+  action: 'typing' | 'upload_photo' | 'upload_document' = 'typing'
+): Promise<void> {
+  await fetch(`${TG_API}${token}/sendChatAction`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, action }),
+  });
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
