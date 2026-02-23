@@ -68,7 +68,8 @@ export interface BusinessInsert {
 export interface SellerRow {
   id: number;
   name: string;
-  telegram_chat_id: string | null;
+  notify_chat_id: string | null;
+  report_chat_id: string | null;
   token: string;
   created_at: string;
 }

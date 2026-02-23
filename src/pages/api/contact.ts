@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
-import { sendMessage, type SellerRow } from '../../lib/telegram';
+import { sendMessage } from '../../lib/telegram';
+import type { SellerRow } from '../../types/business';
 import { generateOwnerToken } from '../../lib/token';
 
 interface ContactBody {
@@ -102,7 +103,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       const siteKey = `sites/${m.locality_slug}/${m.slug}.json`;
       const siteObj = await env.sites.head(siteKey);
 
-      const deepLink = `t.me/wizytowka_link_bot?start=${ownerToken}`;
+      const deepLink = `t.me/wizytowka_klient_bot?start=${ownerToken}`;
       let line = `\n${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`;
       if (siteObj) {
         line += `\n   🌐 wizytowka.link/${m.locality_slug}/${m.slug}`;
@@ -122,13 +123,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   // Query sellers with Telegram
   const sellers = await env.leadgen
-    .prepare('SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL')
+    .prepare('SELECT id, name, notify_chat_id, token FROM sellers WHERE notify_chat_id IS NOT NULL')
     .all<SellerRow>();
 
   const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n\n${matchBlock}`;
 
   for (const seller of sellers.results) {
-    await sendMessage(env, seller.telegram_chat_id!, msg);
+    await sendMessage(env.TG_NOTIFY_BOT_TOKEN, seller.notify_chat_id!, msg);
   }
 
   return json({ ok: true });

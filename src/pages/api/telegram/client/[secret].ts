@@ -5,13 +5,13 @@ import type { SiteData } from '../../../../types/site';
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const env = locals.runtime.env;
 
-  if (params.secret !== env.TG_WEBHOOK_SECRET) {
+  if (params.secret !== env.TG_CLIENT_WEBHOOK_SECRET) {
     return new Response('forbidden', { status: 403 });
   }
 
+  const token = env.TG_CLIENT_BOT_TOKEN;
   const update = await request.json() as TelegramUpdate;
 
-  // --- callback_query: approve/reject draft ---
   if (update.callback_query) {
     const cb = update.callback_query;
     const chatId = String(cb.from.id);
@@ -23,7 +23,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     ).bind(chatId).first<{ business_id: number }>();
 
     if (!owner) {
-      await answerCallback(env, cb.id, 'Brak dostepu');
+      await answerCallback(token, cb.id, 'Brak dostepu');
       return new Response('ok');
     }
 
@@ -31,7 +31,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const bizId = parseInt(bizIdStr);
 
     if (bizId !== owner.business_id) {
-      await answerCallback(env, cb.id, 'Brak dostepu');
+      await answerCallback(token, cb.id, 'Brak dostepu');
       return new Response('ok');
     }
 
@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     if (action === 'approve') {
       const draft = await env.sites.get(draftKey);
       if (!draft) {
-        await answerCallback(env, cb.id, 'Draft wygasl');
+        await answerCallback(token, cb.id, 'Draft wygasl');
         return new Response('ok');
       }
       const body = await draft.text();
@@ -56,20 +56,19 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         httpMetadata: { contentType: 'application/json' },
       });
       await env.sites.delete(draftKey);
-      await answerCallback(env, cb.id, 'Opublikowano!');
-      await sendReply(env, chatId, 'Wizytowka zaktualizowana!');
+      await answerCallback(token, cb.id, 'Opublikowano!');
+      await sendReply(token, chatId, 'Wizytowka zaktualizowana!');
     }
 
     if (action === 'reject') {
       await env.sites.delete(draftKey);
-      await answerCallback(env, cb.id, 'Odrzucono');
-      await sendReply(env, chatId, 'Zmiany odrzucone. Wyslij nowa instrukcje.');
+      await answerCallback(token, cb.id, 'Odrzucono');
+      await sendReply(token, chatId, 'Zmiany odrzucone. Wyslij nowa instrukcje.');
     }
 
     return new Response('ok');
   }
 
-  // --- text messages ---
   if (!update.message?.text) {
     return new Response('ok');
   }
@@ -77,71 +76,49 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const text = update.message.text.trim();
   const chatId = String(update.message.chat.id);
 
+  // /start biz_* — link owner to business
   if (text.startsWith('/start')) {
-    const token = text.split(' ')[1];
+    const bizToken = text.split(' ')[1];
 
-    if (!token) {
-      await sendReply(env, chatId, 'Uzyj linku rejestracyjnego od administratora.');
+    if (!bizToken || !bizToken.startsWith('biz_')) {
+      await sendReply(token, chatId, 'Uzyj linku rejestracyjnego od administratora.');
       return new Response('ok');
     }
 
-    if (token.startsWith('biz_')) {
-      const owner = await env.leadgen.prepare(
-        'SELECT id, business_id, chat_id FROM business_owners WHERE token = ?'
-      ).bind(token).first<{ id: number; business_id: number; chat_id: string }>();
+    const owner = await env.leadgen.prepare(
+      'SELECT id, business_id, chat_id FROM business_owners WHERE token = ?'
+    ).bind(bizToken).first<{ id: number; business_id: number; chat_id: string }>();
 
-      if (!owner) {
-        await sendReply(env, chatId, 'Nieprawidlowy token.');
-        return new Response('ok');
-      }
-
-      if (owner.chat_id && owner.chat_id === chatId) {
-        await sendReply(env, chatId, 'Juz jestes polaczony. Wyslij wiadomosc aby edytowac wizytowke.');
-        return new Response('ok');
-      }
-
-      await env.leadgen.prepare(
-        'UPDATE business_owners SET chat_id = ? WHERE token = ?'
-      ).bind(chatId, token).run();
-
-      const biz = await env.leadgen.prepare(
-        'SELECT title FROM businesses WHERE id = ?'
-      ).bind(owner.business_id).first<{ title: string }>();
-
-      const { escapeHtml } = await import('../../../../lib/telegram');
-      await sendReply(env, chatId,
-        `Polaczono z wizytowka: <b>${escapeHtml(biz?.title ?? '')}</b>\n\n` +
-        'Wyslij wiadomosc aby edytowac, np.:\n' +
-        '- "dodaj usluge: tapicerowanie"\n' +
-        '- "zmien godziny otwarcia na 8-16"\n' +
-        '- "zmien adres na ul. Nowa 5"'
-      );
+    if (!owner) {
+      await sendReply(token, chatId, 'Nieprawidlowy token.');
       return new Response('ok');
     }
 
-    const seller = await env.leadgen.prepare(
-      'SELECT id, telegram_chat_id FROM sellers WHERE token = ?'
-    ).bind(token).first<{ id: number; telegram_chat_id: string | null }>();
-
-    if (!seller) {
-      await sendReply(env, chatId, 'Nieprawidlowy token.');
-      return new Response('ok');
-    }
-
-    if (seller.telegram_chat_id === chatId) {
-      await sendReply(env, chatId, 'Juz jestes zarejestrowany.');
+    if (owner.chat_id && owner.chat_id === chatId) {
+      await sendReply(token, chatId, 'Juz jestes polaczony. Wyslij wiadomosc aby edytowac wizytowke.');
       return new Response('ok');
     }
 
     await env.leadgen.prepare(
-      'UPDATE sellers SET telegram_chat_id = ? WHERE token = ?'
-    ).bind(chatId, token).run();
+      'UPDATE business_owners SET chat_id = ? WHERE token = ?'
+    ).bind(chatId, bizToken).run();
 
-    await sendReply(env, chatId, 'Zarejestrowano! Bedziesz otrzymywac codzienne raporty.');
+    const biz = await env.leadgen.prepare(
+      'SELECT title FROM businesses WHERE id = ?'
+    ).bind(owner.business_id).first<{ title: string }>();
+
+    const { escapeHtml } = await import('../../../../lib/telegram');
+    await sendReply(token, chatId,
+      `Polaczono z wizytowka: <b>${escapeHtml(biz?.title ?? '')}</b>\n\n` +
+      'Wyslij wiadomosc aby edytowac, np.:\n' +
+      '- "dodaj usluge: tapicerowanie"\n' +
+      '- "zmien godziny otwarcia na 8-16"\n' +
+      '- "zmien adres na ul. Nowa 5"'
+    );
     return new Response('ok');
   }
 
-  // --- owner editing flow: non-command message from registered owner ---
+  // Owner editing flow: non-command message from registered owner
   const owner = await env.leadgen.prepare(
     'SELECT business_id FROM business_owners WHERE chat_id = ?'
   ).bind(chatId).first<{ business_id: number }>();
@@ -158,7 +135,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     const key = `sites/${loc!.slug}/${biz!.slug}.json`;
     const obj = await env.sites.get(key);
     if (!obj) {
-      await sendReply(env, chatId, 'Wizytowka jeszcze nie zostala wygenerowana.');
+      await sendReply(token, chatId, 'Wizytowka jeszcze nie zostala wygenerowana.');
       return new Response('ok');
     }
 
@@ -178,7 +155,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       const previewUrl = `https://wizytowka.link/${loc!.slug}/${biz!.slug}?draft=1`;
       const summary = summarizeChanges(currentSite, patched);
 
-      await sendMessageWithKeyboard(env, chatId,
+      await sendMessageWithKeyboard(token, chatId,
         `<b>Proponowane zmiany:</b>\n\n${escapeHtml(summary)}\n\n` +
         `<a href="${previewUrl}">Podglad wizytowki</a>`,
         [[
@@ -189,9 +166,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     } catch (err) {
       const msg = (err as Error).message;
       if (msg.startsWith('GLM-5')) {
-        await sendReply(env, chatId, 'Blad serwera. Sprobuj za chwile.');
+        await sendReply(token, chatId, 'Blad serwera. Sprobuj za chwile.');
       } else {
-        await sendReply(env, chatId, 'Nie udalo sie przetworzyc zmian. Sprobuj ponownie.');
+        await sendReply(token, chatId, 'Nie udalo sie przetworzyc zmian. Sprobuj ponownie.');
       }
     }
 
@@ -201,7 +178,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   return new Response('ok');
 };
 
-async function sendReply(env: Env, chatId: string, text: string): Promise<void> {
+async function sendReply(token: string, chatId: string, text: string): Promise<void> {
   const { sendMessage } = await import('../../../../lib/telegram');
-  await sendMessage(env, chatId, text);
+  await sendMessage(token, chatId, text);
 }

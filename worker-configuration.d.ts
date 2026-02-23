@@ -11,8 +11,12 @@ declare namespace Cloudflare {
 		ASSETS: Fetcher;
 		SERP_API_KEY: string;
 		ZAI_API_KEY: string;
-		TG_BOT_TOKEN: string;
-		TG_WEBHOOK_SECRET: string;
+		TG_CLIENT_BOT_TOKEN: string;
+		TG_CLIENT_WEBHOOK_SECRET: string;
+		TG_NOTIFY_BOT_TOKEN: string;
+		TG_NOTIFY_WEBHOOK_SECRET: string;
+		TG_SELLER_BOT_TOKEN: string;
+		TG_SELLER_WEBHOOK_SECRET: string;
 		TURNSTILE_SITE_KEY: string;
 		TURNSTILE_SECRET_KEY: string;
 	}

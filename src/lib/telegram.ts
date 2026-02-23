@@ -43,13 +43,6 @@ export interface TelegramUpdate {
   callback_query?: TelegramCallbackQuery;
 }
 
-export interface SellerRow {
-  id: number;
-  name: string;
-  telegram_chat_id: string | null;
-  token: string;
-}
-
 export interface DailyReportStats {
   locality_name: string;
   total_businesses: number;
@@ -63,8 +56,13 @@ export interface LeadSummary {
   phone: string | null;
 }
 
+export interface InlineKeyboardButton {
+  text: string;
+  callback_data: string;
+}
+
 export async function sendMessage(
-  env: Env,
+  token: string,
   chatId: string,
   text: string
 ): Promise<TelegramSendMessageResponse> {
@@ -72,7 +70,7 @@ export async function sendMessage(
     ? text.slice(0, MAX_MESSAGE_LENGTH - 3) + '...'
     : text;
 
-  const res = await fetch(`${TG_API}${env.TG_BOT_TOKEN}/sendMessage`, {
+  const res = await fetch(`${TG_API}${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -96,17 +94,12 @@ export async function sendMessage(
   return data;
 }
 
-export interface InlineKeyboardButton {
-  text: string;
-  callback_data: string;
-}
-
 export async function answerCallback(
-  env: Env,
+  token: string,
   callbackId: string,
   text: string
 ): Promise<void> {
-  await fetch(`${TG_API}${env.TG_BOT_TOKEN}/answerCallbackQuery`, {
+  await fetch(`${TG_API}${token}/answerCallbackQuery`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ callback_query_id: callbackId, text }),
@@ -114,12 +107,12 @@ export async function answerCallback(
 }
 
 export async function sendMessageWithKeyboard(
-  env: Env,
+  token: string,
   chatId: string,
   text: string,
   keyboard: InlineKeyboardButton[][]
 ): Promise<void> {
-  await fetch(`${TG_API}${env.TG_BOT_TOKEN}/sendMessage`, {
+  await fetch(`${TG_API}${token}/sendMessage`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -136,7 +129,7 @@ export function escapeHtml(s: string): string {
 }
 
 function formatDailyReport(
-  seller: SellerRow,
+  seller: { token: string },
   stats: DailyReportStats,
   date: string
 ): string {
@@ -166,14 +159,14 @@ function formatDailyReport(
 }
 
 export async function sendDailyReport(
-  env: Env,
-  seller: SellerRow,
+  token: string,
+  seller: { report_chat_id: string | null; token: string },
   stats: DailyReportStats
 ): Promise<void> {
-  if (!seller.telegram_chat_id) return;
+  if (!seller.report_chat_id) return;
 
   const date = new Date().toISOString().slice(0, 10);
   const text = formatDailyReport(seller, stats, date);
 
-  await sendMessage(env, seller.telegram_chat_id, text);
+  await sendMessage(token, seller.report_chat_id, text);
 }

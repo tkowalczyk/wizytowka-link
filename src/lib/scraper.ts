@@ -3,7 +3,8 @@ import { searchCategory } from './scraper-api';
 import { generateUniqueSlug } from './slug';
 import { resolveLocality } from './locality-matcher';
 import { sendDailyReport } from './telegram';
-import type { SellerRow, LeadSummary, DailyReportStats } from './telegram';
+import type { LeadSummary, DailyReportStats } from './telegram';
+import type { SellerRow } from '../types/business';
 
 const CATEGORIES = [
   'firma', 'sklep', 'restauracja', 'hydraulik', 'elektryk',
@@ -112,12 +113,12 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
   };
 
   const sellers = await env.leadgen.prepare(
-    'SELECT id, name, telegram_chat_id, token FROM sellers WHERE telegram_chat_id IS NOT NULL'
+    'SELECT id, name, report_chat_id, token FROM sellers WHERE report_chat_id IS NOT NULL'
   ).all<SellerRow>();
 
   for (const seller of sellers.results) {
     try {
-      await sendDailyReport(env, seller, stats);
+      await sendDailyReport(env.TG_SELLER_BOT_TOKEN, seller, stats);
     } catch (err) {
       console.log(`telegram: failed for seller ${seller.id}: ${err}`);
     }
