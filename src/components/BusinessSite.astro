@@ -75,12 +75,12 @@ const fontLink = style === 'elegant'
   <title>{site.seo.title}</title>
   <meta name="description" content={site.seo.description} />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href={Astro.url.href} />
+  <link rel="canonical" href={`https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`} />
 
   <meta property="og:title" content={site.seo.title} />
   <meta property="og:description" content={site.seo.description} />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content={Astro.url.href} />
+  <meta property="og:url" content={`https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`} />
   <meta property="og:locale" content="pl_PL" />
   <meta name="twitter:card" content="summary" />
 

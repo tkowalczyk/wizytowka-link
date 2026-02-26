@@ -17,16 +17,16 @@
   },
   "dependencies": {
     "@astrojs/cloudflare": "^12.x",
-    "@tailwindcss/vite": "^4.2.0",
-    "astro": "^5.x",
-    "tailwindcss": "^4.2.0"
+    "@tailwindcss/vite": "^4.2.1",
+    "astro": "^5.17.3",
+    "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
-    "@types/node": "^25.2.3",
+    "@types/node": "^25.3.0",
     "playwright": "^1.58.2",
     "tsx": "^4.x",
     "typescript": "^5.x",
-    "wrangler": "^4.67.1"
+    "wrangler": "^4.68.1"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
