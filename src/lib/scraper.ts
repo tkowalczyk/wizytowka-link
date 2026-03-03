@@ -16,10 +16,48 @@ const CATEGORIES = [
 // D1 max 100 bound params; 19 cols × 5 = 95
 const BATCH_SIZE = 5;
 
-export async function scrapeBusinesses(env: Env): Promise<void> {
-  const locality = await getNextLocality(env.leadgen);
-  if (!locality) return;
+const MAX_LOCALITY_ATTEMPTS = 5;
 
+export async function scrapeBusinesses(env: Env): Promise<void> {
+  let reportLocality: Locality | null = null;
+  let totalApiCalls = 0;
+
+  for (let attempt = 0; attempt < MAX_LOCALITY_ATTEMPTS; attempt++) {
+    const locality = await getNextLocality(env.leadgen);
+    if (!locality) break;
+
+    const { newLeads, apiCalls, quotaExhausted } = await scrapeLocality(env, locality);
+    totalApiCalls += apiCalls;
+    await markSearched(env.leadgen, locality.id);
+
+    if (newLeads > 0) {
+      reportLocality = locality;
+      break;
+    }
+
+    console.log(`[scraper] ${locality.name}: 0 new leads, skipping (attempt ${attempt + 1}/${MAX_LOCALITY_ATTEMPTS})`);
+
+    if (quotaExhausted) {
+      console.log(`[scraper] quota exhausted — stopping after ${attempt + 1} attempts`);
+      break;
+    }
+  }
+
+  if (!reportLocality) {
+    console.log(`[scraper] no new leads found in ${MAX_LOCALITY_ATTEMPTS} attempts, ${totalApiCalls} API calls`);
+    return;
+  }
+
+  await sendReport(env, reportLocality);
+}
+
+interface ScrapeResult {
+  newLeads: number;
+  apiCalls: number;
+  quotaExhausted: boolean;
+}
+
+async function scrapeLocality(env: Env, locality: Locality): Promise<ScrapeResult> {
   const seen = new Set<string>();
   const businesses: BusinessInsert[] = [];
   let quotaExhausted = false;
@@ -82,26 +120,31 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
   console.log(`[scraper] ${locality.name}: ${businesses.length} biz, ${apiCalls} API calls, ${failedCategories} failed cats`);
 
   if (quotaExhausted) {
-    console.log(`[scraper] skipping markSearched — quota exhausted`);
+    console.log(`[scraper] marked searched despite quota exhaustion`);
   } else if (failedCategories > 0) {
-    console.log(`[scraper] markSearched despite ${failedCategories} failed categories — non-quota errors`);
-    await markSearched(env.leadgen, locality.id);
-  } else {
-    await markSearched(env.leadgen, locality.id);
+    console.log(`[scraper] marked searched despite ${failedCategories} failed categories`);
   }
 
-  // --- Telegram daily report ---
+  const leadsResult = await env.leadgen.prepare(
+    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL AND created_at >= date('now')"
+  ).bind(locality.id).first<{ cnt: number }>();
+
+  return { newLeads: leadsResult?.cnt ?? 0, apiCalls, quotaExhausted };
+}
+
+async function sendReport(env: Env, locality: Locality): Promise<void> {
   const totalResult = await env.leadgen.prepare(
-    'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ?'
+    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND created_at >= date('now')"
   ).bind(locality.id).first<{ cnt: number }>();
 
   const leadsResult = await env.leadgen.prepare(
-    'SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL'
+    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL AND created_at >= date('now')"
   ).bind(locality.id).first<{ cnt: number }>();
 
   const topLeads = await env.leadgen.prepare(`
     SELECT title, category, phone FROM businesses
     WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL
+      AND created_at >= date('now')
     ORDER BY id DESC LIMIT 5
   `).bind(locality.id).all<LeadSummary>();
 
