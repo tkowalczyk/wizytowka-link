@@ -19,23 +19,26 @@ const BATCH_SIZE = 5;
 const MAX_LOCALITY_ATTEMPTS = 5;
 
 export async function scrapeBusinesses(env: Env): Promise<void> {
-  let reportLocality: Locality | null = null;
+  const scrapedNames: string[] = [];
   let totalApiCalls = 0;
+  let foundLeads = false;
 
   for (let attempt = 0; attempt < MAX_LOCALITY_ATTEMPTS; attempt++) {
     const locality = await getNextLocality(env.leadgen);
     if (!locality) break;
 
-    const { newLeads, apiCalls, quotaExhausted } = await scrapeLocality(env, locality);
+    const { apiCalls, quotaExhausted } = await scrapeLocality(env, locality);
     totalApiCalls += apiCalls;
     await markSearched(env.leadgen, locality.id);
+    scrapedNames.push(locality.name);
 
-    if (newLeads > 0) {
-      reportLocality = locality;
+    const todayLeads = await countTodayLeads(env.leadgen);
+    if (todayLeads > 0) {
+      foundLeads = true;
       break;
     }
 
-    console.log(`[scraper] ${locality.name}: 0 new leads, skipping (attempt ${attempt + 1}/${MAX_LOCALITY_ATTEMPTS})`);
+    console.log(`[scraper] ${locality.name}: 0 new leads globally, trying next (${attempt + 1}/${MAX_LOCALITY_ATTEMPTS})`);
 
     if (quotaExhausted) {
       console.log(`[scraper] quota exhausted — stopping after ${attempt + 1} attempts`);
@@ -43,16 +46,15 @@ export async function scrapeBusinesses(env: Env): Promise<void> {
     }
   }
 
-  if (!reportLocality) {
-    console.log(`[scraper] no new leads found in ${MAX_LOCALITY_ATTEMPTS} attempts, ${totalApiCalls} API calls`);
+  if (scrapedNames.length === 0) {
+    console.log('[scraper] no localities to scrape');
     return;
   }
 
-  await sendReport(env, reportLocality);
+  await sendReport(env, scrapedNames);
 }
 
 interface ScrapeResult {
-  newLeads: number;
   apiCalls: number;
   quotaExhausted: boolean;
 }
@@ -125,33 +127,34 @@ async function scrapeLocality(env: Env, locality: Locality): Promise<ScrapeResul
     console.log(`[scraper] marked searched despite ${failedCategories} failed categories`);
   }
 
-  const leadsResult = await env.leadgen.prepare(
-    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL AND created_at >= date('now')"
-  ).bind(locality.id).first<{ cnt: number }>();
-
-  return { newLeads: leadsResult?.cnt ?? 0, apiCalls, quotaExhausted };
+  return { apiCalls, quotaExhausted };
 }
 
-async function sendReport(env: Env, locality: Locality): Promise<void> {
-  const totalResult = await env.leadgen.prepare(
-    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND created_at >= date('now')"
-  ).bind(locality.id).first<{ cnt: number }>();
+async function countTodayLeads(db: D1Database): Promise<number> {
+  const r = await db.prepare(
+    "SELECT COUNT(*) as cnt FROM businesses WHERE website IS NULL AND phone IS NOT NULL AND created_at >= date('now')"
+  ).first<{ cnt: number }>();
+  return r?.cnt ?? 0;
+}
 
-  const leadsResult = await env.leadgen.prepare(
-    "SELECT COUNT(*) as cnt FROM businesses WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL AND created_at >= date('now')"
-  ).bind(locality.id).first<{ cnt: number }>();
+async function sendReport(env: Env, scrapedNames: string[]): Promise<void> {
+  const totalResult = await env.leadgen.prepare(
+    "SELECT COUNT(*) as cnt FROM businesses WHERE created_at >= date('now')"
+  ).first<{ cnt: number }>();
+
+  const newLeads = await countTodayLeads(env.leadgen);
 
   const topLeads = await env.leadgen.prepare(`
     SELECT title, category, phone FROM businesses
-    WHERE locality_id = ? AND website IS NULL AND phone IS NOT NULL
+    WHERE website IS NULL AND phone IS NOT NULL
       AND created_at >= date('now')
     ORDER BY id DESC LIMIT 5
-  `).bind(locality.id).all<LeadSummary>();
+  `).all<LeadSummary>();
 
   const stats: DailyReportStats = {
-    locality_name: locality.name,
+    locality_name: scrapedNames.join(', '),
     total_businesses: totalResult?.cnt ?? 0,
-    new_leads: leadsResult?.cnt ?? 0,
+    new_leads: newLeads,
     top_leads: topLeads.results,
   };
 
