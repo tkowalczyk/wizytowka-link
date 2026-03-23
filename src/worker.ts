@@ -7,6 +7,11 @@ export function createExports(manifest: SSRManifest) {
   return {
     default: {
       async fetch(request, env: Env, ctx: ExecutionContext) {
+        const url = new URL(request.url);
+        if (url.protocol === 'http:') {
+          url.protocol = 'https:';
+          return Response.redirect(url.toString(), 301);
+        }
         // @ts-expect-error Astro vs CF workers Headers type mismatch
         return handle(manifest, app, request, env, ctx);
       },
