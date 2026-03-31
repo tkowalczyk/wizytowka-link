@@ -1,6 +1,6 @@
 /**
  * D1 seed helpers for integration tests.
- * SCHEMA_SQL represents the final state after all migrations (0001-0006).
+ * SCHEMA_SQL represents the final state after all migrations (0001-0007).
  * SEED_SQL populates a minimal dataset covering all tables + relationships.
  */
 
@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS businesses (
   operating_hours TEXT,
   thumbnail_url  TEXT,
   unclaimed      INTEGER DEFAULT 0,
+  palette_override TEXT,
+  layout_override  TEXT CHECK (layout_override IN ('centered', 'split', 'minimal')),
+  style_override   TEXT CHECK (style_override IN ('modern', 'elegant', 'bold')),
   UNIQUE(slug, locality_id)
 );
 

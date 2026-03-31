@@ -24,11 +24,22 @@ export interface SiteSeo {
   description: string;
 }
 
-export interface SiteData {
+export interface SiteContent {
   hero: SiteHero;
   about: SiteAbout;
   services: SiteService[];
   contact: SiteContact;
   seo: SiteSeo;
+}
+
+export interface SiteData extends SiteContent {
   theme?: string;
+  layout?: string;
+  style?: string;
+}
+
+export interface PresentationOverrides {
+  paletteId?: string;
+  layout?: import('../lib/themes').LayoutVariant;
+  style?: import('../lib/themes').StyleVariant;
 }

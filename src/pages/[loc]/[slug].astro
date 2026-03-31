@@ -1,6 +1,6 @@
 ---
 import BusinessSite from '../../components/BusinessSite.astro';
-import type { SiteData } from '../../types/site';
+import { getSite } from '../../lib/site-store';
 
 const { loc, slug } = Astro.params;
 
@@ -10,15 +10,9 @@ const r2 = Astro.locals.runtime.env.sites as R2Bucket;
 const db = Astro.locals.runtime.env.leadgen as D1Database;
 
 const isDraft = Astro.url.searchParams.get('draft') === '1';
-const r2Key = isDraft
-  ? `sites/draft/${loc}/${slug}.json`
-  : `sites/${loc}/${slug}.json`;
+const site = await getSite(r2, isDraft ? 'draft' : 'live', loc, slug);
 
-const obj = await r2.get(r2Key);
-
-if (!obj) return new Response('Not Found', { status: 404 });
-
-const site = (await obj.json()) as SiteData;
+if (!site) return new Response('Not Found', { status: 404 });
 
 const biz = await db.prepare(`
   SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating

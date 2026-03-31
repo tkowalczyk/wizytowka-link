@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import type { TelegramUpdate } from '../../../../lib/telegram';
-import type { SiteData } from '../../../../types/site';
+import { getSite, putSite, promoteDraft, deleteSite } from '../../../../lib/site-store';
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
   const env = locals.runtime.env;
@@ -42,26 +42,18 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       'SELECT slug FROM localities WHERE id = ?'
     ).bind(biz!.locality_id).first<{ slug: string }>();
 
-    const draftKey = `sites/draft/${loc!.slug}/${biz!.slug}.json`;
-    const prodKey = `sites/${loc!.slug}/${biz!.slug}.json`;
-
     if (action === 'approve') {
-      const draft = await env.sites.get(draftKey);
-      if (!draft) {
+      const ok = await promoteDraft(env.sites, loc!.slug, biz!.slug);
+      if (!ok) {
         await answerCallback(token, cb.id, 'Draft wygasl');
         return new Response('ok');
       }
-      const body = await draft.text();
-      await env.sites.put(prodKey, body, {
-        httpMetadata: { contentType: 'application/json' },
-      });
-      await env.sites.delete(draftKey);
       await answerCallback(token, cb.id, 'Opublikowano!');
       await sendReply(token, chatId, 'Wizytowka zaktualizowana!');
     }
 
     if (action === 'reject') {
-      await env.sites.delete(draftKey);
+      await deleteSite(env.sites, 'draft', loc!.slug, biz!.slug);
       await answerCallback(token, cb.id, 'Odrzucono');
       await sendReply(token, chatId, 'Zmiany odrzucone. Wyslij nowa instrukcje.');
     }
@@ -132,27 +124,23 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       'SELECT slug FROM localities WHERE id = ?'
     ).bind(biz!.locality_id).first<{ slug: string }>();
 
-    const key = `sites/${loc!.slug}/${biz!.slug}.json`;
-    const obj = await env.sites.get(key);
-    if (!obj) {
+    const currentSite = await getSite(env.sites, 'live', loc!.slug, biz!.slug);
+    if (!currentSite) {
       await sendReply(token, chatId, 'Wizytowka jeszcze nie zostala wygenerowana.');
       return new Response('ok');
     }
 
-    const currentSite = await obj.json() as SiteData;
-
     try {
-      const { patchSiteData, summarizeChanges } = await import('../../../../lib/editor');
+      const { createGLM5, editContent, summarizeChanges } = await import('../../../../lib/site-content');
       const { escapeHtml, sendMessageWithKeyboard, sendChatAction } = await import('../../../../lib/telegram');
 
       await sendChatAction(token, chatId);
 
-      const patched = await patchSiteData(env, currentSite, text);
+      const llm = createGLM5(env.ZAI_API_KEY);
+      const patched = await editContent(llm, currentSite, text);
 
-      const draftKey = `sites/draft/${loc!.slug}/${biz!.slug}.json`;
-      await env.sites.put(draftKey, JSON.stringify(patched), {
-        httpMetadata: { contentType: 'application/json' },
-      });
+      const patchedSiteData = { ...currentSite, ...patched };
+      await putSite(env.sites, 'draft', loc!.slug, biz!.slug, patchedSiteData);
 
       const previewUrl = `https://wizytowka.link/${loc!.slug}/${biz!.slug}?draft=1`;
       const summary = summarizeChanges(currentSite, patched);

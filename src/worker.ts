@@ -30,7 +30,7 @@ export function createExports(manifest: SSRManifest) {
               break;
             }
             case '*/5 * * * *': {
-              const { generateSites } = await import('./lib/generator');
+              const { generateSites } = await import('./lib/generate-sites');
               await generateSites(env);
               break;
             }

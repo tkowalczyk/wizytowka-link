@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { sendMessage } from '../../lib/telegram';
 import type { SellerRow } from '../../types/business';
 import { generateOwnerToken } from '../../lib/token';
+import { siteKey } from '../../lib/site-store';
 
 interface ContactBody {
   phone: string;
@@ -100,8 +101,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
 
       // Check if site exists in R2
-      const siteKey = `sites/${m.locality_slug}/${m.slug}.json`;
-      const siteObj = await env.sites.head(siteKey);
+      const siteR2Key = siteKey('live', m.locality_slug, m.slug);
+      const siteObj = await env.sites.head(siteR2Key);
 
       const deepLink = `t.me/wizytowka_klient_bot?start=${ownerToken}`;
       let line = `\n${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`;
