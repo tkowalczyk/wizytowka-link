@@ -10,6 +10,7 @@ import type { BusinessInsert, Locality, SellerRow } from '../../types/business';
 import type { SerpApiLocalResult, SerpApiMapsResponse } from '../../types/serpapi';
 import type { DiscoveryDeps, DiscoveryStats, LocalityStats, SearchPort, NotifyPort } from './ports';
 import { slugify } from '../slug';
+import { normalizePhone } from '../phone';
 import { sendDailyReport } from '../telegram';
 import type { LeadSummary, DailyReportStats } from '../telegram';
 
@@ -297,7 +298,7 @@ function toBusiness(r: SerpApiLocalResult, slug: string, localityId: number, cat
   return {
     title: r.title,
     slug,
-    phone: r.phone ?? null,
+    phone: r.phone ? normalizePhone(r.phone) : null,
     address: r.address ?? null,
     website: r.website ?? null,
     category,

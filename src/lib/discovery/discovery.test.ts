@@ -217,6 +217,38 @@ describe('discovery: runDiscovery', () => {
     expect(stats.totalNewLeads).toBeGreaterThan(0);
   });
 
+  it('normalizes phone at insert time', async () => {
+    const result = fakeResult({
+      place_id: 'place_phone_norm',
+      phone: '500 600 700',
+    });
+    const deps = makeDeps({ searchApi: staticSearch([result]) });
+
+    await runDiscovery(deps);
+
+    const row = await env.leadgen
+      .prepare('SELECT phone FROM businesses WHERE place_id = ?')
+      .bind('place_phone_norm')
+      .first<{ phone: string }>();
+    expect(row!.phone).toBe('+48500600700');
+  });
+
+  it('stores null for invalid phone', async () => {
+    const result = fakeResult({
+      place_id: 'place_bad_phone',
+      phone: '12345',
+    });
+    const deps = makeDeps({ searchApi: staticSearch([result]) });
+
+    await runDiscovery(deps);
+
+    const row = await env.leadgen
+      .prepare('SELECT phone FROM businesses WHERE place_id = ?')
+      .bind('place_bad_phone')
+      .first<{ phone: string | null }>();
+    expect(row!.phone).toBeNull();
+  });
+
   it('report: NotifyPort.reportToSellers called with correct stats', async () => {
     const result = fakeResult({ place_id: 'place_report_test' });
     let reportedStats: unknown = null;

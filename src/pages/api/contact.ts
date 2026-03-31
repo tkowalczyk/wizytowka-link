@@ -1,8 +1,9 @@
 import type { APIRoute } from 'astro';
 import { sendMessage } from '../../lib/telegram';
 import type { SellerRow } from '../../types/business';
-import { generateOwnerToken } from '../../lib/token';
 import { siteKey } from '../../lib/site-store';
+import { normalizePhone } from '../../lib/phone';
+import { Leads } from '../../lib/leads';
 
 interface ContactBody {
   phone: string;
@@ -14,28 +15,11 @@ interface TurnstileResponse {
   'error-codes'?: string[];
 }
 
-interface MatchRow {
-  id: number;
-  title: string;
-  category: string;
-  slug: string;
-  locality_name: string;
-  locality_slug: string;
-}
-
 function json(data: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
-}
-
-function normalizePhone(raw: string): string | null {
-  const stripped = raw.replace(/\s+/g, '');
-  if (/^\+48\d{9}$/.test(stripped)) return stripped;
-  if (/^\d{9}$/.test(stripped)) return `+48${stripped}`;
-  if (/^48\d{9}$/.test(stripped)) return `+${stripped}`;
-  return null;
 }
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -68,37 +52,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'weryfikacja nieudana' }, 403);
   }
 
-  // Match businesses by phone
-  const matches = await env.leadgen.prepare(`
-    SELECT b.id, b.title, b.category, b.slug, l.name as locality_name, l.slug as locality_slug
-    FROM businesses b
-    JOIN localities l ON b.locality_id = l.id
-    WHERE REPLACE(REPLACE(REPLACE(b.phone, ' ', ''), '-', ''), '+48', '') = ?
-  `).bind(phone.replace('+48', '')).all<MatchRow>();
+  const leads = new Leads(env.leadgen);
+  const matches = await leads.matchByPhone(phone);
 
   let matchBlock: string;
 
-  if (matches.results.length > 0) {
+  if (matches.length > 0) {
     const lines: string[] = [];
-    lines.push(`Pasujace firmy: ${matches.results.length}`);
+    lines.push(`Pasujace firmy: ${matches.length}`);
 
-    for (let i = 0; i < matches.results.length; i++) {
-      const m = matches.results[i];
-
-      // Check/create business_owners entry
-      const existing = await env.leadgen.prepare(
-        'SELECT token FROM business_owners WHERE business_id = ?'
-      ).bind(m.id).first<{ token: string }>();
-
-      let ownerToken: string;
-      if (existing) {
-        ownerToken = existing.token;
-      } else {
-        ownerToken = generateOwnerToken();
-        await env.leadgen.prepare(
-          'INSERT INTO business_owners (business_id, token) VALUES (?, ?)'
-        ).bind(m.id, ownerToken).run();
-      }
+    for (let i = 0; i < matches.length; i++) {
+      const m = matches[i];
+      const ownerToken = await leads.ensureOwnerToken(m.id);
 
       // Check if site exists in R2
       const siteR2Key = siteKey('live', m.locality_slug, m.slug);
