@@ -30,27 +30,36 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 ```
    Co godzine              Codziennie o 8:00         Co 5 minut
 ┌─────────────┐       ┌──────────────────┐      ┌─────────────────┐
-│  Geocoder   │──────▶│    Scraper       │─────▶│   Generator     │
+│  Geocoder   │──────▶│   Discovery      │─────▶│   Generator     │
 │ (GPS miast) │       │ (firmy z Maps)   │      │ (strony z AI)   │
 └─────────────┘       └───────┬──────────┘      └────────┬────────┘
                               │                          │
                               ▼                          ▼
                      ┌────────────────┐        ┌─────────────────┐
                      │   Telegram     │        │  wizytowka.link │
-                     │  (powiadomienie│        │  /miasto/firma   │
-                     │  do sprzedawcy)│        │  (strona firmy)  │
-                     └────────────────┘        └─────────────────┘
+                     │  (3 boty:      │        │  /miasto/firma   │
+                     │  seller/notify/│        │  (strona firmy)  │
+                     │  client)       │        └─────────────────┘
+                     └────────────────┘
+                              │
+                     ┌────────────────┐
+                     │   Cron Log     │
+                     │  (historia     │
+                     │  uruchomien)   │
+                     └────────────────┘
 ```
 
-**Geocoder** — co godzine nadaje wspolrzedne GPS kolejnym miejscowosciom z bazy ~95 tysiecy polskich miejscowosci (rejestr TERYT).
+**Geocoder** — co godzine nadaje wspolrzedne GPS kolejnym miejscowosciom z bazy ~95 tysiecy polskich miejscowosci (rejestr TERYT). Przy bledach stosuje exponential backoff zamiast permanentnego oznaczania jako failed.
 
-**Scraper** — codziennie rano przeszukuje nastepna miejscowosc w 18 kategoriach (hydraulik, fryzjer, dentysta, piekarnia...). Zapisuje firmy ktore maja telefon ale nie maja strony www.
+**Discovery** — codziennie rano przeszukuje nastepna miejscowosc w 18 kategoriach (hydraulik, fryzjer, dentysta, piekarnia...). Zapisuje firmy ktore maja telefon ale nie maja strony www. Port-based DI umozliwia testowanie bez SerpAPI.
 
 **Generator** — co 5 minut bierze nowe firmy i za pomoca AI generuje tresc strony wizytowkowej. Strona jest natychmiast dostepna pod adresem `wizytowka.link/{miasto}/{firma}`.
 
 **Panel sprzedawcy** — lista leadow z telefonami, statusami kontaktu i komentarzami. Dostepny przez prywatny link.
 
-**Telegram** — codzienny raport ile nowych firm znaleziono, z linkiem do panelu.
+**Telegram** — 3 osobne boty: seller (rejestracja + raporty), notify (powiadomienia o nowych leadach), client (edycja wizytowek przez wlascicieli firm). Codzienny raport zawiera statystyki discovery + stan zdrowia cronow.
+
+**Cron Log** — kazde uruchomienie crona jest rejestrowane w D1 (start/complete/fail + metryki). Dostepne przez API (`/api/cron-log`) i wlaczone w raport Telegramowy.
 
 ## Local dev
 
@@ -58,9 +67,10 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 pnpm install
 pnpm seed        # wipe local D1+R2, run migrations, seed test data
 pnpm build && pnpm preview
+pnpm test        # run 150+ tests (vitest + cloudflare pool)
 ```
 
-Seed tworzy miejscowosc, 4 firmy z wizytowkami, sprzedawce i logi kontaktow. Panel sprzedawcy: `http://localhost:8787/s/test-seller-token-1234?status=all`
+Seed tworzy miejscowosc, 6 firm z wizytowkami, 2 sprzedawcow i logi kontaktow. Panel sprzedawcy: `http://localhost:8787/s/seller_jan_token?status=all`
 
 ## Stack
 
@@ -68,5 +78,6 @@ Seed tworzy miejscowosc, 4 firmy z wizytowkami, sprzedawce i logi kontaktow. Pan
 - D1 (baza danych), R2 (pliki stron)
 - SerpAPI (wyszukiwanie firm na Google Maps)
 - Workers AI (generowanie tresci)
-- Telegram Bot API (powiadomienia)
+- Telegram Bot API (3 boty: seller/notify/client)
 - TailwindCSS 4 + system tematow (8 palet kolorow OKLCH, 3 style wizualne, 3 layouty, dark mode)
+- Vitest + @cloudflare/vitest-pool-workers (150+ testow)
