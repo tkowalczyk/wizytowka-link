@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb } from '../../test/seed';
-import { startRun, completeRun, failRun, type RunResult } from './cron-log';
+import { startRun, completeRun, failRun, getCronSummary, type RunResult } from './cron-log';
 
 interface CronLogRow {
   id: number;
@@ -83,5 +83,50 @@ describe('cron-log', () => {
       .first<{ meta: string }>();
 
     expect(JSON.parse(row!.meta)).toEqual({ apiCalls: 12, quotaExhausted: false });
+  });
+});
+
+describe('getCronSummary', () => {
+  it('returns empty array when no runs exist', async () => {
+    const summary = await getCronSummary(env.leadgen);
+    expect(summary).toEqual([]);
+  });
+
+  it('aggregates runs by cron_pattern for last 24h', async () => {
+    const id1 = await startRun(env.leadgen, '0 * * * *');
+    await completeRun(env.leadgen, id1, { processed: 10, failed: 1 });
+
+    const id2 = await startRun(env.leadgen, '0 * * * *');
+    await completeRun(env.leadgen, id2, { processed: 20, failed: 3 });
+
+    const id3 = await startRun(env.leadgen, '0 8 * * *');
+    await failRun(env.leadgen, id3, new Error('boom'));
+
+    const summary = await getCronSummary(env.leadgen);
+
+    expect(summary).toHaveLength(2);
+
+    const geocoder = summary.find(s => s.cron_pattern === '0 * * * *')!;
+    expect(geocoder.total_runs).toBe(2);
+    expect(geocoder.completed).toBe(2);
+    expect(geocoder.failed).toBe(0);
+    expect(geocoder.total_processed).toBe(30);
+    expect(geocoder.total_failed_items).toBe(4);
+
+    const discovery = summary.find(s => s.cron_pattern === '0 8 * * *')!;
+    expect(discovery.total_runs).toBe(1);
+    expect(discovery.failed).toBe(1);
+  });
+
+  it('excludes runs older than 24h', async () => {
+    // Insert a run with started_at in the past
+    await env.leadgen
+      .prepare(
+        "INSERT INTO cron_log (cron_pattern, started_at, status, items_processed) VALUES ('0 * * * *', datetime('now', '-2 days'), 'completed', 50)"
+      )
+      .run();
+
+    const summary = await getCronSummary(env.leadgen);
+    expect(summary).toEqual([]);
   });
 });

@@ -1,3 +1,5 @@
+import type { CronSummaryRow } from './cron-log';
+
 const TG_API = 'https://api.telegram.org/bot';
 const MAX_MESSAGE_LENGTH = 4096;
 const MAX_TOP_LEADS = 5;
@@ -48,6 +50,7 @@ export interface DailyReportStats {
   total_businesses: number;
   new_leads: number;
   top_leads: LeadSummary[];
+  cronSection?: string;
 }
 
 export interface LeadSummary {
@@ -140,6 +143,25 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+export function formatCronSection(
+  stats: CronSummaryRow[],
+  labels: Record<string, string>
+): string {
+  if (!stats.length) return '';
+
+  const lines = stats.map(s => {
+    const label = labels[s.cron_pattern] ?? s.cron_pattern;
+    const icon = s.failed > 0 ? '\u274C' : '\u2705';
+    const parts = [`${icon} <b>${escapeHtml(label)}</b>: ${s.total_runs} uruchomien`];
+    if (s.total_processed > 0) parts.push(`${s.total_processed} przetworzonych`);
+    if (s.total_failed_items > 0) parts.push(`${s.total_failed_items} bledow pozycji`);
+    if (s.failed > 0) parts.push(`${s.failed} blad${s.failed > 1 ? 'ow' : ''}`);
+    return parts.join(', ');
+  });
+
+  return ['', '<b>Stan cron (24h):</b>', ...lines].join('\n');
+}
+
 function formatDailyReport(
   seller: { token: string },
   stats: DailyReportStats,
@@ -166,6 +188,7 @@ function formatDailyReport(
     stats.new_leads > 0 ? '<b>Top leady:</b>' : '',
     leadsBlock,
     moreLine,
+    stats.cronSection ?? '',
     `<a href="https://wizytowka.link/s/${seller.token}">Otworz panel \u2192</a>`,
   ].filter(Boolean).join('\n');
 }

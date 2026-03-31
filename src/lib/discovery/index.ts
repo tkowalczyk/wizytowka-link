@@ -11,8 +11,9 @@ import type { SerpApiLocalResult, SerpApiMapsResponse } from '../../types/serpap
 import type { DiscoveryDeps, DiscoveryStats, LocalityStats, SearchPort, NotifyPort } from './ports';
 import { slugify } from '../slug';
 import { normalizePhone } from '../phone';
-import { sendDailyReport } from '../telegram';
+import { sendDailyReport, formatCronSection } from '../telegram';
 import type { LeadSummary, DailyReportStats } from '../telegram';
+import { getCronSummary } from '../cron-log';
 
 const BATCH_SIZE = 5;
 const MAX_LOCALITY_ATTEMPTS = 5;
@@ -65,11 +66,19 @@ function createTelegramNotify(env: Env): NotifyPort {
         ORDER BY id DESC LIMIT 5
       `).all<LeadSummary>();
 
+      const cronStats = await getCronSummary(env.leadgen);
+      const cronSection = formatCronSection(cronStats, {
+        '0 * * * *': 'Geocoder',
+        '0 8 * * *': 'Discovery',
+        '*/5 * * * *': 'Generator',
+      });
+
       const reportStats: DailyReportStats = {
         locality_name: stats.localities.map(l => l.name).join(', '),
         total_businesses: totalResult?.cnt ?? 0,
         new_leads: newLeads,
         top_leads: topLeads.results,
+        cronSection,
       };
 
       const sellers = await env.leadgen.prepare(

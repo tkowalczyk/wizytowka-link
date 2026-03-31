@@ -28,6 +28,34 @@ export async function completeRun(db: D1Database, runId: number, result: RunResu
     .run();
 }
 
+export interface CronSummaryRow {
+  cron_pattern: string;
+  total_runs: number;
+  completed: number;
+  failed: number;
+  total_processed: number;
+  total_failed_items: number;
+}
+
+export async function getCronSummary(db: D1Database): Promise<CronSummaryRow[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT
+         cron_pattern,
+         COUNT(*) as total_runs,
+         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+         SUM(items_processed) as total_processed,
+         SUM(items_failed) as total_failed_items
+       FROM cron_log
+       WHERE started_at >= datetime('now', '-1 day')
+       GROUP BY cron_pattern
+       ORDER BY cron_pattern`
+    )
+    .all<CronSummaryRow>();
+  return results;
+}
+
 export async function failRun(db: D1Database, runId: number, err: unknown): Promise<void> {
   const message = err instanceof Error ? err.message : String(err);
   await db
