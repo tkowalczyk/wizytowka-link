@@ -3,6 +3,7 @@ import { putSite } from './site-store';
 import { resolveFullTheme } from './presentation';
 import { getOverrides } from './presentation';
 import type { SiteData } from '../types/site';
+import type { RunResult } from './cron-log';
 
 interface BusinessRow {
   id: number;
@@ -16,7 +17,7 @@ interface BusinessRow {
   loc_slug: string;
 }
 
-export async function generateSites(env: Env, limit = 1): Promise<void> {
+export async function generateSites(env: Env, limit = 1): Promise<RunResult> {
   const { results } = await env.leadgen.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
     FROM businesses b
@@ -25,9 +26,11 @@ export async function generateSites(env: Env, limit = 1): Promise<void> {
     LIMIT ?
   `).bind(limit).all<BusinessRow>();
 
-  if (!results?.length) return;
+  if (!results?.length) return { processed: 0, failed: 0 };
 
   const llm = createGLM5(env.ZAI_API_KEY);
+  let processed = 0;
+  let failed = 0;
 
   for (const biz of results) {
     try {
@@ -49,8 +52,12 @@ export async function generateSites(env: Env, limit = 1): Promise<void> {
       ).bind(biz.id).run();
 
       console.log(`generated: sites/${biz.loc_slug}/${biz.slug}.json`);
+      processed++;
     } catch (err) {
       console.error(`fail biz ${biz.id}: ${(err as Error).message}`);
+      failed++;
     }
   }
+
+  return { processed, failed };
 }

@@ -1,6 +1,6 @@
 /**
  * D1 seed helpers for integration tests.
- * SCHEMA_SQL represents the final state after all migrations (0001-0007).
+ * SCHEMA_SQL represents the final state after all migrations (0001-0008).
  * SEED_SQL populates a minimal dataset covering all tables + relationships.
  */
 
@@ -29,8 +29,24 @@ CREATE TABLE IF NOT EXISTS localities (
   nominatim_type TEXT,
   place_rank  INTEGER,
   address_type TEXT,
-  bbox        TEXT
+  bbox        TEXT,
+  geocode_retry_after TEXT,
+  geocode_fail_count INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS cron_log (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  cron_pattern    TEXT NOT NULL,
+  started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at     TEXT,
+  items_processed INTEGER DEFAULT 0,
+  items_failed    INTEGER DEFAULT 0,
+  status          TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
+  error           TEXT,
+  meta            TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_cron_log_pattern ON cron_log(cron_pattern, started_at DESC);
 
 CREATE TABLE IF NOT EXISTS businesses (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,6 +163,7 @@ export async function seedTestData(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   const drops = [
+    'DROP TABLE IF EXISTS cron_log',
     'DROP TABLE IF EXISTS call_log',
     'DROP TABLE IF EXISTS business_owners',
     'DROP TABLE IF EXISTS businesses',
