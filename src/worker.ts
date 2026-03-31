@@ -25,8 +25,8 @@ export function createExports(manifest: SSRManifest) {
               break;
             }
             case '0 8 * * *': {
-              const { scrapeBusinesses } = await import('./lib/scraper');
-              await scrapeBusinesses(env);
+              const { discoverBusinesses } = await import('./lib/discovery');
+              await discoverBusinesses(env);
               break;
             }
             case '*/5 * * * *': {

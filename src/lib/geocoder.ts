@@ -1,4 +1,4 @@
-import { haversine } from './locality-matcher';
+import { haversine } from './discovery';
 
 const BATCH_SIZE = 300;
 const SLEEP_MS = 1100;
