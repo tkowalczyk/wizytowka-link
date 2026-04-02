@@ -8,10 +8,10 @@ interface SitemapRow {
 
 const DOMAIN = 'https://wizytowka.link';
 
+const today = new Date().toISOString().split('T')[0];
+
 const staticPages = [
   { loc: '/', priority: '1.0' },
-  { loc: '/regulamin', priority: '0.3' },
-  { loc: '/polityka-prywatnosci', priority: '0.3' },
 ];
 
 export const GET: APIRoute = async ({ locals }) => {
@@ -31,6 +31,7 @@ export const GET: APIRoute = async ({ locals }) => {
   for (const p of staticPages) {
     urls.push(`  <url>
     <loc>${DOMAIN}${p.loc}</loc>
+    <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${p.priority}</priority>
   </url>`);
