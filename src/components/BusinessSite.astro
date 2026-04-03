@@ -1,21 +1,11 @@
 ---
 import type { SiteData } from '../types/site';
 import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
+import { buildLocalBusinessLd, buildBreadcrumbLd, type BizData } from '../lib/structured-data';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
 import '../styles/base.css';
-
-interface BizData {
-  title: string;
-  phone: string;
-  address: string;
-  category: string;
-  gps_lat: number;
-  gps_lng: number;
-  rating: number | null;
-  reviews_count: number | null;
-}
 
 interface Props {
   site: SiteData;
@@ -32,29 +22,12 @@ const layout = resolved.layout;
 const style = resolved.style;
 const cssVars = paletteToCSS(palette);
 
-const jsonLd = biz ? JSON.stringify({
-  '@context': 'https://schema.org',
-  '@type': 'LocalBusiness',
-  name: biz.title,
-  telephone: biz.phone,
-  address: { '@type': 'PostalAddress', streetAddress: biz.address, addressCountry: 'PL' },
-  geo: { '@type': 'GeoCoordinates', latitude: biz.gps_lat, longitude: biz.gps_lng },
-  ...(biz.rating && biz.reviews_count ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, bestRating: 5, ratingCount: biz.reviews_count } } : {}),
-  url: Astro.url.href,
-}) : null;
+const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, Astro.url.href)) : null;
 
 const locSlug = Astro.url.pathname.split('/').filter(Boolean)[0] ?? '';
 const locName = biz?.address?.split(',').pop()?.trim() ?? locSlug;
 
-const breadcrumbLd = JSON.stringify({
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Strona główna', item: 'https://wizytowka.link/' },
-    { '@type': 'ListItem', position: 2, name: locName, item: `https://wizytowka.link/${locSlug}` },
-    { '@type': 'ListItem', position: 3, name: site.seo.title },
-  ],
-});
+const breadcrumbLd = JSON.stringify(buildBreadcrumbLd(site.seo.title, locSlug, locName));
 
 const fontLink = style === 'elegant'
   ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'
