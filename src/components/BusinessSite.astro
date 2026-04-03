@@ -14,6 +14,7 @@ interface BizData {
   gps_lat: number;
   gps_lng: number;
   rating: number | null;
+  reviews_count: number | null;
 }
 
 interface Props {
@@ -38,7 +39,7 @@ const jsonLd = biz ? JSON.stringify({
   telephone: biz.phone,
   address: { '@type': 'PostalAddress', streetAddress: biz.address, addressCountry: 'PL' },
   geo: { '@type': 'GeoCoordinates', latitude: biz.gps_lat, longitude: biz.gps_lng },
-  ...(biz.rating ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, bestRating: 5 } } : {}),
+  ...(biz.rating && biz.reviews_count ? { aggregateRating: { '@type': 'AggregateRating', ratingValue: biz.rating, bestRating: 5, ratingCount: biz.reviews_count } } : {}),
   url: Astro.url.href,
 }) : null;
 
