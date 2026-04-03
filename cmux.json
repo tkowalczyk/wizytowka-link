@@ -1,0 +1,18 @@
+{
+  "commands": [
+    {
+      "name": "Build & Deploy",
+      "description": "Build the project and deploy to Cloudflare",
+      "keywords": ["build", "deploy", "release", "publish"],
+      "command": "pnpm run build && pnpm run deploy",
+      "confirm": true
+    },
+    {
+      "name": "Run Tests",
+      "description": "Run all tests",
+      "keywords": ["test", "check", "vitest"],
+      "command": "pnpm run test",
+      "confirm": true
+    }
+  ]
+}
