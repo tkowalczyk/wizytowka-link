@@ -2,12 +2,21 @@
 import type { SiteData } from '../../types/site';
 import CategoryLogo from '../CategoryLogo.astro';
 
-interface Props {
-  site: SiteData;
+interface RelatedBusiness {
+  title: string;
+  slug: string;
   category: string;
 }
 
-const { site, category } = Astro.props;
+interface Props {
+  site: SiteData;
+  category: string;
+  locSlug: string;
+  locName: string;
+  relatedBusinesses: RelatedBusiness[];
+}
+
+const { site, category, locSlug, locName, relatedBusinesses } = Astro.props;
 ---
 
 <Fragment>
@@ -68,6 +77,22 @@ const { site, category } = Astro.props;
       </a>
     </div>
   </section>
+
+  {relatedBusinesses.length > 0 && (
+    <section class="py-12 px-4 border-t border-border">
+      <div class="max-w-5xl mx-auto">
+        <h2 class="text-lg font-semibold mb-6">Inne firmy w {locName}</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {relatedBusinesses.map((b) => (
+            <a href={`/${locSlug}/${b.slug}`} class="block p-4 rounded-lg border border-border hover:bg-muted transition-colors">
+              <span class="font-medium text-foreground">{b.title}</span>
+              {b.category && <span class="text-sm text-muted-foreground block mt-1">{b.category}</span>}
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
 
   <footer class="py-6 text-center text-sm text-muted-foreground">
     <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline hover:text-foreground transition-colors">wizytowka.link</a></p>

@@ -1,0 +1,197 @@
+---
+import '../../styles/base.css';
+import type { LocalityRow, BusinessRow } from '../../types/business';
+
+const { loc } = Astro.params;
+
+if (!loc) return new Response(null, { status: 404 });
+
+const db = Astro.locals.runtime.env.leadgen as D1Database;
+
+const locality = await db
+  .prepare('SELECT * FROM localities WHERE slug = ?')
+  .bind(loc)
+  .first<LocalityRow>();
+
+if (!locality) return new Response('Not Found', { status: 404 });
+
+const { results: businesses } = await db
+  .prepare(
+    'SELECT * FROM businesses WHERE locality_id = ? AND site_generated = 1 ORDER BY rating DESC, title ASC'
+  )
+  .bind(locality.id)
+  .all<BusinessRow>();
+
+const url = `https://wizytowka.link/${loc}`;
+const title = `Firmy w ${locality.name} — wizytowka.link`;
+const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
+
+const breadcrumbLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Strona główna', item: 'https://wizytowka.link/' },
+    { '@type': 'ListItem', position: 2, name: locality.name, item: url },
+  ],
+});
+
+Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+---
+
+<html lang="pl" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={url} />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content="pl_PL" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+      />
+    </noscript>
+
+    <script is:inline type="application/ld+json" set:html={breadcrumbLd} />
+
+    <style>
+      html {
+        font-family: "Inter", system-ui, sans-serif;
+        scroll-behavior: smooth;
+      }
+    </style>
+  </head>
+
+  <body class="bg-white text-gray-900 antialiased">
+    <!-- Header -->
+    <header class="border-b border-gray-100 bg-white">
+      <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <a href="/" class="text-xl font-extrabold tracking-tight">
+          <span class="text-blue-600">wizytowka</span><span class="text-gray-800">.link</span>
+        </a>
+      </nav>
+    </header>
+
+    <main class="mx-auto max-w-6xl px-4 py-8">
+      <!-- Breadcrumbs -->
+      <nav aria-label="Breadcrumb" class="mb-6 text-sm text-gray-500">
+        <ol class="flex items-center gap-1.5">
+          <li>
+            <a href="/" class="hover:text-blue-600 transition-colors">Strona główna</a>
+          </li>
+          <li class="text-gray-300">/</li>
+          <li class="font-medium text-gray-900">{locality.name}</li>
+        </ol>
+      </nav>
+
+      <!-- Heading -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold tracking-tight text-gray-900 md:text-4xl">
+          Firmy w {locality.name}
+        </h1>
+        {locality.pow_name && (
+          <p class="mt-2 text-gray-500">
+            {[locality.pow_name, locality.woj_name].filter(Boolean).join(', ')}
+          </p>
+        )}
+        <p class="mt-1 text-sm text-gray-400">
+          {businesses.length === 0
+            ? 'Brak firm z wygenerowanymi wizytówkami w tej miejscowości.'
+            : `${businesses.length} ${businesses.length === 1 ? 'firma' : businesses.length < 5 ? 'firmy' : 'firm'} w katalogu`}
+        </p>
+      </div>
+
+      {businesses.length > 0 ? (
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {businesses.map((biz) => (
+            <a
+              href={`/${loc}/${biz.slug}`}
+              class="group rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
+            >
+              <div class="mb-2 flex items-start justify-between gap-2">
+                <h2 class="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
+                  {biz.title}
+                </h2>
+                {biz.rating && (
+                  <span class="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    <svg class="h-3.5 w-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    {biz.rating.toFixed(1)}
+                  </span>
+                )}
+              </div>
+
+              {biz.category && (
+                <span class="mb-3 inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                  {biz.category}
+                </span>
+              )}
+
+              <div class="space-y-1.5 text-sm text-gray-500">
+                {biz.address && (
+                  <div class="flex items-start gap-2">
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="leading-snug">{biz.address}</span>
+                  </div>
+                )}
+                {biz.phone && (
+                  <div class="flex items-center gap-2">
+                    <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    <span>{biz.phone}</span>
+                  </div>
+                )}
+              </div>
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div class="rounded-xl border border-gray-100 bg-gray-50 px-6 py-16 text-center">
+          <svg class="mx-auto mb-4 h-12 w-12 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 7.5h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+          </svg>
+          <p class="text-gray-500">Nie znaleziono firm z wygenerowanymi wizytówkami w tej miejscowości.</p>
+          <p class="mt-2 text-sm text-gray-400">Nowe firmy są dodawane automatycznie — wracaj po więcej!</p>
+        </div>
+      )}
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-16 border-t border-gray-100 bg-gray-50 py-10">
+      <div class="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center text-sm text-gray-500 sm:flex-row sm:justify-between sm:text-left">
+        <div>&copy; {new Date().getFullYear()} wizytowka.link</div>
+        <div class="flex gap-6">
+          <a href="/regulamin" class="hover:text-gray-700 transition-colors">Regulamin</a>
+          <a href="/polityka-prywatnosci" class="hover:text-gray-700 transition-colors">Polityka prywatności</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

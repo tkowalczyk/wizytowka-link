@@ -7,13 +7,21 @@ import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
 import '../styles/base.css';
 
+interface RelatedBusiness {
+  title: string;
+  slug: string;
+  category: string;
+}
 interface Props {
   site: SiteData;
   biz: BizData | null;
   slug: string;
+  locSlug: string;
+  locName: string;
+  relatedBusinesses: RelatedBusiness[];
 }
 
-const { site, biz, slug } = Astro.props;
+const { site, biz, slug, locSlug, locName, relatedBusinesses } = Astro.props;
 
 const category = biz?.category ?? '';
 const resolved = resolveTheme(slug, category);
@@ -23,9 +31,6 @@ const style = resolved.style;
 const cssVars = paletteToCSS(palette);
 
 const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, Astro.url.href)) : null;
-
-const locSlug = Astro.url.pathname.split('/').filter(Boolean)[0] ?? '';
-const locName = biz?.address?.split(',').pop()?.trim() ?? locSlug;
 
 const breadcrumbLd = JSON.stringify(buildBreadcrumbLd(site.seo.title, locSlug, locName));
 
@@ -67,10 +72,17 @@ const fontLink = style === 'elegant'
 </head>
 
 <body class="bg-background text-foreground font-sans antialiased">
+<nav aria-label="breadcrumb" class="px-4 py-3 text-sm text-muted-foreground max-w-5xl mx-auto">
+  <ol class="flex items-center gap-1 flex-wrap">
+    <li><a href="/" class="hover:underline hover:text-foreground transition-colors">Strona główna</a></li>
+    <li class="before:content-['/'] before:mx-1"><a href={`/${locSlug}`} class="hover:underline hover:text-foreground transition-colors">{locName}</a></li>
+    <li class="before:content-['/'] before:mx-1 text-foreground/60 truncate max-w-[200px] sm:max-w-none">{site.seo.title}</li>
+  </ol>
+</nav>
 <main>
-{layout === 'centered' ? <CenteredLayout site={site} category={category} />
-: layout === 'split' ? <SplitLayout site={site} category={category} />
-: <MinimalLayout site={site} category={category} />}
+{layout === 'centered' ? <CenteredLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />
+: layout === 'split' ? <SplitLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />
+: <MinimalLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />}
 </main>
 
 <div id="theme-toggle" class="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-card text-card-foreground shadow-lg ring-1 ring-border p-1">

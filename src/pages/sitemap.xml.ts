@@ -6,6 +6,10 @@ interface SitemapRow {
   created_at: string;
 }
 
+interface LocalityRow {
+  slug: string;
+}
+
 const DOMAIN = 'https://wizytowka.link';
 
 const today = new Date().toISOString().split('T')[0];
@@ -17,14 +21,23 @@ const staticPages = [
 export const GET: APIRoute = async ({ locals }) => {
   const db = locals.runtime.env.leadgen as D1Database;
 
-  const rows = await db.prepare(`
-    SELECT b.slug, l.slug AS loc_slug, b.created_at
-    FROM businesses b
-    JOIN localities l ON b.locality_id = l.id
-    WHERE b.site_generated = 1
-    ORDER BY b.created_at DESC
-    LIMIT 50000
-  `).all<SitemapRow>();
+  const [localities, rows] = await Promise.all([
+    db.prepare(`
+      SELECT DISTINCT l.slug
+      FROM localities l
+      INNER JOIN businesses b ON b.locality_id = l.id
+      WHERE b.site_generated = 1
+      ORDER BY l.slug
+    `).all<LocalityRow>(),
+    db.prepare(`
+      SELECT b.slug, l.slug AS loc_slug, b.created_at
+      FROM businesses b
+      JOIN localities l ON b.locality_id = l.id
+      WHERE b.site_generated = 1
+      ORDER BY b.created_at DESC
+      LIMIT 49000
+    `).all<SitemapRow>(),
+  ]);
 
   const urls: string[] = [];
 
@@ -34,6 +47,14 @@ export const GET: APIRoute = async ({ locals }) => {
     <lastmod>${today}</lastmod>
     <changefreq>weekly</changefreq>
     <priority>${p.priority}</priority>
+  </url>`);
+  }
+
+  for (const l of localities.results) {
+    urls.push(`  <url>
+    <loc>${DOMAIN}/${l.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
   </url>`);
   }
 
