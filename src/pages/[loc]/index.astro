@@ -1,7 +1,6 @@
 ---
-import "../../styles/base.css";
-import { findLocalityCategories } from "../../lib/category";
-import type { LocalityRow } from "../../types/business";
+import '../../styles/base.css';
+import type { LocalityRow, BusinessRow } from '../../types/business';
 
 const { loc } = Astro.params;
 
@@ -10,36 +9,33 @@ if (!loc) return new Response(null, { status: 404 });
 const db = Astro.locals.runtime.env.leadgen as D1Database;
 
 const locality = await db
-	.prepare("SELECT * FROM localities WHERE slug = ?")
-	.bind(loc)
-	.first<LocalityRow>();
+  .prepare('SELECT * FROM localities WHERE slug = ?')
+  .bind(loc)
+  .first<LocalityRow>();
 
-if (!locality) return new Response("Not Found", { status: 404 });
+if (!locality) return new Response('Not Found', { status: 404 });
 
-const categories = await findLocalityCategories(db, loc);
+const { results: businesses } = await db
+  .prepare(
+    'SELECT * FROM businesses WHERE locality_id = ? AND site_generated = 1 ORDER BY rating DESC, title ASC'
+  )
+  .bind(locality.id)
+  .all<BusinessRow>();
 
 const url = `https://wizytowka.link/${loc}`;
-const _title = `Firmy w ${locality.name} — wizytowka.link`;
-const _description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
+const title = `Firmy w ${locality.name} — wizytowka.link`;
+const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
 
-const _breadcrumbLd = JSON.stringify({
-	"@context": "https://schema.org",
-	"@type": "BreadcrumbList",
-	itemListElement: [
-		{
-			"@type": "ListItem",
-			position: 1,
-			name: "Strona główna",
-			item: "https://wizytowka.link/",
-		},
-		{ "@type": "ListItem", position: 2, name: locality.name, item: url },
-	],
+const breadcrumbLd = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Strona główna', item: 'https://wizytowka.link/' },
+    { '@type': 'ListItem', position: 2, name: locality.name, item: url },
+  ],
 });
 
-Astro.response.headers.set(
-	"Cache-Control",
-	"public, max-age=3600, s-maxage=86400",
-);
+Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
 ---
 
 <html lang="pl" dir="ltr">
@@ -121,26 +117,57 @@ Astro.response.headers.set(
           </p>
         )}
         <p class="mt-1 text-sm text-gray-400">
-          {categories.length === 0
+          {businesses.length === 0
             ? 'Brak firm z wygenerowanymi wizytówkami w tej miejscowości.'
-            : `${categories.reduce((s, c) => s + c.count, 0)} firm w ${categories.length} ${categories.length === 1 ? 'kategorii' : categories.length < 5 ? 'kategoriach' : 'kategoriach'}`}
+            : `${businesses.length} ${businesses.length === 1 ? 'firma' : businesses.length < 5 ? 'firmy' : 'firm'} w katalogu`}
         </p>
       </div>
 
-      {categories.length > 0 ? (
+      {businesses.length > 0 ? (
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {categories.map((cat) => (
+          {businesses.map((biz) => (
             <a
-              href={`/${loc}/kategoria/${cat.slug}`}
+              href={`/${loc}/${biz.slug}`}
               class="group rounded-xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-blue-200 hover:shadow-md"
             >
-              <div class="flex items-center justify-between gap-2">
-                <h2 class="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug capitalize">
-                  {cat.categoryName}
+              <div class="mb-2 flex items-start justify-between gap-2">
+                <h2 class="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors leading-snug">
+                  {biz.title}
                 </h2>
-                <span class="inline-flex shrink-0 items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-700">
-                  {cat.count} {cat.count === 1 ? 'firma' : cat.count < 5 ? 'firmy' : 'firm'}
+                {biz.rating && (
+                  <span class="inline-flex shrink-0 items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    <svg class="h-3.5 w-3.5 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                    {biz.rating.toFixed(1)}
+                  </span>
+                )}
+              </div>
+
+              {biz.category && (
+                <span class="mb-3 inline-block rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+                  {biz.category}
                 </span>
+              )}
+
+              <div class="space-y-1.5 text-sm text-gray-500">
+                {biz.address && (
+                  <div class="flex items-start gap-2">
+                    <svg class="mt-0.5 h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span class="leading-snug">{biz.address}</span>
+                  </div>
+                )}
+                {biz.phone && (
+                  <div class="flex items-center gap-2">
+                    <svg class="h-4 w-4 shrink-0 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                    <span>{biz.phone}</span>
+                  </div>
+                )}
               </div>
             </a>
           ))}

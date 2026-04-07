@@ -10,6 +10,7 @@
 			"**",
 			"!**/dist",
 			"!**/.astro",
+			"!**/*.astro",
 			"!**/.wrangler",
 			"!**/node_modules",
 			"!**/data",
