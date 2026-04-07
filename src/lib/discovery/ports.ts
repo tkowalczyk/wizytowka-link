@@ -1,5 +1,8 @@
 import type { Locality } from '../../types/business';
 import type { SerpApiLocalResult } from '../../types/serpapi';
+import type { SerpApiErrorKind } from './errors';
+
+export type { SerpApiErrorKind };
 
 export interface SearchPort {
   search(
@@ -32,4 +35,5 @@ export interface DiscoveryStats {
   totalBusinesses: number;
   totalNewLeads: number;
   quotaExhausted: boolean;
+  errorKind?: SerpApiErrorKind | null;
 }

@@ -42,7 +42,6 @@ function createSerpApiSearch(env: Env): SearchPort {
         while (url && page < MAX_PAGES_PER_CATEGORY) {
           const res = await fetch(url);
           calls++;
-          if (res.status === 429) throw new SerpApiError('SerpAPI 429 quota exhausted', { calls, status: 429 });
           if (!res.ok) throw new SerpApiError(`SerpAPI ${res.status}`, { calls, status: res.status });
           const data: SerpApiMapsResponse = await res.json();
           if (data.local_results) results.push(...data.local_results);
@@ -118,7 +117,8 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
   const { db, searchApi, categories } = deps;
   const localityStats: LocalityStats[] = [];
   let totalApiCalls = 0;
-  let quotaExhausted = false;
+  let errorKind: SerpApiError['kind'] | null = null;
+  let hardStop = false;
 
   for (let attempt = 0; attempt < MAX_LOCALITY_ATTEMPTS; attempt++) {
     const locality = await getNextLocality(db);
@@ -129,7 +129,7 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
     let apiCalls = 0;
 
     for (const category of categories) {
-      if (quotaExhausted) break;
+      if (hardStop) break;
       try {
         const { results, calls } = await searchApi.search(locality, category);
         apiCalls += calls;
@@ -146,10 +146,11 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
       } catch (err) {
         if (err instanceof SerpApiError) {
           apiCalls += err.calls;
-        }
-        if (err instanceof Error && err.message.includes('429')) {
-          quotaExhausted = true;
-          break;
+          errorKind = err.kind;
+          if (err.kind === 'auth' || err.kind === 'payment' || err.kind === 'quota') {
+            hardStop = true;
+            break;
+          }
         }
         console.error(`[discovery] ${category}@${locality.name}: ${err}`);
       }
@@ -162,7 +163,7 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
     totalApiCalls += apiCalls;
     localityStats.push({ name: locality.name, businesses: businesses.length, apiCalls, newLeads });
 
-    if (newLeads > 0 || quotaExhausted) break;
+    if (newLeads > 0 || hardStop) break;
   }
 
   const stats: DiscoveryStats = {
@@ -170,7 +171,8 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
     totalApiCalls,
     totalBusinesses: localityStats.reduce((s, l) => s + l.businesses, 0),
     totalNewLeads: localityStats.reduce((s, l) => s + l.newLeads, 0),
-    quotaExhausted,
+    quotaExhausted: errorKind === 'quota',
+    errorKind,
   };
 
   if (localityStats.length > 0) {

@@ -288,6 +288,67 @@ describe('discovery: runDiscovery', () => {
     expect(row!.phone).toBeNull();
   });
 
+  it('server error: continues to next category (transient), errorKind === "server"', async () => {
+    const goodResult = fakeResult({ place_id: 'place_after_5xx' });
+    let callNum = 0;
+    const searchApi: SearchPort = {
+      search: async () => {
+        callNum++;
+        // 1st category: transient 503
+        if (callNum === 1) {
+          throw new SerpApiError('SerpAPI 503', { kind: 'server', status: 503, calls: 1 });
+        }
+        // 2nd category: success
+        return { results: [goodResult], calls: 1 };
+      },
+    };
+    const deps = makeDeps({ searchApi, categories: ['firma', 'sklep'] });
+
+    const stats = await runDiscovery(deps);
+
+    // server error did NOT short-circuit — 2nd category ran and inserted
+    const row = await env.leadgen
+      .prepare('SELECT place_id FROM businesses WHERE place_id = ?')
+      .bind('place_after_5xx')
+      .first<{ place_id: string }>();
+    expect(row).not.toBeNull();
+
+    expect(stats.errorKind).toBe('server');
+    expect(stats.quotaExhausted).toBe(false);
+    expect(stats.totalBusinesses).toBe(1);
+    // 1 partial call from 503 + 1 successful call
+    expect(stats.totalApiCalls).toBe(2);
+  });
+
+  it('payment error: stats.errorKind === "payment", locality loop stops immediately', async () => {
+    const searchApi: SearchPort = {
+      search: async () => {
+        throw new SerpApiError('SerpAPI 402', { kind: 'payment', status: 402, calls: 1 });
+      },
+    };
+    const deps = makeDeps({ searchApi, categories: ['firma', 'sklep'] });
+
+    const stats = await runDiscovery(deps);
+
+    expect(stats.errorKind).toBe('payment');
+    expect(stats.localities).toHaveLength(1);
+  });
+
+  it('auth error: stats.errorKind === "auth", locality loop stops immediately', async () => {
+    const searchApi: SearchPort = {
+      search: async () => {
+        throw new SerpApiError('SerpAPI 401', { kind: 'auth', status: 401, calls: 1 });
+      },
+    };
+    const deps = makeDeps({ searchApi, categories: ['firma', 'sklep'] });
+
+    const stats = await runDiscovery(deps);
+
+    expect(stats.errorKind).toBe('auth');
+    // hard stop: should NOT advance to additional localities
+    expect(stats.localities).toHaveLength(1);
+  });
+
   it('report: NotifyPort.reportToSellers called with correct stats', async () => {
     const result = fakeResult({ place_id: 'place_report_test' });
     let reportedStats: unknown = null;

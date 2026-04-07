@@ -97,4 +97,28 @@ describe('formatDailyReport', () => {
     expect(cronIdx).toBeGreaterThanOrEqual(0);
     expect(bannerIdx).toBeLessThan(cronIdx);
   });
+
+  it('renders auth error banner when errorKind is "auth"', () => {
+    const result = formatDailyReport(SELLER, baseStats({ errorKind: 'auth' }), DATE);
+
+    expect(result).toContain('SerpAPI: klucz nieważny');
+  });
+
+  it('renders payment error banner when errorKind is "payment"', () => {
+    const result = formatDailyReport(SELLER, baseStats({ errorKind: 'payment' }), DATE);
+
+    expect(result).toContain('SerpAPI: brak płatności');
+  });
+
+  it('renders quota banner when errorKind is "quota" (no quotaExhausted flag)', () => {
+    const result = formatDailyReport(SELLER, baseStats({ errorKind: 'quota' }), DATE);
+
+    expect(result).toContain('SerpAPI quota wyczerpane');
+  });
+
+  it('omits banner when errorKind is "server" (transient)', () => {
+    const result = formatDailyReport(SELLER, baseStats({ errorKind: 'server' }), DATE);
+
+    expect(result).not.toContain('SerpAPI');
+  });
 });

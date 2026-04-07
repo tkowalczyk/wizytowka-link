@@ -1,4 +1,5 @@
 import type { CronSummaryRow } from './cron-log';
+import type { SerpApiErrorKind } from './discovery/errors';
 
 const TG_API = 'https://api.telegram.org/bot';
 const MAX_MESSAGE_LENGTH = 4096;
@@ -52,6 +53,7 @@ export interface DailyReportStats {
   top_leads: LeadSummary[];
   cronSection?: string;
   quotaExhausted?: boolean;
+  errorKind?: SerpApiErrorKind | null;
 }
 
 export interface LeadSummary {
@@ -163,6 +165,20 @@ export function formatCronSection(
   return ['', '<b>Stan cron (24h):</b>', ...lines].join('\n');
 }
 
+const BANNER_BY_KIND: Record<SerpApiErrorKind, string | null> = {
+  auth: '\n\uD83D\uDD34 <b>SerpAPI: klucz nieważny</b>',
+  payment: '\n\uD83D\uDD34 <b>SerpAPI: brak płatności</b>',
+  quota: '\n\u26A0\uFE0F <b>SerpAPI quota wyczerpane</b>',
+  server: null,
+  unknown: null,
+};
+
+function formatErrorBanner(stats: DailyReportStats): string {
+  const kind = stats.errorKind ?? (stats.quotaExhausted ? 'quota' : null);
+  if (!kind) return '';
+  return BANNER_BY_KIND[kind] ?? '';
+}
+
 export function formatDailyReport(
   seller: { token: string },
   stats: DailyReportStats,
@@ -179,9 +195,7 @@ export function formatDailyReport(
   const remaining = stats.new_leads - Math.min(stats.top_leads.length, MAX_TOP_LEADS);
   const moreLine = remaining > 0 ? `\n...i ${remaining} wiecej\n` : '';
 
-  const quotaBanner = stats.quotaExhausted
-    ? '\n\u26A0\uFE0F <b>SerpAPI quota wyczerpane</b>'
-    : '';
+  const errorBanner = formatErrorBanner(stats);
 
   return [
     `<b>Raport dzienny \u2014 ${date}</b>`,
@@ -193,7 +207,7 @@ export function formatDailyReport(
     stats.new_leads > 0 ? '<b>Top leady:</b>' : '',
     leadsBlock,
     moreLine,
-    quotaBanner,
+    errorBanner,
     stats.cronSection ?? '',
     `<a href="https://wizytowka.link/s/${seller.token}">Otworz panel \u2192</a>`,
   ].filter(Boolean).join('\n');
