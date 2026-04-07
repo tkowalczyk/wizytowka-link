@@ -6,7 +6,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "wrangler dev",
-    "types": "wrangler types",
+    "types": "wrangler types && tsc --noEmit",
     "db:migrate:remote": "wrangler d1 migrations apply leadgen --remote",
     "seed:create-sql": "tsx scripts/seed-localities.ts",
     "seed:into-d1": "tsx scripts/parse-simc.ts",

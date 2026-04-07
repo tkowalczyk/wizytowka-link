@@ -4,7 +4,6 @@ import { cloudflarePool } from '@cloudflare/vitest-pool-workers';
 export default defineConfig({
   test: {
     pool: cloudflarePool({
-      logLevel: 'warn',
       wrangler: { configPath: './wrangler.jsonc' },
       miniflare: {
         d1Databases: { leadgen: 'leadgen' },

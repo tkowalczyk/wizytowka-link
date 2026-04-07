@@ -5,11 +5,15 @@ import { startRun, completeRun, failRun } from '../../lib/cron-log';
 
 beforeEach(() => resetDb(env.leadgen));
 
-function json(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
+interface CronLogRow {
+  id: number;
+  cron_pattern: string;
+  status: string;
+  items_processed: number | null;
+}
+
+interface CronLogResponse {
+  runs: CronLogRow[];
 }
 
 async function callEndpoint(token?: string, query = '') {
@@ -22,6 +26,10 @@ async function callEndpoint(token?: string, query = '') {
     request: new Request(url, { headers }),
     locals: { runtime: { env } },
   } as any);
+}
+
+async function readBody(res: Response): Promise<CronLogResponse> {
+  return res.json() as Promise<CronLogResponse>;
 }
 
 describe('GET /api/cron-log', () => {
@@ -38,7 +46,7 @@ describe('GET /api/cron-log', () => {
   it('returns empty array when no runs exist', async () => {
     const res = await callEndpoint('seller_jan_token');
     expect(res.status).toBe(200);
-    const body = await res.json();
+    const body = await readBody(res);
     expect(body.runs).toEqual([]);
   });
 
@@ -49,7 +57,7 @@ describe('GET /api/cron-log', () => {
     await failRun(env.leadgen, id2, new Error('quota'));
 
     const res = await callEndpoint('seller_jan_token');
-    const body = await res.json();
+    const body = await readBody(res);
 
     expect(body.runs).toHaveLength(2);
     expect(body.runs[0].id).toBe(id2); // most recent first
@@ -63,7 +71,7 @@ describe('GET /api/cron-log', () => {
     await startRun(env.leadgen, '0 8 * * *');
 
     const res = await callEndpoint('seller_jan_token', '?pattern=0 8 * * *');
-    const body = await res.json();
+    const body = await readBody(res);
 
     expect(body.runs).toHaveLength(1);
     expect(body.runs[0].cron_pattern).toBe('0 8 * * *');
@@ -72,7 +80,7 @@ describe('GET /api/cron-log', () => {
   it('limits results to 50 by default', async () => {
     // just verify the limit param is respected
     const res = await callEndpoint('seller_jan_token', '?limit=1');
-    const body = await res.json();
+    const body = await readBody(res);
 
     expect(body.runs.length).toBeLessThanOrEqual(1);
   });
