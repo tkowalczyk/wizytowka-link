@@ -2,6 +2,7 @@ import { env } from 'cloudflare:workers';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb, TEST_IDS } from '../../../test/seed';
 import { runDiscovery } from './index';
+import { SerpApiError } from './errors';
 import type { DiscoveryDeps, SearchPort, NotifyPort } from './ports';
 import type { SerpApiLocalResult } from '../../types/serpapi';
 
@@ -149,6 +150,42 @@ describe('discovery: runDiscovery', () => {
     expect(row?.slug).toBe('dentysta-krakow-2');
   });
 
+  it('apiCalls counter: non-429 error still reports partial calls without quotaExhausted', async () => {
+    const goodResult = fakeResult({ place_id: 'place_partial_ok' });
+    let callNum = 0;
+    const searchApi: SearchPort = {
+      search: async () => {
+        callNum++;
+        if (callNum === 1) return { results: [goodResult], calls: 1 };
+        // 2nd category: simulate 500 after partial pagination (2 calls done before the throw)
+        throw new SerpApiError('SerpAPI 500', { calls: 2, status: 500 });
+      },
+    };
+    const deps = makeDeps({ searchApi, categories: ['firma', 'sklep'] });
+
+    const stats = await runDiscovery(deps);
+
+    // 1 from successful first call + 2 partial calls before 500 error
+    expect(stats.totalApiCalls).toBe(3);
+    expect(stats.localities[0].apiCalls).toBe(3);
+    expect(stats.quotaExhausted).toBe(false);
+  });
+
+  it('apiCalls counter: SerpApiError on first call still reports 1 call', async () => {
+    const searchApi: SearchPort = {
+      search: async () => {
+        throw new SerpApiError('SerpAPI 429 quota exhausted', { calls: 1, status: 429 });
+      },
+    };
+    const deps = makeDeps({ searchApi, categories: ['firma', 'sklep'] });
+
+    const stats = await runDiscovery(deps);
+
+    expect(stats.totalApiCalls).toBe(1);
+    expect(stats.quotaExhausted).toBe(true);
+    expect(stats.localities[0].apiCalls).toBe(1);
+  });
+
   it('quota exhaustion: 429 → graceful stop, partial results persisted', async () => {
     const goodResult = fakeResult({ place_id: 'place_good' });
     let callNum = 0;
@@ -156,7 +193,7 @@ describe('discovery: runDiscovery', () => {
       search: async () => {
         callNum++;
         if (callNum === 1) return { results: [goodResult], calls: 1 };
-        throw new Error('SerpAPI 429 quota exhausted');
+        throw new SerpApiError('SerpAPI 429 quota exhausted', { calls: 1, status: 429 });
       },
     };
     const deps = makeDeps({ searchApi, categories: ['firma', 'sklep', 'restauracja'] });
@@ -173,6 +210,8 @@ describe('discovery: runDiscovery', () => {
     expect(stats.totalBusinesses).toBe(1);
     // should not try additional localities after quota exhaustion
     expect(stats.localities).toHaveLength(1);
+    // 1 successful call + 1 call before 429 throw = 2 total
+    expect(stats.totalApiCalls).toBe(2);
   });
 
   it('multi-locality retry: 0 leads in first locality → tries next', async () => {

@@ -14,6 +14,9 @@ import { normalizePhone } from '../phone';
 import { sendDailyReport, formatCronSection } from '../telegram';
 import type { LeadSummary, DailyReportStats } from '../telegram';
 import { getCronSummary } from '../cron-log';
+import { SerpApiError } from './errors';
+
+export { SerpApiError } from './errors';
 
 const BATCH_SIZE = 5;
 const MAX_LOCALITY_ATTEMPTS = 5;
@@ -35,16 +38,21 @@ function createSerpApiSearch(env: Env): SearchPort {
       let url: string | null = `${SERPAPI_BASE}?engine=google_maps&q=${q}&ll=@${locality.lat},${locality.lng},14z&api_key=${env.SERP_API_KEY}`;
       let page = 0;
       let calls = 0;
-      while (url && page < MAX_PAGES_PER_CATEGORY) {
-        const res = await fetch(url);
-        calls++;
-        if (res.status === 429) throw new Error('SerpAPI 429 quota exhausted');
-        if (!res.ok) throw new Error(`SerpAPI ${res.status}`);
-        const data: SerpApiMapsResponse = await res.json();
-        if (data.local_results) results.push(...data.local_results);
-        const next = data.serpapi_pagination?.next ?? null;
-        url = next ? `${next}&api_key=${env.SERP_API_KEY}` : null;
-        page++;
+      try {
+        while (url && page < MAX_PAGES_PER_CATEGORY) {
+          const res = await fetch(url);
+          calls++;
+          if (res.status === 429) throw new SerpApiError('SerpAPI 429 quota exhausted', { calls, status: 429 });
+          if (!res.ok) throw new SerpApiError(`SerpAPI ${res.status}`, { calls, status: res.status });
+          const data: SerpApiMapsResponse = await res.json();
+          if (data.local_results) results.push(...data.local_results);
+          const next = data.serpapi_pagination?.next ?? null;
+          url = next ? `${next}&api_key=${env.SERP_API_KEY}` : null;
+          page++;
+        }
+      } catch (err) {
+        if (err instanceof SerpApiError) throw err;
+        throw new SerpApiError(err instanceof Error ? err.message : String(err), { calls });
       }
       return { results, calls };
     },
@@ -136,6 +144,9 @@ export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats>
           businesses.push(toBusiness(r, slug, localityId, category));
         }
       } catch (err) {
+        if (err instanceof SerpApiError) {
+          apiCalls += err.calls;
+        }
         if (err instanceof Error && err.message.includes('429')) {
           quotaExhausted = true;
           break;
