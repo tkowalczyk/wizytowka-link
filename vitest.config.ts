@@ -10,6 +10,7 @@ export default defineConfig({
         r2Buckets: ['sites'],
         bindings: {
           TG_NOTIFY_BOT_TOKEN: 'test-notify-token',
+          ADMIN_PANEL_URL: 'https://example.test/panel/test-token',
         },
       },
     }),

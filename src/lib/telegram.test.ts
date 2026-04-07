@@ -347,7 +347,7 @@ describe('dispatchCriticalAlert', () => {
       expect(sent).toBeTruthy();
       const body = JSON.parse(sent![1].body as string);
       expect(body.text).toContain('SerpAPI: quota');
-      expect(body.text).toContain('https://wizytowka.link/s/REDACTED_TOKEN');
+      expect(body.text).toContain(env.ADMIN_PANEL_URL);
     } finally {
       globalThis.fetch = origFetch;
     }
@@ -430,6 +430,33 @@ describe('dispatchCriticalAlert', () => {
       await settled();
 
       expect(fetchMock).not.toHaveBeenCalled();
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
+  it('does not fire when ADMIN_PANEL_URL is missing (config guard)', async () => {
+    const fetchMock = mockTelegramFetch();
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      const { ctx, settled } = fakeCtx();
+      const result: RunResult = {
+        processed: 0,
+        failed: 0,
+        meta: { quotaExhausted: true },
+      };
+      const envWithoutPanel = { ...env, ADMIN_PANEL_URL: '' } as unknown as Env;
+
+      dispatchCriticalAlert(envWithoutPanel, ctx, result);
+      await settled();
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      const { results } = await env.leadgen
+        .prepare("SELECT id FROM alert_log")
+        .all<{ id: number }>();
+      expect(results).toHaveLength(0);
     } finally {
       globalThis.fetch = origFetch;
     }

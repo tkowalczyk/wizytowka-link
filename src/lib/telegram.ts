@@ -276,10 +276,8 @@ export async function sendCriticalAlert(
   return { sent: true, recipients };
 }
 
-const ADMIN_PANEL_URL = 'https://wizytowka.link/s/REDACTED_TOKEN';
-
-function formatCriticalAlertMessage(kind: CriticalAlertKind): string {
-  return `\uD83D\uDEA8 SerpAPI: ${kind} \u2014 discovery zatrzymane. Panel: ${ADMIN_PANEL_URL}`;
+function formatCriticalAlertMessage(kind: CriticalAlertKind, panelUrl: string): string {
+  return `\uD83D\uDEA8 SerpAPI: ${kind} \u2014 discovery zatrzymane. Panel: ${panelUrl}`;
 }
 
 export function dispatchCriticalAlert(
@@ -300,7 +298,13 @@ export function dispatchCriticalAlert(
 
   if (!kind) return;
 
-  const message = formatCriticalAlertMessage(kind);
+  const panelUrl = env.ADMIN_PANEL_URL;
+  if (!panelUrl) {
+    console.error('[critical-alert] ADMIN_PANEL_URL not configured, skipping alert dispatch');
+    return;
+  }
+
+  const message = formatCriticalAlertMessage(kind, panelUrl);
   ctx.waitUntil(
     sendCriticalAlert(env, { kind, message }).catch((err) => {
       console.error(`[critical-alert] dispatch failed for kind=${kind}:`, err);
