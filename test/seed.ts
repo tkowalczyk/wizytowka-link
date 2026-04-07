@@ -1,6 +1,6 @@
 /**
  * D1 seed helpers for integration tests.
- * SCHEMA_SQL represents the final state after all migrations (0001-0008).
+ * SCHEMA_SQL represents the final state after all migrations (0001-0009).
  * SEED_SQL populates a minimal dataset covering all tables + relationships.
  */
 
@@ -103,6 +103,14 @@ CREATE TABLE IF NOT EXISTS business_owners (
   token       TEXT    NOT NULL UNIQUE,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE TABLE IF NOT EXISTS alert_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind    TEXT NOT NULL,
+  sent_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_alert_log_kind_sent ON alert_log(kind, sent_at DESC);
 `;
 
 const SEED_SQL = `
@@ -163,6 +171,7 @@ export async function seedTestData(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
   const drops = [
+    'DROP TABLE IF EXISTS alert_log',
     'DROP TABLE IF EXISTS cron_log',
     'DROP TABLE IF EXISTS call_log',
     'DROP TABLE IF EXISTS business_owners',

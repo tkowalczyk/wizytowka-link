@@ -1,4 +1,4 @@
-import type { CronSummaryRow } from './cron-log';
+import type { CronSummaryRow, RunResult } from './cron-log';
 import type { SerpApiErrorKind } from './discovery/errors';
 
 const TG_API = 'https://api.telegram.org/bot';
@@ -224,4 +224,86 @@ export async function sendDailyReport(
   const text = formatDailyReport(seller, stats, date);
 
   await sendMessage(token, seller.report_chat_id, text);
+}
+
+// -- critical alerts --
+
+export type CriticalAlertKind = 'auth' | 'payment' | 'quota';
+
+export interface CriticalAlertResult {
+  sent: boolean;
+  recipients: number;
+}
+
+const ALERT_DEBOUNCE_HOURS = 6;
+
+export async function sendCriticalAlert(
+  env: Env,
+  params: { kind: CriticalAlertKind; message: string }
+): Promise<CriticalAlertResult> {
+  const lastAlert = await env.leadgen
+    .prepare(
+      `SELECT sent_at FROM alert_log
+       WHERE kind = ? AND sent_at > datetime('now', '-${ALERT_DEBOUNCE_HOURS} hours')
+       ORDER BY sent_at DESC LIMIT 1`
+    )
+    .bind(params.kind)
+    .first<{ sent_at: string }>();
+
+  if (lastAlert) {
+    return { sent: false, recipients: 0 };
+  }
+
+  const subscribers = await env.leadgen
+    .prepare("SELECT notify_chat_id FROM sellers WHERE notify_chat_id IS NOT NULL")
+    .all<{ notify_chat_id: string }>();
+
+  let recipients = 0;
+  for (const sub of subscribers.results) {
+    try {
+      await sendMessage(env.TG_NOTIFY_BOT_TOKEN, sub.notify_chat_id, params.message);
+      recipients++;
+    } catch (err) {
+      console.log(`telegram: critical alert failed for chat ${sub.notify_chat_id}: ${err}`);
+    }
+  }
+
+  await env.leadgen
+    .prepare("INSERT INTO alert_log (kind) VALUES (?)")
+    .bind(params.kind)
+    .run();
+
+  return { sent: true, recipients };
+}
+
+const ADMIN_PANEL_URL = 'https://wizytowka.link/s/REDACTED_TOKEN';
+
+function formatCriticalAlertMessage(kind: CriticalAlertKind): string {
+  return `\uD83D\uDEA8 SerpAPI: ${kind} \u2014 discovery zatrzymane. Panel: ${ADMIN_PANEL_URL}`;
+}
+
+export function dispatchCriticalAlert(
+  env: Env,
+  ctx: ExecutionContext,
+  result: RunResult
+): void {
+  const meta = result.meta ?? {};
+  const errorKind = meta.errorKind as SerpApiErrorKind | null | undefined;
+  const quotaExhausted = meta.quotaExhausted === true;
+
+  let kind: CriticalAlertKind | null = null;
+  if (quotaExhausted) {
+    kind = 'quota';
+  } else if (errorKind === 'auth' || errorKind === 'payment' || errorKind === 'quota') {
+    kind = errorKind;
+  }
+
+  if (!kind) return;
+
+  const message = formatCriticalAlertMessage(kind);
+  ctx.waitUntil(
+    sendCriticalAlert(env, { kind, message }).catch((err) => {
+      console.error(`[critical-alert] dispatch failed for kind=${kind}:`, err);
+    })
+  );
 }

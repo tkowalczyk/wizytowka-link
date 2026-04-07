@@ -2,6 +2,7 @@ import type { SSRManifest } from 'astro';
 import { App } from 'astro/app';
 import { handle } from '@astrojs/cloudflare/handler';
 import { startRun, completeRun, failRun, type RunResult } from './lib/cron-log';
+import { dispatchCriticalAlert } from './lib/telegram';
 
 export function createExports(manifest: SSRManifest) {
   const app = new App(manifest);
@@ -32,6 +33,7 @@ export function createExports(manifest: SSRManifest) {
                   apiCalls: stats.totalApiCalls,
                   businesses: stats.totalBusinesses,
                   quotaExhausted: stats.quotaExhausted,
+                  errorKind: stats.errorKind ?? null,
                 },
               };
               break;
@@ -45,6 +47,9 @@ export function createExports(manifest: SSRManifest) {
               result = { processed: 0, failed: 0 };
           }
           await completeRun(env.leadgen, runId, result);
+          if (controller.cron === '0 8 * * *') {
+            dispatchCriticalAlert(env, _ctx, result);
+          }
         } catch (err) {
           await failRun(env.leadgen, runId, err);
           console.error(`[scheduled] ${controller.cron} error:`, err);

@@ -8,6 +8,9 @@ export default defineConfig({
       miniflare: {
         d1Databases: { leadgen: 'leadgen' },
         r2Buckets: ['sites'],
+        bindings: {
+          TG_NOTIFY_BOT_TOKEN: 'test-notify-token',
+        },
       },
     }),
   },
