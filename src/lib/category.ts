@@ -1,6 +1,12 @@
 import type { BusinessRow, LocalityRow } from "../types/business";
 import { slugify } from "./slug";
 
+export interface CategoryCount {
+	categoryName: string;
+	slug: string;
+	count: number;
+}
+
 export interface CategoryResult {
 	locality: LocalityRow;
 	categoryName: string;
@@ -40,4 +46,29 @@ export async function findCategoryBusinesses(
 		.all<BusinessRow>();
 
 	return { locality, categoryName: match.category, businesses };
+}
+
+export async function findLocalityCategories(
+	db: D1Database,
+	locSlug: string,
+): Promise<CategoryCount[]> {
+	const locality = await db
+		.prepare("SELECT id FROM localities WHERE slug = ?")
+		.bind(locSlug)
+		.first<{ id: number }>();
+
+	if (!locality) return [];
+
+	const { results } = await db
+		.prepare(
+			"SELECT category, COUNT(*) AS count FROM businesses WHERE locality_id = ? AND site_generated = 1 GROUP BY category",
+		)
+		.bind(locality.id)
+		.all<{ category: string; count: number }>();
+
+	return results.map((row) => ({
+		categoryName: row.category,
+		slug: slugify(row.category),
+		count: row.count,
+	}));
 }

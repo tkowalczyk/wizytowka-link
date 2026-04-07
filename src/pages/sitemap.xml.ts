@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { slugify } from "../lib/slug";
 
 interface SitemapRow {
 	slug: string;
@@ -10,6 +11,31 @@ interface LocalityRow {
 	slug: string;
 }
 
+interface CategoryRow {
+	loc_slug: string;
+	category: string;
+}
+
+export function buildCategoryUrls(
+	rows: CategoryRow[],
+	domain: string,
+): string[] {
+	const seen = new Set<string>();
+	const urls: string[] = [];
+	for (const row of rows) {
+		const catSlug = slugify(row.category);
+		const key = `${row.loc_slug}/${catSlug}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		urls.push(`  <url>
+    <loc>${domain}/${row.loc_slug}/kategoria/${catSlug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>`);
+	}
+	return urls;
+}
+
 const DOMAIN = "https://wizytowka.link";
 
 const today = new Date().toISOString().split("T")[0];
@@ -19,7 +45,7 @@ const staticPages = [{ loc: "/", priority: "1.0" }];
 export const GET: APIRoute = async ({ locals }) => {
 	const db = locals.runtime.env.leadgen as D1Database;
 
-	const [localities, rows] = await Promise.all([
+	const [localities, rows, categoryRows] = await Promise.all([
 		db
 			.prepare(`
       SELECT DISTINCT l.slug
@@ -39,6 +65,14 @@ export const GET: APIRoute = async ({ locals }) => {
       LIMIT 49000
     `)
 			.all<SitemapRow>(),
+		db
+			.prepare(`
+      SELECT DISTINCT b.category, l.slug AS loc_slug
+      FROM businesses b
+      JOIN localities l ON b.locality_id = l.id
+      WHERE b.site_generated = 1
+    `)
+			.all<CategoryRow>(),
 	]);
 
 	const urls: string[] = [];
@@ -68,6 +102,10 @@ export const GET: APIRoute = async ({ locals }) => {
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>`);
+	}
+
+	for (const u of buildCategoryUrls(categoryRows.results, DOMAIN)) {
+		urls.push(u);
 	}
 
 	const xml = `<?xml version="1.0" encoding="UTF-8"?>

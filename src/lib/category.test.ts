@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb } from "../../test/seed";
-import { findCategoryBusinesses } from "./category";
+import { findCategoryBusinesses, findLocalityCategories } from "./category";
 
 beforeEach(() => resetDb(env.leadgen));
 
@@ -56,5 +56,40 @@ describe("findCategoryBusinesses", () => {
 			"dentysta",
 		);
 		expect(result).toBeNull();
+	});
+});
+
+describe("findLocalityCategories", () => {
+	it("returns empty array when locality does not exist", async () => {
+		const result = await findLocalityCategories(env.leadgen, "nieistniejaca");
+		expect(result).toEqual([]);
+	});
+
+	it("returns categories with correct counts (only site_generated=1)", async () => {
+		// warszawa: hydraulik(1, gen=1), fryzjer(1, gen=1), sklep(gen=0) → 2 categories
+		const result = await findLocalityCategories(env.leadgen, "warszawa");
+		expect(result).toHaveLength(2);
+		const names = result.map((c) => c.categoryName).sort();
+		expect(names).toEqual(["fryzjer", "hydraulik"]);
+	});
+
+	it("returns count=1 for single-firm category", async () => {
+		// krakow: piekarnia(gen=1) only
+		const result = await findLocalityCategories(env.leadgen, "krakow");
+		expect(result).toHaveLength(1);
+		expect(result[0].count).toBe(1);
+	});
+
+	it("returns correct slug for each category", async () => {
+		const result = await findLocalityCategories(env.leadgen, "warszawa");
+		for (const cat of result) {
+			expect(cat.slug).toBe(cat.categoryName.toLowerCase());
+		}
+	});
+
+	it("returns empty array for locality with no generated businesses", async () => {
+		// wroclaw: mechanik(site_generated=0)
+		const result = await findLocalityCategories(env.leadgen, "wroclaw");
+		expect(result).toEqual([]);
 	});
 });

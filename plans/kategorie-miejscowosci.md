@@ -23,13 +23,13 @@ Nowa trasa `/[loc]/kategoria/[category]` renderuje listę firm z danej kategorii
 
 ### Acceptance criteria
 
-- [ ] `GET /zabki/kategoria/hydraulik` zwraca 200 z listą firm kategorii „Hydraulik" z miejscowości Ząbki
-- [ ] Firmy posortowane rating DESC (najwyższy na górze)
-- [ ] Każda pozycja na liście to link do `/[loc]/[slug]` firmy
-- [ ] `GET /zabki/kategoria/nieistniejaca` zwraca 404
-- [ ] `GET /nieistniejaca-miejscowosc/kategoria/hydraulik` zwraca 404
-- [ ] Breadcrumbs: Strona główna → [nazwa miejscowości] → [nazwa kategorii]
-- [ ] Nagłówek `Cache-Control: public, max-age=3600, s-maxage=86400`
+- [x] `GET /zabki/kategoria/hydraulik` zwraca 200 z listą firm kategorii „Hydraulik" z miejscowości Ząbki
+- [x] Firmy posortowane rating DESC (najwyższy na górze)
+- [x] Każda pozycja na liście to link do `/[loc]/[slug]` firmy
+- [x] `GET /zabki/kategoria/nieistniejaca` zwraca 404
+- [x] `GET /nieistniejaca-miejscowosc/kategoria/hydraulik` zwraca 404
+- [x] Breadcrumbs: Strona główna → [nazwa miejscowości] → [nazwa kategorii]
+- [x] Nagłówek `Cache-Control: public, max-age=3600, s-maxage=86400`
 
 ---
 
@@ -43,11 +43,11 @@ Strona `/[loc]` zamiast płaskiej listy wszystkich firm wyświetla grid kategori
 
 ### Acceptance criteria
 
-- [ ] `GET /zabki` wyświetla grid kategorii zamiast listy firm
-- [ ] Każda kategoria pokazuje poprawną liczbę firm (`site_generated = 1`)
-- [ ] Kliknięcie w kategorię prowadzi do strony z Fazy 1
-- [ ] Strona wyświetla się poprawnie gdy miejscowość ma 0 kategorii (komunikat zastępczy)
-- [ ] Kategoria z 1 firmą jest widoczna (brak progu minimalnego)
+- [x] `GET /zabki` wyświetla grid kategorii zamiast listy firm
+- [x] Każda kategoria pokazuje poprawną liczbę firm (`site_generated = 1`)
+- [x] Kliknięcie w kategorię prowadzi do strony z Fazy 1
+- [x] Strona wyświetla się poprawnie gdy miejscowość ma 0 kategorii (komunikat zastępczy)
+- [x] Kategoria z 1 firmą jest widoczna (brak progu minimalnego)
 
 ---
 
@@ -61,9 +61,9 @@ Na istniejącej stronie firmy (`/[loc]/[slug]`) dodać link „Pokaż innych [ka
 
 ### Acceptance criteria
 
-- [ ] Strona firmy zawiera link „Pokaż innych [kategoria] z [miejscowość]"
-- [ ] Link prowadzi do poprawnego URL `/[loc]/kategoria/[slugify(category)]`
-- [ ] Link jest widoczny i dostępny (nie wymaga JS)
+- [x] Strona firmy zawiera link „Pokaż innych [kategoria] z [miejscowość]"
+- [x] Link prowadzi do poprawnego URL `/[loc]/kategoria/[slugify(category)]`
+- [x] Link jest widoczny i dostępny (nie wymaga JS)
 
 ---
 
@@ -77,7 +77,7 @@ Rozszerzyć `sitemap.xml` o URLe stron kategorii. Dla każdej unikalnej pary `(l
 
 ### Acceptance criteria
 
-- [ ] `GET /sitemap.xml` zawiera URLe w formacie `/[loc]/kategoria/[cat-slug]`
-- [ ] Brak duplikatów (ta sama para loc+category pojawia się raz)
-- [ ] Priority kategorii to `0.6` (niżej niż firmy: `0.7`, wyżej lub równo miejscowościom)
+- [x] `GET /sitemap.xml` zawiera URLe w formacie `/[loc]/kategoria/[cat-slug]`
+- [x] Brak duplikatów (ta sama para loc+category pojawia się raz)
+- [x] Priority kategorii to `0.6` (niżej niż firmy: `0.7`, wyżej lub równo miejscowościom)
 - [ ] Nowe URLe są poprawne — każdy zwraca 200 gdy wejść z sitemapy
