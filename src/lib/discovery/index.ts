@@ -8,13 +8,21 @@ export type {
 
 import type { BusinessInsert, Locality, SellerRow } from '../../types/business';
 import type { SerpApiLocalResult, SerpApiMapsResponse } from '../../types/serpapi';
-import type { DiscoveryDeps, DiscoveryStats, LocalityStats, SearchPort, NotifyPort } from './ports';
+import type {
+  DiscoveryDeps,
+  DiscoveryErrorKind,
+  DiscoveryStats,
+  LocalityStats,
+  SearchPort,
+  NotifyPort,
+} from './ports';
 import { slugify } from '../slug';
 import { normalizePhone } from '../phone';
 import { sendDailyReport, formatCronSection } from '../telegram';
 import type { LeadSummary, DailyReportStats } from '../telegram';
 import { getCronSummary } from '../cron-log';
 import { SerpApiError } from './errors';
+import { SKIP_FLAG_KEY, kvStatePort } from './preflight';
 
 export { SerpApiError } from './errors';
 
@@ -110,14 +118,36 @@ export function createDiscoveryDeps(env: Env): DiscoveryDeps {
     searchApi: createSerpApiSearch(env),
     notify: createTelegramNotify(env),
     categories: DEFAULT_CATEGORIES,
+    state: env.STATE ? kvStatePort(env.STATE) : undefined,
   };
 }
 
 export async function runDiscovery(deps: DiscoveryDeps): Promise<DiscoveryStats> {
   const { db, searchApi, categories } = deps;
+
+  // Pre-flight skip — if quota check earlier today set the skip flag, bail out before
+  // burning a single SerpAPI call. The flag carries searchesLeft so the alert is precise.
+  const skipPayload = deps.state ? await deps.state.get(SKIP_FLAG_KEY) : null;
+  if (skipPayload) {
+    let searchesLeft: number | null = null;
+    try {
+      searchesLeft = (JSON.parse(skipPayload) as { searchesLeft?: number | null }).searchesLeft ?? null;
+    } catch {}
+    await deps.state!.delete(SKIP_FLAG_KEY);
+    return {
+      localities: [],
+      totalApiCalls: 0,
+      totalBusinesses: 0,
+      totalNewLeads: 0,
+      quotaExhausted: false,
+      errorKind: 'preflight-skip',
+      searchesLeft,
+    };
+  }
+
   const localityStats: LocalityStats[] = [];
   let totalApiCalls = 0;
-  let errorKind: SerpApiError['kind'] | null = null;
+  let errorKind: DiscoveryErrorKind | null = null;
   let hardStop = false;
 
   for (let attempt = 0; attempt < MAX_LOCALITY_ATTEMPTS; attempt++) {

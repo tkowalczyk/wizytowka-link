@@ -228,7 +228,7 @@ export async function sendDailyReport(
 
 // -- critical alerts --
 
-export type CriticalAlertKind = 'auth' | 'payment' | 'quota';
+export type CriticalAlertKind = 'auth' | 'payment' | 'quota' | 'preflight-skip';
 
 export interface CriticalAlertResult {
   sent: boolean;
@@ -276,7 +276,16 @@ export async function sendCriticalAlert(
   return { sent: true, recipients };
 }
 
-function formatCriticalAlertMessage(kind: CriticalAlertKind, panelUrl: string): string {
+function formatCriticalAlertMessage(
+  kind: CriticalAlertKind,
+  panelUrl: string,
+  ctx: { searchesLeft?: number | null; threshold?: number | null } = {},
+): string {
+  if (kind === 'preflight-skip') {
+    const left = ctx.searchesLeft ?? '?';
+    const thr = ctx.threshold ?? '?';
+    return `\u26A0\uFE0F Discovery skipped \u2014 preflight: ${left} searches left (threshold ${thr}). Panel: ${panelUrl}`;
+  }
   return `\uD83D\uDEA8 SerpAPI: ${kind} \u2014 discovery zatrzymane. Panel: ${panelUrl}`;
 }
 
@@ -286,11 +295,13 @@ export function dispatchCriticalAlert(
   result: RunResult
 ): void {
   const meta = result.meta ?? {};
-  const errorKind = meta.errorKind as SerpApiErrorKind | null | undefined;
+  const errorKind = meta.errorKind as SerpApiErrorKind | 'preflight-skip' | null | undefined;
   const quotaExhausted = meta.quotaExhausted === true;
 
   let kind: CriticalAlertKind | null = null;
-  if (quotaExhausted) {
+  if (errorKind === 'preflight-skip') {
+    kind = 'preflight-skip';
+  } else if (quotaExhausted) {
     kind = 'quota';
   } else if (errorKind === 'auth' || errorKind === 'payment' || errorKind === 'quota') {
     kind = errorKind;
@@ -304,7 +315,10 @@ export function dispatchCriticalAlert(
     return;
   }
 
-  const message = formatCriticalAlertMessage(kind, panelUrl);
+  const message = formatCriticalAlertMessage(kind, panelUrl, {
+    searchesLeft: typeof meta.searchesLeft === 'number' ? meta.searchesLeft : null,
+    threshold: typeof meta.threshold === 'number' ? meta.threshold : null,
+  });
   ctx.waitUntil(
     sendCriticalAlert(env, { kind, message }).catch((err) => {
       console.error(`[critical-alert] dispatch failed for kind=${kind}:`, err);

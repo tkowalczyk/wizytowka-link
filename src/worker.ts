@@ -23,6 +23,11 @@ export function createExports(manifest: SSRManifest) {
               result = await geocodeLocalities(env);
               break;
             }
+            case '55 7 * * *': {
+              const { runPreflight } = await import('./lib/discovery/preflight');
+              result = await runPreflight(env);
+              break;
+            }
             case '0 8 * * *': {
               const { discoverBusinesses } = await import('./lib/discovery');
               const stats = await discoverBusinesses(env);
@@ -34,6 +39,7 @@ export function createExports(manifest: SSRManifest) {
                   businesses: stats.totalBusinesses,
                   quotaExhausted: stats.quotaExhausted,
                   errorKind: stats.errorKind ?? null,
+                  searchesLeft: stats.searchesLeft ?? null,
                 },
               };
               break;

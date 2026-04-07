@@ -3,7 +3,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { resetDb, TEST_IDS } from '../../../test/seed';
 import { runDiscovery } from './index';
 import { SerpApiError } from './errors';
-import type { DiscoveryDeps, SearchPort, NotifyPort } from './ports';
+import type { DiscoveryDeps, SearchPort, NotifyPort, StatePort } from './ports';
+import { SKIP_FLAG_KEY } from './preflight';
 import type { SerpApiLocalResult } from '../../types/serpapi';
 
 // -- helpers --
@@ -22,6 +23,22 @@ function fakeResult(overrides: Partial<SerpApiLocalResult> = {}): SerpApiLocalRe
 
 function noopNotify(): NotifyPort {
   return { reportToSellers: async () => {} };
+}
+
+function fakeState(initial: Record<string, string> = {}) {
+  const store = new Map<string, string>(Object.entries(initial));
+  const port: StatePort = {
+    async get(key) {
+      return store.get(key) ?? null;
+    },
+    async put(key, value) {
+      store.set(key, value);
+    },
+    async delete(key) {
+      store.delete(key);
+    },
+  };
+  return { port, store };
 }
 
 function staticSearch(results: SerpApiLocalResult[]): SearchPort {
@@ -347,6 +364,67 @@ describe('discovery: runDiscovery', () => {
     expect(stats.errorKind).toBe('auth');
     // hard stop: should NOT advance to additional localities
     expect(stats.localities).toHaveLength(1);
+  });
+
+  it('preflight skip flag set → returns empty stats with errorKind=preflight-skip', async () => {
+    const { port } = fakeState({
+      [SKIP_FLAG_KEY]: JSON.stringify({ searchesLeft: 50, threshold: 200 }),
+    });
+    const deps = makeDeps({ state: port });
+
+    const stats = await runDiscovery(deps);
+
+    expect(stats.errorKind).toBe('preflight-skip');
+    expect(stats.localities).toEqual([]);
+    expect(stats.totalApiCalls).toBe(0);
+    expect(stats.totalBusinesses).toBe(0);
+    expect(stats.totalNewLeads).toBe(0);
+    expect(stats.quotaExhausted).toBe(false);
+    expect(stats.searchesLeft).toBe(50);
+  });
+
+  it('preflight skip flag set → searchApi.search is never called', async () => {
+    const { port } = fakeState({
+      [SKIP_FLAG_KEY]: JSON.stringify({ searchesLeft: 10 }),
+    });
+    let calls = 0;
+    const searchApi: SearchPort = {
+      search: async () => {
+        calls++;
+        return { results: [], calls: 1 };
+      },
+    };
+    const deps = makeDeps({ state: port, searchApi });
+
+    await runDiscovery(deps);
+
+    expect(calls).toBe(0);
+  });
+
+  it('preflight skip flag set → notify.reportToSellers is NOT called', async () => {
+    const { port } = fakeState({
+      [SKIP_FLAG_KEY]: JSON.stringify({ searchesLeft: 10 }),
+    });
+    let notified = false;
+    const notify: NotifyPort = {
+      reportToSellers: async () => { notified = true; },
+    };
+    const deps = makeDeps({ state: port, notify });
+
+    await runDiscovery(deps);
+
+    expect(notified).toBe(false);
+  });
+
+  it('preflight skip flag set → flag is cleared after run', async () => {
+    const { port, store } = fakeState({
+      [SKIP_FLAG_KEY]: JSON.stringify({ searchesLeft: 10 }),
+    });
+    const deps = makeDeps({ state: port });
+
+    await runDiscovery(deps);
+
+    expect(store.has(SKIP_FLAG_KEY)).toBe(false);
   });
 
   it('report: NotifyPort.reportToSellers called with correct stats', async () => {

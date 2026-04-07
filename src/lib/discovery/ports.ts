@@ -15,11 +15,18 @@ export interface NotifyPort {
   reportToSellers(stats: DiscoveryStats): Promise<void>;
 }
 
+export interface StatePort {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string, opts?: { ttlSeconds?: number }): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+
 export interface DiscoveryDeps {
   db: D1Database;
   searchApi: SearchPort;
   notify: NotifyPort;
   categories: string[];
+  state?: StatePort;
 }
 
 export interface LocalityStats {
@@ -29,11 +36,14 @@ export interface LocalityStats {
   newLeads: number;
 }
 
+export type DiscoveryErrorKind = SerpApiErrorKind | 'preflight-skip';
+
 export interface DiscoveryStats {
   localities: LocalityStats[];
   totalApiCalls: number;
   totalBusinesses: number;
   totalNewLeads: number;
   quotaExhausted: boolean;
-  errorKind?: SerpApiErrorKind | null;
+  errorKind?: DiscoveryErrorKind | null;
+  searchesLeft?: number | null;
 }

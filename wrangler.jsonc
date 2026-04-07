@@ -25,9 +25,19 @@
 			"remote": true
 		}
 	],
+	"kv_namespaces": [
+		{
+			"binding": "STATE",
+			"id": "b308c972ce0745539757229a32a61591"
+		}
+	],
+	"vars": {
+		"DISCOVERY_MIN_QUOTA": "200"
+	},
 	"triggers": {
 		"crons": [
 			"0 * * * *",
+			"55 7 * * *",
 			"0 8 * * *",
 			"*/5 * * * *"
 		]

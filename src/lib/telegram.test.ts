@@ -462,6 +462,45 @@ describe('dispatchCriticalAlert', () => {
     }
   });
 
+  it('errorKind="preflight-skip" triggers a preflight-skip alert with searchesLeft', async () => {
+    const fetchMock = mockTelegramFetch();
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      const { ctx, settled } = fakeCtx();
+      const result: RunResult = {
+        processed: 0,
+        failed: 0,
+        meta: {
+          errorKind: 'preflight-skip',
+          quotaExhausted: false,
+          searchesLeft: 50,
+          threshold: 200,
+        },
+      };
+
+      dispatchCriticalAlert(env, ctx, result);
+      await settled();
+
+      const row = await env.leadgen
+        .prepare("SELECT kind FROM alert_log WHERE kind = 'preflight-skip'")
+        .first<{ kind: string }>();
+      expect(row).not.toBeNull();
+
+      const calls = fetchMock.mock.calls as unknown as Array<[string, RequestInit]>;
+      const sent = calls.find((c) =>
+        typeof c[0] === 'string' && c[0].includes('/sendMessage')
+      );
+      expect(sent).toBeTruthy();
+      const body = JSON.parse(sent![1].body as string);
+      expect(body.text).toContain('Discovery skipped');
+      expect(body.text).toContain('50');
+    } finally {
+      globalThis.fetch = origFetch;
+    }
+  });
+
   it('does not fire when errorKind is "server" (transient)', async () => {
     const fetchMock = mockTelegramFetch();
     const origFetch = globalThis.fetch;
