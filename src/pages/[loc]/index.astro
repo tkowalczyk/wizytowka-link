@@ -1,6 +1,6 @@
 ---
-import '../../styles/base.css';
-import type { LocalityRow, BusinessRow } from '../../types/business';
+import "../../styles/base.css";
+import type { BusinessRow, LocalityRow } from "../../types/business";
 
 const { loc } = Astro.params;
 
@@ -9,33 +9,41 @@ if (!loc) return new Response(null, { status: 404 });
 const db = Astro.locals.runtime.env.leadgen as D1Database;
 
 const locality = await db
-  .prepare('SELECT * FROM localities WHERE slug = ?')
-  .bind(loc)
-  .first<LocalityRow>();
+	.prepare("SELECT * FROM localities WHERE slug = ?")
+	.bind(loc)
+	.first<LocalityRow>();
 
-if (!locality) return new Response('Not Found', { status: 404 });
+if (!locality) return new Response("Not Found", { status: 404 });
 
 const { results: businesses } = await db
-  .prepare(
-    'SELECT * FROM businesses WHERE locality_id = ? AND site_generated = 1 ORDER BY rating DESC, title ASC'
-  )
-  .bind(locality.id)
-  .all<BusinessRow>();
+	.prepare(
+		"SELECT * FROM businesses WHERE locality_id = ? AND site_generated = 1 ORDER BY rating DESC, title ASC",
+	)
+	.bind(locality.id)
+	.all<BusinessRow>();
 
 const url = `https://wizytowka.link/${loc}`;
-const title = `Firmy w ${locality.name} — wizytowka.link`;
-const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
+const _title = `Firmy w ${locality.name} — wizytowka.link`;
+const _description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
 
-const breadcrumbLd = JSON.stringify({
-  '@context': 'https://schema.org',
-  '@type': 'BreadcrumbList',
-  itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Strona główna', item: 'https://wizytowka.link/' },
-    { '@type': 'ListItem', position: 2, name: locality.name, item: url },
-  ],
+const _breadcrumbLd = JSON.stringify({
+	"@context": "https://schema.org",
+	"@type": "BreadcrumbList",
+	itemListElement: [
+		{
+			"@type": "ListItem",
+			position: 1,
+			name: "Strona główna",
+			item: "https://wizytowka.link/",
+		},
+		{ "@type": "ListItem", position: 2, name: locality.name, item: url },
+	],
 });
 
-Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=86400');
+Astro.response.headers.set(
+	"Cache-Control",
+	"public, max-age=3600, s-maxage=86400",
+);
 ---
 
 <html lang="pl" dir="ltr">

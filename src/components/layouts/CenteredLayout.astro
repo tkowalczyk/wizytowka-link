@@ -1,19 +1,18 @@
 ---
-import type { SiteData } from '../../types/site';
-import CategoryLogo from '../CategoryLogo.astro';
+import type { SiteData } from "../../types/site";
 
 interface RelatedBusiness {
-  title: string;
-  slug: string;
-  category: string;
+	title: string;
+	slug: string;
+	category: string;
 }
 
 interface Props {
-  site: SiteData;
-  category: string;
-  locSlug: string;
-  locName: string;
-  relatedBusinesses: RelatedBusiness[];
+	site: SiteData;
+	category: string;
+	locSlug: string;
+	locName: string;
+	relatedBusinesses: RelatedBusiness[];
 }
 
 const { site, category, locSlug, locName, relatedBusinesses } = Astro.props;

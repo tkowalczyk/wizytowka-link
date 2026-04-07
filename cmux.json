@@ -1,30 +1,30 @@
 {
-  "commands": [
-    {
-      "name": "Build & Deploy",
-      "description": "Build the project and deploy to Cloudflare",
-      "keywords": ["build", "deploy", "release", "publish"],
-      "command": "pnpm run build && pnpm run deploy",
-      "confirm": true
-    },
-    {
-      "name": "Run Tests",
-      "description": "Run all tests",
-      "keywords": ["test", "check", "vitest"],
-      "command": "pnpm run test",
-      "confirm": true
-    },
-    {
-      "name": "Open Production",
-      "description": "Open wizytowka.link in browser",
-      "keywords": ["production", "prod", "site", "live", "website"],
-      "command": "open https://wizytowka.link"
-    },
-    {
-      "name": "Open GitHub",
-      "description": "Open GitHub repository in browser",
-      "keywords": ["github", "repo", "repository", "code"],
-      "command": "open https://github.com/tkowalczyk/wizytowka-link"
-    }
-  ]
+	"commands": [
+		{
+			"name": "Build & Deploy",
+			"description": "Build the project and deploy to Cloudflare",
+			"keywords": ["build", "deploy", "release", "publish"],
+			"command": "pnpm run build && pnpm run deploy",
+			"confirm": true
+		},
+		{
+			"name": "Run Tests",
+			"description": "Run all tests",
+			"keywords": ["test", "check", "vitest"],
+			"command": "pnpm run test",
+			"confirm": true
+		},
+		{
+			"name": "Open Production",
+			"description": "Open wizytowka.link in browser",
+			"keywords": ["production", "prod", "site", "live", "website"],
+			"command": "open https://wizytowka.link"
+		},
+		{
+			"name": "Open GitHub",
+			"description": "Open GitHub repository in browser",
+			"keywords": ["github", "repo", "repository", "code"],
+			"command": "open https://github.com/tkowalczyk/wizytowka-link"
+		}
+	]
 }

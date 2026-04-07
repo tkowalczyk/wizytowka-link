@@ -1,35 +1,35 @@
-import type {
-  TelegramUpdate,
-  InlineKeyboardButton,
-} from '../telegram';
+import type { InlineKeyboardButton, TelegramUpdate } from "../telegram";
 
 export type {
-  TelegramUpdate,
-  TelegramMessage,
-  TelegramChat,
-  TelegramCallbackQuery,
-  InlineKeyboardButton,
-  DailyReportStats,
-  LeadSummary,
-} from '../telegram';
+	DailyReportStats,
+	InlineKeyboardButton,
+	LeadSummary,
+	TelegramCallbackQuery,
+	TelegramChat,
+	TelegramMessage,
+	TelegramUpdate,
+} from "../telegram";
 
 export interface TgContext {
-  env: Env;
-  token: string;
-  chatId: string;
-  update: TelegramUpdate;
-  reply(text: string): Promise<void>;
-  replyWithKeyboard(text: string, keyboard: InlineKeyboardButton[][]): Promise<void>;
-  typing(): Promise<void>;
+	env: Env;
+	token: string;
+	chatId: string;
+	update: TelegramUpdate;
+	reply(text: string): Promise<void>;
+	replyWithKeyboard(
+		text: string,
+		keyboard: InlineKeyboardButton[][],
+	): Promise<void>;
+	typing(): Promise<void>;
 }
 
 export interface TgHandler {
-  match(update: TelegramUpdate, ctx: TgContext): boolean;
-  handle(ctx: TgContext): Promise<void>;
+	match(update: TelegramUpdate, ctx: TgContext): boolean;
+	handle(ctx: TgContext): Promise<void>;
 }
 
 export interface BotConfig {
-  secretEnvKey: string;
-  tokenEnvKey: string;
-  handlers: TgHandler[];
+	secretEnvKey: string;
+	tokenEnvKey: string;
+	handlers: TgHandler[];
 }

@@ -1,42 +1,50 @@
 ---
-import type { SiteData } from '../types/site';
-import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
-import { buildLocalBusinessLd, buildBreadcrumbLd, type BizData } from '../lib/structured-data';
-import CenteredLayout from './layouts/CenteredLayout.astro';
-import SplitLayout from './layouts/SplitLayout.astro';
-import MinimalLayout from './layouts/MinimalLayout.astro';
-import '../styles/base.css';
+import {
+	type BizData,
+	buildBreadcrumbLd,
+	buildLocalBusinessLd,
+} from "../lib/structured-data";
+import { getPaletteById, paletteToCSS, resolveTheme } from "../lib/themes";
+import type { SiteData } from "../types/site";
+import "../styles/base.css";
 
 interface RelatedBusiness {
-  title: string;
-  slug: string;
-  category: string;
+	title: string;
+	slug: string;
+	category: string;
 }
 interface Props {
-  site: SiteData;
-  biz: BizData | null;
-  slug: string;
-  locSlug: string;
-  locName: string;
-  relatedBusinesses: RelatedBusiness[];
+	site: SiteData;
+	biz: BizData | null;
+	slug: string;
+	locSlug: string;
+	locName: string;
+	relatedBusinesses: RelatedBusiness[];
 }
 
 const { site, biz, slug, locSlug, locName, relatedBusinesses } = Astro.props;
 
-const category = biz?.category ?? '';
+const category = biz?.category ?? "";
 const resolved = resolveTheme(slug, category);
-const palette = site.theme ? (getPaletteById(site.theme) ?? resolved.palette) : resolved.palette;
-const layout = resolved.layout;
+const palette = site.theme
+	? (getPaletteById(site.theme) ?? resolved.palette)
+	: resolved.palette;
+const _layout = resolved.layout;
 const style = resolved.style;
-const cssVars = paletteToCSS(palette);
+const _cssVars = paletteToCSS(palette);
 
-const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, Astro.url.href)) : null;
+const _jsonLd = biz
+	? JSON.stringify(buildLocalBusinessLd(biz, Astro.url.href))
+	: null;
 
-const breadcrumbLd = JSON.stringify(buildBreadcrumbLd(site.seo.title, locSlug, locName));
+const _breadcrumbLd = JSON.stringify(
+	buildBreadcrumbLd(site.seo.title, locSlug, locName),
+);
 
-const fontLink = style === 'elegant'
-  ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'
-  : '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">';
+const _fontLink =
+	style === "elegant"
+		? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'
+		: '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">';
 ---
 
 <!DOCTYPE html>

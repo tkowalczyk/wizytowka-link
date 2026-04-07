@@ -149,67 +149,65 @@ VALUES
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
-  // D1 exec is picky with multi-statement SQL — split on semicolons
-  const statements = SCHEMA_SQL
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
-  for (const stmt of statements) {
-    await db.prepare(stmt).run();
-  }
+	// D1 exec is picky with multi-statement SQL — split on semicolons
+	const statements = SCHEMA_SQL.split(";")
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0 && !s.startsWith("--"));
+	for (const stmt of statements) {
+		await db.prepare(stmt).run();
+	}
 }
 
 export async function seedTestData(db: D1Database): Promise<void> {
-  const statements = SEED_SQL
-    .split(';')
-    .map(s => s.trim())
-    .filter(s => s.length > 0 && !s.startsWith('--'));
-  for (const stmt of statements) {
-    await db.prepare(stmt).run();
-  }
+	const statements = SEED_SQL.split(";")
+		.map((s) => s.trim())
+		.filter((s) => s.length > 0 && !s.startsWith("--"));
+	for (const stmt of statements) {
+		await db.prepare(stmt).run();
+	}
 }
 
 export async function resetDb(db: D1Database): Promise<void> {
-  const drops = [
-    'DROP TABLE IF EXISTS alert_log',
-    'DROP TABLE IF EXISTS cron_log',
-    'DROP TABLE IF EXISTS call_log',
-    'DROP TABLE IF EXISTS business_owners',
-    'DROP TABLE IF EXISTS businesses',
-    'DROP TABLE IF EXISTS sellers',
-    'DROP TABLE IF EXISTS localities',
-  ];
-  for (const stmt of drops) {
-    await db.prepare(stmt).run();
-  }
-  await applySchema(db);
-  await seedTestData(db);
+	const drops = [
+		"DROP TABLE IF EXISTS alert_log",
+		"DROP TABLE IF EXISTS cron_log",
+		"DROP TABLE IF EXISTS call_log",
+		"DROP TABLE IF EXISTS business_owners",
+		"DROP TABLE IF EXISTS businesses",
+		"DROP TABLE IF EXISTS sellers",
+		"DROP TABLE IF EXISTS localities",
+	];
+	for (const stmt of drops) {
+		await db.prepare(stmt).run();
+	}
+	await applySchema(db);
+	await seedTestData(db);
 }
 
 /** Seed IDs for easy reference in tests */
 export const TEST_IDS = {
-  localities: {
-    krakow: 1,
-    warszawa: 2,
-    wroclaw: 3,
-    nowaWies: 4,
-  },
-  businesses: {
-    hydraulikWarszawa: 1,
-    fryzjerAnna: 2,
-    dentystaKrakow: 3,
-    piekarnia: 4,
-    sklepAgd: 5,
-    mechanikWroclaw: 6,
-  },
-  sellers: {
-    jan: 1,
-    anna: 2,
-  },
-  tokens: {
-    sellerJan: 'seller_jan_token',
-    sellerAnna: 'seller_anna_token',
-    bizHydraulik: 'biz_hydraulik_token',
-    bizPiekarnia: 'biz_piekarnia_token',
-  },
+	localities: {
+		krakow: 1,
+		warszawa: 2,
+		wroclaw: 3,
+		nowaWies: 4,
+	},
+	businesses: {
+		hydraulikWarszawa: 1,
+		fryzjerAnna: 2,
+		dentystaKrakow: 3,
+		piekarnia: 4,
+		sklepAgd: 5,
+		mechanikWroclaw: 6,
+	},
+	sellers: {
+		jan: 1,
+		anna: 2,
+	},
+	tokens: {
+		sellerJan: "seller_jan_token",
+		sellerAnna: "seller_anna_token",
+		bizHydraulik: "biz_hydraulik_token",
+		bizPiekarnia: "biz_piekarnia_token",
+	},
 } as const;

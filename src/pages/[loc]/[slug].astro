@@ -1,6 +1,5 @@
 ---
-import BusinessSite from '../../components/BusinessSite.astro';
-import { getSite } from '../../lib/site-store';
+import { getSite } from "../../lib/site-store";
 
 const { loc, slug } = Astro.params;
 
@@ -9,37 +8,54 @@ if (!loc || !slug) return new Response(null, { status: 404 });
 const r2 = Astro.locals.runtime.env.sites as R2Bucket;
 const db = Astro.locals.runtime.env.leadgen as D1Database;
 
-const isDraft = Astro.url.searchParams.get('draft') === '1';
-const site = await getSite(r2, isDraft ? 'draft' : 'live', loc, slug);
+const isDraft = Astro.url.searchParams.get("draft") === "1";
+const site = await getSite(r2, isDraft ? "draft" : "live", loc, slug);
 
-if (!site) return new Response('Not Found', { status: 404 });
+if (!site) return new Response("Not Found", { status: 404 });
 
-const biz = await db.prepare(`
+const _biz = await db
+	.prepare(`
   SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating, b.reviews_count
   FROM businesses b
   JOIN localities l ON b.locality_id = l.id
   WHERE l.slug = ? AND b.slug = ?
-`).bind(loc, slug).first<{
-  title: string; phone: string; address: string; category: string;
-  gps_lat: number; gps_lng: number; rating: number | null; reviews_count: number | null;
-}>();
+`)
+	.bind(loc, slug)
+	.first<{
+		title: string;
+		phone: string;
+		address: string;
+		category: string;
+		gps_lat: number;
+		gps_lng: number;
+		rating: number | null;
+		reviews_count: number | null;
+	}>();
 
-const locRow = await db.prepare(`SELECT name FROM localities WHERE slug = ?`)
-  .bind(loc).first<{ name: string }>();
+const _locRow = await db
+	.prepare(`SELECT name FROM localities WHERE slug = ?`)
+	.bind(loc)
+	.first<{ name: string }>();
 
-const { results: relatedBusinesses } = await db.prepare(`
+const { results: relatedBusinesses } = await db
+	.prepare(`
   SELECT b.title, b.slug, b.category
   FROM businesses b
   JOIN localities l ON b.locality_id = l.id
   WHERE l.slug = ? AND b.slug != ? AND b.site_generated = 1
   ORDER BY b.rating DESC
   LIMIT 6
-`).bind(loc, slug).all<{ title: string; slug: string; category: string }>();
+`)
+	.bind(loc, slug)
+	.all<{ title: string; slug: string; category: string }>();
 
 if (isDraft) {
-  Astro.response.headers.set('Cache-Control', 'no-store');
+	Astro.response.headers.set("Cache-Control", "no-store");
 } else {
-  Astro.response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+	Astro.response.headers.set(
+		"Cache-Control",
+		"public, max-age=86400, s-maxage=604800",
+	);
 }
 ---
 

@@ -3,11 +3,9 @@
 	"name": "wizytowka-link",
 	"main": "./dist/_worker.js/index.js",
 	"compatibility_date": "2025-04-01",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true,
+		"enabled": true
 	},
 	"d1_databases": [
 		{
@@ -35,12 +33,7 @@
 		"DISCOVERY_MIN_QUOTA": "200"
 	},
 	"triggers": {
-		"crons": [
-			"0 * * * *",
-			"55 7 * * *",
-			"0 8 * * *",
-			"*/5 * * * *"
-		]
+		"crons": ["0 * * * *", "55 7 * * *", "0 8 * * *", "*/5 * * * *"]
 	},
 	"routes": [
 		{

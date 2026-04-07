@@ -1,8 +1,7 @@
 ---
-import '../../styles/base.css';
-import SellerPanel from '../../components/SellerPanel.astro';
-import { Leads } from '../../lib/leads';
-import type { LeadFilters } from '../../lib/leads';
+import "../../styles/base.css";
+import type { LeadFilters } from "../../lib/leads";
+import { Leads } from "../../lib/leads";
 
 const { token } = Astro.params;
 const leads = new Leads(Astro.locals.runtime.env.leadgen as D1Database);
@@ -11,21 +10,22 @@ const seller = await leads.authenticate(token!);
 if (!seller) return new Response(null, { status: 404 });
 
 const url = new URL(Astro.request.url);
-const statusFilter = url.searchParams.get('status') || 'all';
-const localityFilter = url.searchParams.get('locality') || undefined;
-const siteFilter = (url.searchParams.get('site') || 'generated') as LeadFilters['site'];
-const sortBy = (url.searchParams.get('sort') || 'date') as LeadFilters['sort'];
-const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+const statusFilter = url.searchParams.get("status") || "all";
+const localityFilter = url.searchParams.get("locality") || undefined;
+const siteFilter = (url.searchParams.get("site") ||
+	"generated") as LeadFilters["site"];
+const sortBy = (url.searchParams.get("sort") || "date") as LeadFilters["sort"];
+const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
 
-const [leadPage, localities] = await Promise.all([
-  leads.list(seller.id, {
-    status: statusFilter as LeadFilters['status'],
-    locality: localityFilter,
-    site: siteFilter,
-    sort: sortBy,
-    page,
-  }),
-  leads.localities(),
+const [_leadPage, _localities] = await Promise.all([
+	leads.list(seller.id, {
+		status: statusFilter as LeadFilters["status"],
+		locality: localityFilter,
+		site: siteFilter,
+		sort: sortBy,
+		page,
+	}),
+	leads.localities(),
 ]);
 ---
 
