@@ -79,6 +79,7 @@ function createTelegramNotify(env: Env): NotifyPort {
         new_leads: newLeads,
         top_leads: topLeads.results,
         cronSection,
+        quotaExhausted: stats.quotaExhausted,
       };
 
       const sellers = await env.leadgen.prepare(

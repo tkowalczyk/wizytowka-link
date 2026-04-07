@@ -51,6 +51,7 @@ export interface DailyReportStats {
   new_leads: number;
   top_leads: LeadSummary[];
   cronSection?: string;
+  quotaExhausted?: boolean;
 }
 
 export interface LeadSummary {
@@ -162,7 +163,7 @@ export function formatCronSection(
   return ['', '<b>Stan cron (24h):</b>', ...lines].join('\n');
 }
 
-function formatDailyReport(
+export function formatDailyReport(
   seller: { token: string },
   stats: DailyReportStats,
   date: string
@@ -178,6 +179,10 @@ function formatDailyReport(
   const remaining = stats.new_leads - Math.min(stats.top_leads.length, MAX_TOP_LEADS);
   const moreLine = remaining > 0 ? `\n...i ${remaining} wiecej\n` : '';
 
+  const quotaBanner = stats.quotaExhausted
+    ? '\n\u26A0\uFE0F <b>SerpAPI quota wyczerpane</b>'
+    : '';
+
   return [
     `<b>Raport dzienny \u2014 ${date}</b>`,
     '',
@@ -188,6 +193,7 @@ function formatDailyReport(
     stats.new_leads > 0 ? '<b>Top leady:</b>' : '',
     leadsBlock,
     moreLine,
+    quotaBanner,
     stats.cronSection ?? '',
     `<a href="https://wizytowka.link/s/${seller.token}">Otworz panel \u2192</a>`,
   ].filter(Boolean).join('\n');
