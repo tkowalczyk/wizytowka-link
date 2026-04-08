@@ -16,7 +16,11 @@ interface BusinessRow {
 	loc_slug: string;
 }
 
-export async function generateSites(env: Env, limit = 1): Promise<RunResult> {
+// Workers scheduled handlers have a 15min wall-clock limit; we break out early
+// at 12min to leave margin for in-flight GLM-5 request + D1/R2 writes.
+const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
+
+export async function generateSites(env: Env, limit = 10): Promise<RunResult> {
 	const { results } = await env.leadgen
 		.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
@@ -31,10 +35,17 @@ export async function generateSites(env: Env, limit = 1): Promise<RunResult> {
 	if (!results?.length) return { processed: 0, failed: 0 };
 
 	const llm = createGLM5(env.ZAI_API_KEY);
+	const startMs = Date.now();
 	let processed = 0;
 	let failed = 0;
 
 	for (const biz of results) {
+		if (Date.now() - startMs > WALL_TIME_BUDGET_MS) {
+			console.log(
+				`wall-time budget exceeded at biz ${biz.id}, stopping batch (processed=${processed})`,
+			);
+			break;
+		}
 		try {
 			const content = await generateContent(llm, biz);
 			const overrides = await getOverrides(env.leadgen, biz.id);
