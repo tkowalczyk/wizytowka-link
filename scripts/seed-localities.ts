@@ -148,6 +148,16 @@ function enrichRows(
 		})),
 	);
 
+	// Empirical distribution of escalation levels — surfaces how often Polish
+	// TERYT actually collides at each level. Useful sanity check after every seed.
+	const dist: Record<string, number> = { 1: 0, 2: 0, 3: 0, 4: 0, sym: 0 };
+	for (const ws of withSlugs) {
+		dist[String(ws.level)]++;
+	}
+	console.log(
+		`  escalation distribution: L1=${dist[1]} L2=${dist[2]} L3=${dist[3]} L4=${dist[4]} sym=${dist.sym}`,
+	);
+
 	return enriched.map((e, i) => ({ ...e, slug: withSlugs[i].slug }));
 }
 
