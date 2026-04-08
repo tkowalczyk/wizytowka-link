@@ -31,7 +31,10 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload={`
+      // @ts-expect-error - astro check false positive on 'media' inside inline handler
+      this.media='all'
+    `} />
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
 
     <script
@@ -74,7 +77,7 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
       .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border-width: 0; }
       :target, :focus { scroll-margin-top: 5rem; }
     </style>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   </head>
 
   <body class="bg-white text-gray-900 antialiased">
@@ -453,7 +456,7 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ phone, token: turnstileToken }),
           });
-          const data = await res.json();
+          const data = (await res.json()) as { ok?: boolean; error?: string };
           if (data.ok) {
             showMsg("Dziękujemy! Oddzwonimy wkrótce.", true);
             phoneInput.value = "";

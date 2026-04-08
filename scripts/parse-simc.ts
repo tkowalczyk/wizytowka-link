@@ -72,10 +72,6 @@ interface SeedState {
 	startedAt: string;
 }
 
-interface D1QueryResult {
-	results: { slug: string }[];
-}
-
 // --- UTF-8 Validation ---
 
 function assertUtf8(path: string): void {

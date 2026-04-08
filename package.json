@@ -6,7 +6,9 @@
 		"dev": "astro dev",
 		"build": "astro build",
 		"preview": "wrangler dev",
-		"types": "wrangler types && tsc --noEmit",
+		"types": "wrangler types && astro check",
+		"check": "astro check",
+		"check:watch": "astro check --watch",
 		"db:migrate:remote": "wrangler d1 migrations apply leadgen --remote",
 		"seed:create-sql": "tsx scripts/seed-localities.ts",
 		"seed:into-d1": "tsx scripts/parse-simc.ts",
@@ -30,6 +32,7 @@
 		"tailwindcss": "^4.2.2"
 	},
 	"devDependencies": {
+		"@astrojs/check": "^0.9.8",
 		"@biomejs/biome": "2.4.10",
 		"@cloudflare/vitest-pool-workers": "^0.13.5",
 		"@types/node": "^25.5.0",
