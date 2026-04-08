@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { slugify } from "../src/lib/slug.js";
+import { assignLocalitySlugs } from "../src/lib/locality-slug.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
@@ -120,32 +120,35 @@ function buildTercMaps(terc: TercRow[]) {
 
 // --- Enrichment + Slug Generation ---
 
-const globalSlugs = new Set<string>();
-
 function enrichRows(
 	rows: SimcRow[],
 	tercMaps: ReturnType<typeof buildTercMaps>,
 ): LocalityInsert[] {
 	const { wojMap, powMap, gmiMap } = tercMaps;
 
-	return rows.map((r) => {
-		let slug = slugify(r.nazwa);
-		if (globalSlugs.has(slug)) slug = `${slug}-${r.sym}`;
-		globalSlugs.add(slug);
+	const enriched = rows.map((r) => ({
+		name: r.nazwa,
+		sym: r.sym,
+		symPod: r.symPod,
+		woj: r.woj,
+		wojName: wojMap.get(r.woj) ?? "",
+		pow: r.pow,
+		powName: powMap.get(`${r.woj}-${r.pow}`) ?? "",
+		gmi: r.gmi,
+		gmiName: gmiMap.get(`${r.woj}-${r.pow}-${r.gmi}-${r.rodzGmi}`) ?? "",
+	}));
 
-		return {
-			name: r.nazwa,
-			slug,
-			sym: r.sym,
-			symPod: r.symPod,
-			woj: r.woj,
-			wojName: wojMap.get(r.woj) ?? "",
-			pow: r.pow,
-			powName: powMap.get(`${r.woj}-${r.pow}`) ?? "",
-			gmi: r.gmi,
-			gmiName: gmiMap.get(`${r.woj}-${r.pow}-${r.gmi}-${r.rodzGmi}`) ?? "",
-		};
-	});
+	const withSlugs = assignLocalitySlugs(
+		enriched.map((e) => ({
+			name: e.name,
+			gmi_name: e.gmiName,
+			pow_name: e.powName,
+			woj_name: e.wojName,
+			sym: e.sym,
+		})),
+	);
+
+	return enriched.map((e, i) => ({ ...e, slug: withSlugs[i].slug }));
 }
 
 // --- SQL Generation ---
@@ -191,12 +194,16 @@ function main() {
 
 	console.log("Enriching SIMC rows...");
 	const localities = enrichRows(mainOnly, tercMaps);
+	const uniqueSlugs = new Set(localities.map((l) => l.slug));
 	console.log(
-		`  ${localities.length} localities, ${globalSlugs.size} unique slugs`,
+		`  ${localities.length} localities, ${uniqueSlugs.size} unique slugs`,
 	);
 
-	if (localities.length !== globalSlugs.size) {
-		console.error("WARN: slug count mismatch — possible silent overwrite");
+	if (localities.length !== uniqueSlugs.size) {
+		console.error(
+			`FAIL: slug count mismatch — ${localities.length} rows but only ${uniqueSlugs.size} unique slugs`,
+		);
+		process.exit(1);
 	}
 
 	if (!existsSync(SQL_DIR)) mkdirSync(SQL_DIR, { recursive: true });

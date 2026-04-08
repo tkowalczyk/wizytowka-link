@@ -18,10 +18,11 @@ interface Props {
   slug: string;
   locSlug: string;
   locName: string;
+  locLabel: string;
   relatedBusinesses: RelatedBusiness[];
 }
 
-const { site, biz, slug, locSlug, locName, relatedBusinesses } = Astro.props;
+const { site, biz, slug, locSlug, locName, locLabel, relatedBusinesses } = Astro.props;
 
 const category = biz?.category ?? '';
 const resolved = resolveTheme(slug, category);
@@ -80,9 +81,9 @@ const fontLink = style === 'elegant'
   </ol>
 </nav>
 <main>
-{layout === 'centered' ? <CenteredLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />
-: layout === 'split' ? <SplitLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />
-: <MinimalLayout site={site} category={category} locSlug={locSlug} locName={locName} relatedBusinesses={relatedBusinesses} />}
+{layout === 'centered' ? <CenteredLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
+: layout === 'split' ? <SplitLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
+: <MinimalLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />}
 </main>
 
 <div id="theme-toggle" class="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-card text-card-foreground shadow-lg ring-1 ring-border p-1">

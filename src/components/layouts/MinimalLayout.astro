@@ -13,10 +13,11 @@ interface Props {
   category: string;
   locSlug: string;
   locName: string;
+  locLabel: string;
   relatedBusinesses: RelatedBusiness[];
 }
 
-const { site, category, locSlug, locName, relatedBusinesses } = Astro.props;
+const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.props;
 ---
 
 <Fragment>
@@ -28,6 +29,7 @@ const { site, category, locSlug, locName, relatedBusinesses } = Astro.props;
         <h1 class="hero-title text-primary">{site.hero.headline}</h1>
       </div>
       <p class="hero-sub text-muted-foreground">{site.hero.subheadline}</p>
+      <p class="text-sm text-muted-foreground mt-2">{locLabel}</p>
       <span class="hero-divider !mx-0" aria-hidden="true"></span>
       <a
         href={`tel:${site.contact.phone}`}

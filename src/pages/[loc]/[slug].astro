@@ -1,6 +1,7 @@
 ---
 import BusinessSite from '../../components/BusinessSite.astro';
 import { getSite } from '../../lib/site-store';
+import { formatLocalityLabel } from '../../lib/locality-label';
 
 const { loc, slug } = Astro.params;
 
@@ -24,8 +25,16 @@ const biz = await db.prepare(`
   gps_lat: number; gps_lng: number; rating: number | null; reviews_count: number | null;
 }>();
 
-const locRow = await db.prepare(`SELECT name FROM localities WHERE slug = ?`)
-  .bind(loc).first<{ name: string }>();
+const locRow = await db.prepare(`SELECT name, gmi_name, pow_name FROM localities WHERE slug = ?`)
+  .bind(loc).first<{ name: string; gmi_name: string | null; pow_name: string | null }>();
+
+const locLabel = locRow
+  ? formatLocalityLabel({
+      name: locRow.name,
+      gmi_name: locRow.gmi_name ?? '',
+      pow_name: locRow.pow_name ?? '',
+    })
+  : loc;
 
 const { results: relatedBusinesses } = await db.prepare(`
   SELECT b.title, b.slug, b.category
@@ -49,4 +58,4 @@ if (isDraft) {
   </div>
 )}
 
-<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} relatedBusinesses={relatedBusinesses ?? []} />
+<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} locLabel={locLabel} relatedBusinesses={relatedBusinesses ?? []} />
