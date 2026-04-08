@@ -2,125 +2,133 @@
 
 Lead-gen platform: scrapes Polish businesses via SerpAPI, generates static "wizytówka" (business card) sites on Cloudflare, surfaces leads to sellers via panel + Telegram.
 
-## Stack
+## Tooling
 
-- **Runtime**: Cloudflare Workers (D1 + R2 + Cron triggers)
-- **Framework**: Astro 5 SSR (`@astrojs/cloudflare` adapter)
-- **Language**: TypeScript strict
-- **Styling**: TailwindCSS 4 (`@tailwindcss/vite` plugin, `@theme inline` in base.css, no config file)
-- **Package manager**: pnpm
-- **Deploy**: `wrangler deploy`
-- **Dev**: `astro dev` (local), `wrangler dev` (CF emulation)
+- **Runtime**: Cloudflare Workers — D1 (`leadgen`), R2 (`sites`), KV (`STATE`), Cron triggers
+- **Framework**: Astro 5 SSR with `@astrojs/cloudflare` adapter; entry in `src/worker.ts`
+- **Styling**: TailwindCSS 4 via `@tailwindcss/vite`, `@theme inline` tokens in `src/styles/base.css` (no tailwind.config)
+- **Lint/format**: Biome (not ESLint/Prettier) — `biome.json`
+- **Tests**: Vitest + `@cloudflare/vitest-pool-workers` (real D1/R2 via Miniflare), co-located `foo.test.ts` next to `foo.ts`
 
 ## Project structure
 
 ```
 src/
-  worker.ts            # CF Worker entry: fetch() + scheduled() with cron-log
-  pages/               # Astro routes ([loc]/[slug].astro, /s/{token}, /api/*)
+  worker.ts                      # CF Worker entry — delegates scheduled() to lib/scheduled.ts
+  pages/
+    [loc]/[slug].astro           # Public business page
+    s/                           # Seller panel (token-authed)
     api/
-      cron-log.ts      # GET /api/cron-log — seller-authenticated run history
-      leads/[id].ts    # PUT /api/leads/:id — update lead status
-      contact.ts       # POST /api/contact — public contact form
-      telegram/        # Webhook endpoints for 3 bots (seller/client/notify)
+      admin/run-cron/[name].ts   # Manual cron trigger (x-admin-token)
+      contact.ts                 # Public contact form
+      cron-log.ts                # Seller-authed run history
+      health/serpapi.ts          # SerpAPI quota probe
+      leads/[id].ts              # Update lead status
+      telegram/{seller,notify,client}/[secret].ts  # Webhooks for 3 bots
   lib/
-    cron-log.ts        # RunResult type, startRun/completeRun/failRun + getCronSummary
-    geocoder.ts        # Nominatim geocoding with retry backoff (hourly cron)
-    discovery/         # SerpAPI business discovery with port-based DI (daily cron)
-      index.ts         # discoverBusinesses + Telegram report wiring
-      ports.ts         # SearchPort, NotifyPort, DiscoveryDeps, DiscoveryStats
-    generate-sites.ts  # Site JSON generator (Workers AI → R2, every 5min)
-    site-content.ts    # LLM provider + content generation
-    site-store.ts      # R2 CRUD for site JSON (live/draft)
-    presentation.ts    # Theme resolution with per-business overrides
-    leads.ts           # Leads class — seller auth, status logging, queries
-    phone.ts           # Polish phone normalization
-    telegram.ts        # Telegram API client + daily report + cron stats formatting
-    telegram/          # Dispatch pattern — handlers for 3 bots
-      dispatch.ts      # Webhook → handler routing
-      types.ts         # TgHandler, BotConfig, TgContext
-      queries.ts       # D1 queries for telegram state
-      handlers/        # registration.ts, client.ts
-    themes.ts          # OKLCH palettes, style/layout variants, category→palette mapping
-    slug.ts            # Polish-aware slug util
-    token.ts           # Token generation
-  types/
-    business.ts        # LocalityRow, BusinessRow, BusinessInsert, SellerRow, CallLogRow
-    site.ts            # SiteData (generated content + theme)
-    serpapi.ts         # SerpAPI response types
-  styles/
-    base.css           # Tailwind import, @theme inline tokens, style-variant rules
+    scheduled.ts                 # Single source of truth: CRON_PATTERNS + runScheduledCron
+    cron-log.ts                  # startRun/completeRun/failRun + RunResult + getCronSummary
+    geocoder.ts                  # Nominatim geocoding with exponential backoff
+    discovery/
+      index.ts                   # discoverBusinesses + daily report wiring
+      preflight.ts               # SerpAPI quota check + KV skip-flag
+      ports.ts                   # SearchPort, NotifyPort, DiscoveryDeps
+    serpapi/                     # SerpAPI client + types
+    generate-sites.ts            # Site JSON generator (Z.ai GLM-5 → R2)
+    site-content.ts              # LLM provider (Z.ai GLM-5)
+    site-store.ts                # R2 CRUD for site JSON (live/draft)
+    presentation.ts              # Theme resolution with per-business overrides
+    themes.ts                    # 8 OKLCH palettes + style/layout variants
+    category.ts                  # Category → palette mapping
+    leads.ts                     # Seller auth, status logging, queries
+    telegram.ts                  # Telegram API client + daily report
+    telegram/                    # Dispatch pattern — handlers for 3 bots
+    locality-slug.ts             # TERYT sym-fallback locality slugs
+    locality-label.ts            # Locality display labels
+    structured-data.ts           # JSON-LD for business pages
+    slug.ts                      # Polish char normalization
+    phone.ts                     # Polish phone normalization
+    token.ts                     # Token generation
   components/
-    BusinessSite.astro # Main biz page wrapper (theme resolution + CSS vars injection)
-    layouts/           # 3 layout variants: centered, split, minimal
-migrations/            # D1 SQL migrations (0001–0008)
-test/
-  seed.ts              # Schema + seed data for integration tests
-scripts/               # TERYT CSV parsers + seed runners
-data/                  # SIMC/TERC CSVs + generated SQL batches
-docs/design/           # Numbered design docs (001–009)
+    BusinessSite.astro           # Main biz page wrapper (theme + CSS vars injection)
+    layouts/                     # 3 layout variants: centered, split, minimal
+  styles/base.css                # Tailwind import + @theme inline tokens
+  types/                         # business.ts, site.ts, serpapi.ts
+migrations/                      # D1 SQL migrations
+test/seed.ts                     # Schema + seed data for integration tests
+docs/design/                     # Numbered design docs (read before implementing features)
 ```
 
-## Key commands
+<important if="you need to run non-trivial commands (standard dev/build/test are in package.json)">
+```bash
+pnpm seed                          # WIPES local D1+R2, re-migrates, re-seeds
+pnpm db:migrate:remote             # Apply D1 migrations to production
+curl http://localhost:8787/cdn-cgi/handler/scheduled  # Trigger crons locally (requires pnpm preview, NOT pnpm dev)
+```
+
+Manually trigger a single cron on production (after `wrangler secret put ADMIN_TOKEN`):
 
 ```bash
-pnpm dev              # Astro dev server
-pnpm build            # Build SSR to dist/
-pnpm preview          # wrangler dev (local CF emulation)
-npx wrangler deploy   # Deploy to Cloudflare
-pnpm db:migrate:remote # Run D1 migrations (production)
-pnpm seed             # Wipe local D1+R2, migrate, seed test data
-pnpm test             # Run all tests (150+)
-pnpm test:watch       # Watch mode
-# Cron trigger (local dev):
-curl "http://localhost:8787/cdn-cgi/handler/scheduled"
+curl -X POST https://wizytowka.link/api/admin/run-cron/{name} \
+  -H "Origin: https://wizytowka.link" \
+  -H "x-admin-token: $ADMIN_TOKEN"
 ```
 
-## Architecture
+Where `{name}` is one of: `geocoder`, `preflight`, `discovery`, `generate`. Astro 5 CSRF (`security.checkOrigin`) requires the `Origin` header to match the production domain — without it Astro returns "Cross-site POST form submissions are forbidden".
+</important>
 
-- **Cron-driven pipeline**: geocoder (hourly, `0 * * * *`) → discovery (daily, `0 8 * * *`) → generator (every 5min, `*/5 * * * *`)
-- **Cron observability**: every run logged to `cron_log` table via `startRun`/`completeRun`/`failRun`. All handlers return `RunResult { processed, failed, meta? }`
-- **D1 schema**: `localities` (~95k Polish TERYT records), `businesses`, `sellers`, `call_log` (append-only), `business_owners`, `cron_log`
-- **R2 keys**: `sites/{locality_slug}/{business_slug}.json` (live), `sites/draft/...` (draft)
-- **Seller auth**: token-based (URL path `/s/{token}` or `x-seller-token` header)
-- **Telegram**: 3 separate bots — seller (reports + registration), notify (new lead alerts), client (business owner edits + draft approval)
-- **Port-based DI**: discovery and geocoder accept deps for testability (SearchPort, NotifyPort, GeocoderDeps)
-- **Geocoder retry**: exponential backoff via `geocode_retry_after` column (1h→2h→...→7d max). `geocode_failed=1` reserved for manual skip
-- **Wall-time guards**: geocoder 12min, discovery respects quota limits
-- **Batch inserts**: max 8 rows per INSERT (D1 100-param limit)
+<important if="you are adding, modifying, or debugging a cron handler">
+Cron → handler mapping lives in `src/lib/scheduled.ts` (`CRON_PATTERNS` + `runScheduledCron`). `src/worker.ts` scheduled() just delegates. Adding a new cron requires changes in both `scheduled.ts` (new entry in `CRON_PATTERNS` + case in `executeCron`) AND `wrangler.jsonc` (`triggers.crons`).
 
-## Conventions
+Current pipeline:
 
-- Design docs in `docs/design/` — numbered sequentially (001a, 001b, 002a…). Read relevant docs before implementing a feature
-- Slugs: Polish char normalization (ą→a, ł→l…), collision suffix (`-{sym}` or `-2`)
-- DB: `INSERT OR IGNORE` for idempotency, partial indexes for cron queries, `datetime('now')` for timestamps
-- Migrations: sequential numbered SQL files in `migrations/`
-- Env secrets: `.dev.vars` / `.production.vars` (gitignored) — never commit
+- `0 * * * *` — **geocoder**: Nominatim on next ungeocoded TERYT locality
+- `55 7 * * *` — **preflight**: SerpAPI quota probe; sets KV skip-flag if below `DISCOVERY_MIN_QUOTA`
+- `0 8 * * *` — **discovery**: SerpAPI scrape; respects preflight skip-flag; writes to `businesses`
+- `*/5 * * * *` — **generate**: unfilled `businesses` → Z.ai GLM-5 → R2 site JSON
 
-## Theme system
+Every run is logged to `cron_log` via `startRun`/`completeRun`/`failRun`. All handlers must return `RunResult { processed, failed, meta? }`.
+</important>
 
-- 8 OKLCH palettes (`ocean`, `forest`, `sunset`, `royal`, `crimson`, `slate`, `teal`, `earth`) with light+dark variants
-- Palettes mapped to categories (warm→food, clinical→medical, industrial→trades)
-- 3 style variants (`modern`, `elegant`, `bold`) — applied via `[data-style]` in base.css
-- 3 layout variants (`centered`, `split`, `minimal`) — separate Astro components
-- Selection: deterministic hash from slug (same business = same look always)
-- CSS vars injected per-page via `<style set:html>`, referenced by Tailwind semantic tokens
+<important if="you are writing or modifying a D1 query">
+- D1 binds **max 100 params per statement**. Batch inserts must chunk accordingly (e.g. 8 rows × 12 cols = 96 params). Check column count when tuning.
+- Use `INSERT OR IGNORE` for idempotency, `datetime('now')` for timestamps.
+- Partial indexes are used for cron queries (e.g. `WHERE searched_at IS NULL`).
 
-## D1 param limit
+Schema tables: `localities` (~95k TERYT records), `businesses`, `sellers`, `call_log` (append-only), `business_owners`, `cron_log`, `alert_log`.
+</important>
 
-D1 binds max 100 params per statement. Batch inserts must chunk accordingly (e.g. 8 rows × 12 cols = 96 params).
+<important if="you are touching discovery, preflight, or geocoder code">
+- **Port-based DI**: discovery accepts `SearchPort` + `NotifyPort` via `DiscoveryDeps`; geocoder accepts `GeocoderDeps`. Tests use real D1/R2 but mock these ports.
+- **Wall-time guards**: geocoder 12min; discovery respects SerpAPI quota limits.
+- **Preflight skip**: discovery checks KV `SKIP_FLAG_KEY` and bails before burning any call if preflight flagged low quota.
+- **Geocoder retry**: exponential backoff via `geocode_retry_after` column (1h → 2h → ... → 7d). `geocode_failed=1` is reserved for manual skip, never set on automatic failures.
+- **TERYT sym fallback**: ~3% of localities need a sym suffix in the slug (not rare — handle both cases in queries and slug generation).
+</important>
 
-## Testing
+<important if="you are editing theme, layout, or presentation code">
+Theme system: 8 OKLCH palettes × light/dark × 3 style variants (`modern`/`elegant`/`bold`) × 3 layout variants (`centered`/`split`/`minimal`). Selection is deterministic from slug hash (same business = same look always). CSS vars injected per-page via `<style set:html>`, referenced by Tailwind semantic tokens.
 
-- **Framework**: Vitest + `@cloudflare/vitest-pool-workers` (real D1/R2 in tests)
-- **Co-located**: `foo.test.ts` next to `foo.ts`
-- **Seed**: `test/seed.ts` — schema (0001–0008) + minimal dataset (4 localities, 6 businesses, 2 sellers)
-- **Pattern**: port-based DI for external APIs (SearchPort, GeocoderDeps), real D1 for everything else
-- **Coverage**: 150+ tests across 16 files
+Files: `src/lib/themes.ts` (palettes), `src/lib/category.ts` (category → palette), `src/lib/presentation.ts` (per-business overrides), `src/styles/base.css` (`[data-style]` rules), `src/components/layouts/` (3 Astro layout components).
+</important>
 
-## External APIs
-
+<important if="you are calling or integrating an external API">
 - **Nominatim** (OSM): 1 req/sec rate limit, no API key
-- **SerpAPI**: key in `.dev.vars` / `.production.vars` as `SERP_API_KEY`
-- **Telegram Bot API**: 3 bots — `TG_SELLER_BOT_TOKEN`, `TG_NOTIFY_BOT_TOKEN`, `TG_CLIENT_BOT_TOKEN` + webhooks at `/api/telegram/{bot}/[secret]`
-- **Workers AI**: GLM-5 for site content generation (key: `ZAI_API_KEY`)
+- **SerpAPI**: `SERP_API_KEY`. Quota-sensitive — respect preflight skip-flag
+- **Z.ai GLM-5** (NOT Cloudflare Workers AI): `ZAI_API_KEY`, endpoint `https://api.z.ai/api/coding/paas/v4/chat/completions`, model `glm-5`. Used in `src/lib/site-content.ts`
+- **Telegram Bot API**: 3 separate bots — `TG_SELLER_BOT_TOKEN` (reports + registration), `TG_NOTIFY_BOT_TOKEN` (new lead alerts), `TG_CLIENT_BOT_TOKEN` (business owner edits + draft approval). Webhooks at `/api/telegram/{bot}/[secret]`
+</important>
+
+<important if="you are handling authentication or secrets">
+- **Seller auth**: token-based — URL path `/s/{token}` or `x-seller-token` header. Logic in `src/lib/leads.ts` (`Leads.authenticate`, `Leads.extractToken`).
+- **Admin auth**: single `ADMIN_TOKEN` secret, `x-admin-token` header — only for `/api/admin/run-cron/{name}`. Fail-closed (500 if secret not set).
+- **Secrets files**: `.dev.vars` / `.production.vars` are gitignored — never commit. Production secrets via `wrangler secret put`.
+</important>
+
+<important if="you are implementing a new feature">
+Read relevant design docs in `docs/design/` first — numbered sequentially (e.g. `012a-category-logos.md`), contain rationale and scope. Completed specs archived in `docs/design/done/`.
+</important>
+
+<important if="you are generating a slug for a business or locality">
+Polish char normalization required (ą→a, ł→l, ś→s, ż→z, ź→z, ć→c, ń→n, ó→o, ę→e). Collision suffix: `-{sym}` for locality slugs (TERYT SIMC code), `-2`, `-3`... for business slugs. See `src/lib/slug.ts`, `src/lib/locality-slug.ts`.
+</important>

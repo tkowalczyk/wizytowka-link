@@ -28,32 +28,35 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 ## Jak to dziala
 
 ```
-   Co godzine              Codziennie o 8:00         Co 5 minut
-┌─────────────┐       ┌──────────────────┐      ┌─────────────────┐
-│  Geocoder   │──────▶│   Discovery      │─────▶│   Generator     │
-│ (GPS miast) │       │ (firmy z Maps)   │      │ (strony z AI)   │
-└─────────────┘       └───────┬──────────┘      └────────┬────────┘
-                              │                          │
-                              ▼                          ▼
-                     ┌────────────────┐        ┌─────────────────┐
-                     │   Telegram     │        │  wizytowka.link │
-                     │  (3 boty:      │        │  /miasto/firma   │
-                     │  seller/notify/│        │  (strona firmy)  │
-                     │  client)       │        └─────────────────┘
-                     └────────────────┘
-                              │
-                     ┌────────────────┐
-                     │   Cron Log     │
-                     │  (historia     │
-                     │  uruchomien)   │
-                     └────────────────┘
+   Co godzine        Codziennie 7:55    Codziennie 8:00    Co 5 minut
+┌─────────────┐    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
+│  Geocoder   │    │  Preflight   │   │  Discovery   │   │  Generator   │
+│ (GPS miast) │    │ (SerpAPI     │──▶│ (firmy       │──▶│ (strony      │
+│             │    │  quota check)│   │  z Maps)     │   │  przez GLM-5)│
+└─────────────┘    └──────────────┘   └──────┬───────┘   └──────┬───────┘
+                                             │                   │
+                                             ▼                   ▼
+                                    ┌────────────────┐  ┌─────────────────┐
+                                    │   Telegram     │  │  wizytowka.link │
+                                    │  (3 boty:      │  │  /miasto/firma  │
+                                    │  seller/notify/│  │  (strona firmy) │
+                                    │  client)       │  └─────────────────┘
+                                    └────────────────┘
+                                             │
+                                    ┌────────────────┐
+                                    │   Cron Log     │
+                                    │  (historia     │
+                                    │  uruchomien)   │
+                                    └────────────────┘
 ```
 
 **Geocoder** — co godzine nadaje wspolrzedne GPS kolejnym miejscowosciom z bazy ~95 tysiecy polskich miejscowosci (rejestr TERYT). Przy bledach stosuje exponential backoff zamiast permanentnego oznaczania jako failed.
 
+**Preflight** — codziennie o 7:55, 5 minut przed discovery, sprawdza pozostala quote SerpAPI. Jesli ponizej progu (`DISCOVERY_MIN_QUOTA`), ustawia flage w KV ktora discovery respektuje i bailuje bez spalania ani jednego calla. Zabezpieczenie przed wyczerpaniem pakietu w srodku dnia.
+
 **Discovery** — codziennie rano przeszukuje nastepna miejscowosc w 18 kategoriach (hydraulik, fryzjer, dentysta, piekarnia...). Zapisuje firmy ktore maja telefon ale nie maja strony www. Port-based DI umozliwia testowanie bez SerpAPI.
 
-**Generator** — co 5 minut bierze nowe firmy i za pomoca AI generuje tresc strony wizytowkowej. Strona jest natychmiast dostepna pod adresem `wizytowka.link/{miasto}/{firma}`.
+**Generator** — co 5 minut bierze nowe firmy i przez Z.ai GLM-5 generuje tresc strony wizytowkowej (nazwa, opis uslug, wezwanie do kontaktu). Strona jest natychmiast dostepna pod adresem `wizytowka.link/{miasto}/{firma}`.
 
 **Panel sprzedawcy** — lista leadow z telefonami, statusami kontaktu i komentarzami. Dostepny przez prywatny link.
 
@@ -67,17 +70,45 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 pnpm install
 pnpm seed        # wipe local D1+R2, run migrations, seed test data
 pnpm build && pnpm preview
-pnpm test        # run 150+ tests (vitest + cloudflare pool)
+pnpm test        # run 260+ tests (vitest + cloudflare pool)
 ```
 
 Seed tworzy miejscowosc, 6 firm z wizytowkami, 2 sprzedawcow i logi kontaktow. Panel sprzedawcy: `http://localhost:8787/s/seller_jan_token?status=all`
 
+**Uwaga o cronach:** `pnpm dev` (Astro dev server) nie odpala scheduled handlerow. Zeby testowac crony lokalnie uzyj `pnpm preview` (wrangler dev) i wywolaj:
+
+```bash
+curl "http://localhost:8787/cdn-cgi/handler/scheduled"
+```
+
+## Admin endpoints
+
+Do recznego odpalenia konkretnego crona na produkcji (np. zeby wymusic `discovery` po podbiciu pakietu SerpAPI bez czekania do 8:00) sluzy chroniony endpoint:
+
+```bash
+POST /api/admin/run-cron/{name}
+```
+
+Gdzie `name` to jedna z: `geocoder`, `preflight`, `discovery`, `generate`. Kazdy uruchamia dokladnie ten sam handler co odpowiadajacy mu cron — logowany do `cron_log` jak normalne uruchomienie harmonogramowe.
+
+**Autoryzacja:** naglowek `x-admin-token` musi rownac sie sekretowi `ADMIN_TOKEN` (ustawianemu przez `wrangler secret put ADMIN_TOKEN`). Brak sekretu = 500, zly token = 401.
+
+**Uwaga o CSRF:** Astro 5 ma wlaczona ochrone `security.checkOrigin`, wiec curl musi dostac naglowek `Origin` pasujacy do domeny produkcyjnej:
+
+```bash
+curl -X POST https://wizytowka.link/api/admin/run-cron/discovery \
+  -H "Origin: https://wizytowka.link" \
+  -H "x-admin-token: $ADMIN_TOKEN"
+```
+
+Odpowiedz zwraca pelen `RunResult` z licznikami (`processed`, `failed`, `meta` — np. dla discovery `apiCalls`, `businesses`, `quotaExhausted`, `searchesLeft`).
+
 ## Stack
 
 - Astro 5 SSR + Cloudflare Workers
-- D1 (baza danych), R2 (pliki stron)
+- D1 (baza danych), R2 (pliki stron), KV (flagi preflight)
 - SerpAPI (wyszukiwanie firm na Google Maps)
-- Workers AI (generowanie tresci)
+- Z.ai GLM-5 (generowanie tresci wizytowek)
 - Telegram Bot API (3 boty: seller/notify/client)
 - TailwindCSS 4 + system tematow (8 palet kolorow OKLCH, 3 style wizualne, 3 layouty, dark mode)
-- Vitest + @cloudflare/vitest-pool-workers (150+ testow)
+- Vitest + @cloudflare/vitest-pool-workers (260+ testow)
