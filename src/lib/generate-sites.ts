@@ -20,7 +20,12 @@ interface BusinessRow {
 // at 12min to leave margin for in-flight GLM-5 request + D1/R2 writes.
 const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
 
-export async function generateSites(env: Env, limit = 10): Promise<RunResult> {
+// Batch of 5 = ~3.5min wall clock per run (at ~41s/biz GLM-5 latency), which
+// stays safely under the 5min cron interval (*/5 * * * *). A larger batch
+// would overlap with the next scheduled run and race on SELECT ... WHERE
+// site_generated = 0, causing duplicate GLM-5 calls and R2 writes. Proper
+// atomic claim pattern is tracked in issue #23.
+export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 	const { results } = await env.leadgen
 		.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
