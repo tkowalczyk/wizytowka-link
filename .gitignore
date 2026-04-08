@@ -8,3 +8,4 @@ seed/.seed-state.json
 seed/localities-batch-*.sql
 data/sql/
 .DS_Store
+migration-manifest.json
