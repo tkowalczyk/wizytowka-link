@@ -1,8 +1,8 @@
 import type { SiteData } from "../types/site";
 import type { RunResult } from "./cron-log";
 import { getOverrides, resolveFullTheme } from "./presentation";
-import { createGLM5, generateContent } from "./site-content";
-import { putSite } from "./site-store";
+import { createGLM5, generateContent, type LLMProvider } from "./site-content";
+import { putSite as defaultPutSite } from "./site-store";
 
 interface BusinessRow {
 	id: number;
@@ -16,30 +16,62 @@ interface BusinessRow {
 	loc_slug: string;
 }
 
+export interface GenerateSitesDeps {
+	db: D1Database;
+	r2: R2Bucket;
+	llm: LLMProvider;
+	putSite: typeof defaultPutSite;
+}
+
 // Workers scheduled handlers have a 15min wall-clock limit; we break out early
 // at 12min to leave margin for in-flight GLM-5 request + D1/R2 writes.
 const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
 
-// Batch of 5 = ~3.5min wall clock per run (at ~41s/biz GLM-5 latency), which
-// stays safely under the 5min cron interval (*/5 * * * *). A larger batch
-// would overlap with the next scheduled run and race on the pending pool,
-// causing duplicate GLM-5 calls and R2 writes. Proper atomic claim pattern
-// is tracked in issue #23 Phase 7.
-export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
-	const { results } = await env.leadgen
-		.prepare(`
-    SELECT b.*, l.name as locality_name, l.slug as loc_slug
-    FROM businesses b
-    JOIN localities l ON b.locality_id = l.id
-    WHERE b.site_status = 'pending'
-    LIMIT ?
-  `)
-		.bind(limit)
+// Stale claim TTL — rows stuck in 'in_progress' longer than this are
+// reclaimed by the next run. Generously above the 12min wall budget so
+// in-flight claims are never accidentally stolen.
+const STALE_CLAIM_TTL = "-15 minutes";
+
+export async function runGenerateSites(
+	deps: GenerateSitesDeps,
+	limit = 10,
+): Promise<RunResult> {
+	const { db, r2, llm, putSite } = deps;
+
+	// Atomic claim: flip up to `limit` eligible rows to 'in_progress' in a
+	// single statement, returning their ids. Eligible = pending OR a stale
+	// in_progress claim (recovery after crash / wall-time break).
+	const claimed = await db
+		.prepare(
+			`UPDATE businesses
+       SET site_status = 'in_progress', site_claimed_at = datetime('now')
+       WHERE id IN (
+         SELECT id FROM businesses
+         WHERE site_status = 'pending'
+            OR (site_status = 'in_progress' AND site_claimed_at < datetime('now', ?))
+         LIMIT ?
+       )
+       RETURNING id`,
+		)
+		.bind(STALE_CLAIM_TTL, limit)
+		.all<{ id: number }>();
+
+	const claimedIds = claimed.results?.map((r) => r.id) ?? [];
+	if (!claimedIds.length) return { processed: 0, failed: 0 };
+
+	const placeholders = claimedIds.map(() => "?").join(", ");
+	const { results } = await db
+		.prepare(
+			`SELECT b.*, l.name as locality_name, l.slug as loc_slug
+       FROM businesses b
+       JOIN localities l ON b.locality_id = l.id
+       WHERE b.id IN (${placeholders})`,
+		)
+		.bind(...claimedIds)
 		.all<BusinessRow>();
 
 	if (!results?.length) return { processed: 0, failed: 0 };
 
-	const llm = createGLM5(env.ZAI_API_KEY);
 	const startMs = Date.now();
 	let processed = 0;
 	let failed = 0;
@@ -53,7 +85,7 @@ export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 		}
 		try {
 			const content = await generateContent(llm, biz);
-			const overrides = await getOverrides(env.leadgen, biz.id);
+			const overrides = await getOverrides(db, biz.id);
 			const theme = resolveFullTheme(biz.slug, biz.category, overrides);
 
 			const siteData: SiteData = {
@@ -63,10 +95,12 @@ export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 				style: theme.style,
 			};
 
-			await putSite(env.sites, "live", biz.loc_slug, biz.slug, siteData);
+			await putSite(r2, "live", biz.loc_slug, biz.slug, siteData);
 
-			await env.leadgen
-				.prepare(`UPDATE businesses SET site_status = 'done' WHERE id = ?`)
+			await db
+				.prepare(
+					`UPDATE businesses SET site_status = 'done', site_claimed_at = NULL WHERE id = ?`,
+				)
 				.bind(biz.id)
 				.run();
 
@@ -75,8 +109,34 @@ export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 		} catch (err) {
 			console.error(`fail biz ${biz.id}: ${(err as Error).message}`);
 			failed++;
+			// Rollback the claim so the row is retried by a future run instead
+			// of being stuck as 'in_progress' until the stale TTL kicks in.
+			try {
+				await db
+					.prepare(
+						`UPDATE businesses SET site_status = 'pending', site_claimed_at = NULL WHERE id = ?`,
+					)
+					.bind(biz.id)
+					.run();
+			} catch (rollbackErr) {
+				console.error(
+					`rollback fail biz ${biz.id}: ${(rollbackErr as Error).message}`,
+				);
+			}
 		}
 	}
 
 	return { processed, failed };
+}
+
+export async function generateSites(env: Env, limit = 10): Promise<RunResult> {
+	return runGenerateSites(
+		{
+			db: env.leadgen,
+			r2: env.sites,
+			llm: createGLM5(env.ZAI_API_KEY),
+			putSite: defaultPutSite,
+		},
+		limit,
+	);
 }
