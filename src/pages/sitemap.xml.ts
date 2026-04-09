@@ -51,7 +51,7 @@ export const GET: APIRoute = async ({ locals }) => {
       SELECT DISTINCT l.slug
       FROM localities l
       INNER JOIN businesses b ON b.locality_id = l.id
-      WHERE b.site_generated = 1
+      WHERE b.site_status = 'done'
       ORDER BY l.slug
     `)
 			.all<LocalityRow>(),
@@ -60,7 +60,7 @@ export const GET: APIRoute = async ({ locals }) => {
       SELECT b.slug, l.slug AS loc_slug, b.created_at
       FROM businesses b
       JOIN localities l ON b.locality_id = l.id
-      WHERE b.site_generated = 1
+      WHERE b.site_status = 'done'
       ORDER BY b.created_at DESC
       LIMIT 49000
     `)
@@ -70,7 +70,7 @@ export const GET: APIRoute = async ({ locals }) => {
       SELECT DISTINCT b.category, l.slug AS loc_slug
       FROM businesses b
       JOIN localities l ON b.locality_id = l.id
-      WHERE b.site_generated = 1
+      WHERE b.site_status = 'done'
     `)
 			.all<CategoryRow>(),
 	]);

@@ -15,7 +15,7 @@ interface Lead {
   biz_slug: string;
   loc_slug: string;
   locality_name: string;
-  site_generated: number;
+  site_status: 'pending' | 'in_progress' | 'done' | 'ineligible';
   status: string;
   comment: string | null;
   created_at: string;
@@ -192,7 +192,7 @@ const SITE_FILTER = [
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"/><path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"/></svg>
               </button>
-              {lead.site_generated ? (
+              {lead.site_status === 'done' ? (
                 <a
                   href={`/${lead.loc_slug}/${lead.biz_slug}`}
                   target="_blank"

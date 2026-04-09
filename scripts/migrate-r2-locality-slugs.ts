@@ -5,7 +5,7 @@
  * all. Instead we derive every live object key from D1 + the manifest:
  *
  *   1. Read `migration-manifest.json` → Map<locality_id, {old_slug, new_slug}>
- *   2. Query D1 for `businesses.site_generated = 1` → list of (locality_id, biz_slug)
+ *   2. Query D1 for `businesses.site_status = 'done'` → list of (locality_id, biz_slug)
  *   3. For each business, build from/to R2 keys using the manifest's old → new map
  *
  * Drafts are intentionally NOT migrated — they are transient owner-edit state
@@ -95,7 +95,7 @@ function r2Delete(key: string): void {
 
 async function main() {
 	console.log(
-		`Loading businesses with site_generated=1 from D1 (${ENV_FLAG})...`,
+		`Loading businesses with site_status='done' from D1 (${ENV_FLAG})...`,
 	);
 	// We no longer consume the manifest — the current D1 slug IS the target,
 	// and we probe multiple historical formats as source candidates because
@@ -103,7 +103,7 @@ async function main() {
 	const businesses = d1Json<BizRow>(
 		"SELECT b.slug AS biz_slug, l.sym, l.name, l.slug AS new_loc_slug " +
 			"FROM businesses b JOIN localities l ON b.locality_id = l.id " +
-			"WHERE b.site_generated = 1 ORDER BY b.id",
+			"WHERE b.site_status = 'done' ORDER BY b.id",
 	);
 	console.log(`  ${businesses.length} generated businesses`);
 

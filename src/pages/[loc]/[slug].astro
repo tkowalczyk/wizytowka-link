@@ -40,7 +40,7 @@ const { results: relatedBusinesses } = await db.prepare(`
   SELECT b.title, b.slug, b.category
   FROM businesses b
   JOIN localities l ON b.locality_id = l.id
-  WHERE l.slug = ? AND b.slug != ? AND b.site_generated = 1
+  WHERE l.slug = ? AND b.slug != ? AND b.site_status = 'done'
   ORDER BY b.rating DESC
   LIMIT 6
 `).bind(loc, slug).all<{ title: string; slug: string; category: string }>();

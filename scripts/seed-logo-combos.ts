@@ -292,7 +292,7 @@ for (const cat of CATEGORIES) {
 			bizId++;
 
 			sql(
-				`INSERT OR IGNORE INTO businesses (id, locality_id, place_id, title, slug, phone, address, category, rating, gps_lat, gps_lng, site_generated) VALUES (${bizId}, 9999, 'test-${bizId}', '${cat.title.replace(/'/g, "''")}', '${slug}', '+48 500 000 ${String(bizId).padStart(3, "0")}', 'ul. Testowa 1, 00-001 Testowo', '${cat.category}', 4.5, 52.0, 17.0, 1)`,
+				`INSERT OR IGNORE INTO businesses (id, locality_id, place_id, title, slug, phone, address, category, rating, gps_lat, gps_lng, site_status) VALUES (${bizId}, 9999, 'test-${bizId}', '${cat.title.replace(/'/g, "''")}', '${slug}', '+48 500 000 ${String(bizId).padStart(3, "0")}', 'ul. Testowa 1, 00-001 Testowo', '${cat.category}', 4.5, 52.0, 17.0, 'done')`,
 			);
 
 			const siteData = {

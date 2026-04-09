@@ -17,7 +17,7 @@ if (!locality) return new Response('Not Found', { status: 404 });
 
 const { results: businesses } = await db
   .prepare(
-    'SELECT * FROM businesses WHERE locality_id = ? AND site_generated = 1 ORDER BY rating DESC, title ASC'
+    "SELECT * FROM businesses WHERE locality_id = ? AND site_status = 'done' ORDER BY rating DESC, title ASC"
   )
   .bind(locality.id)
   .all<BusinessRow>();

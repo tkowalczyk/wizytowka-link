@@ -39,7 +39,9 @@ export interface BusinessRow {
 	operating_hours: string | null;
 	thumbnail_url: string | null;
 	unclaimed: number;
-	site_generated: number;
+	site_status: "pending" | "in_progress" | "done" | "ineligible";
+	site_ineligible_reason: "has_website" | "no_phone" | null;
+	site_claimed_at: string | null;
 	created_at: string;
 }
 
@@ -63,6 +65,8 @@ export interface BusinessInsert {
 	operating_hours: string | null;
 	thumbnail_url: string | null;
 	unclaimed: number;
+	site_status: "pending" | "in_progress" | "done" | "ineligible";
+	site_ineligible_reason: "has_website" | "no_phone" | null;
 }
 
 export interface SellerRow {

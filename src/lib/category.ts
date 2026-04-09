@@ -27,7 +27,7 @@ export async function findCategoryBusinesses(
 
 	const { results: categoryRows } = await db
 		.prepare(
-			"SELECT DISTINCT category FROM businesses WHERE locality_id = ? AND site_generated = 1",
+			"SELECT DISTINCT category FROM businesses WHERE locality_id = ? AND site_status = 'done'",
 		)
 		.bind(locality.id)
 		.all<{ category: string }>();
@@ -40,7 +40,7 @@ export async function findCategoryBusinesses(
 
 	const { results: businesses } = await db
 		.prepare(
-			"SELECT * FROM businesses WHERE locality_id = ? AND category = ? AND site_generated = 1 ORDER BY rating DESC",
+			"SELECT * FROM businesses WHERE locality_id = ? AND category = ? AND site_status = 'done' ORDER BY rating DESC",
 		)
 		.bind(locality.id, match.category)
 		.all<BusinessRow>();
@@ -61,7 +61,7 @@ export async function findLocalityCategories(
 
 	const { results } = await db
 		.prepare(
-			"SELECT category, COUNT(*) AS count FROM businesses WHERE locality_id = ? AND site_generated = 1 GROUP BY category",
+			"SELECT category, COUNT(*) AS count FROM businesses WHERE locality_id = ? AND site_status = 'done' GROUP BY category",
 		)
 		.bind(locality.id)
 		.all<{ category: string; count: number }>();

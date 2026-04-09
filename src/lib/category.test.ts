@@ -25,11 +25,11 @@ describe("findCategoryBusinesses", () => {
 	});
 
 	it("returns locality, categoryName and businesses sorted by rating DESC", async () => {
-		// seed: warszawa has hydraulik (4.5) and fryzjer (4.8), both site_generated=1
+		// seed: warszawa has hydraulik (4.5) and fryzjer (4.8), both site_status='done'
 		// Insert a second hydraulik with lower rating to test ordering
 		await env.leadgen
 			.prepare(
-				"INSERT INTO businesses (locality_id, place_id, title, slug, category, rating, gps_lat, gps_lng, site_generated) VALUES (2, 'place_zzz', 'Hydraulik Pomocnik', 'hydraulik-pomocnik', 'hydraulik', 3.0, 52.23, 21.01, 1)",
+				"INSERT INTO businesses (locality_id, place_id, title, slug, category, rating, gps_lat, gps_lng, site_status) VALUES (2, 'place_zzz', 'Hydraulik Pomocnik', 'hydraulik-pomocnik', 'hydraulik', 3.0, 52.23, 21.01, 'done')",
 			)
 			.run();
 
@@ -47,8 +47,8 @@ describe("findCategoryBusinesses", () => {
 		expect(result!.businesses[1].rating).toBe(3.0);
 	});
 
-	it("excludes businesses with site_generated = 0", async () => {
-		// krakow has 'dentysta' with site_generated=0 and 'piekarnia' with site_generated=1
+	it("excludes businesses with site_status != 'done'", async () => {
+		// krakow has 'dentysta' with site_status='pending' and 'piekarnia' with site_status='done'
 		// 'dentysta' should not match any category slug
 		const result = await findCategoryBusinesses(
 			env.leadgen,
@@ -65,8 +65,8 @@ describe("findLocalityCategories", () => {
 		expect(result).toEqual([]);
 	});
 
-	it("returns categories with correct counts (only site_generated=1)", async () => {
-		// warszawa: hydraulik(1, gen=1), fryzjer(1, gen=1), sklep(gen=0) → 2 categories
+	it("returns categories with correct counts (only site_status='done')", async () => {
+		// warszawa: hydraulik(done), fryzjer(done), sklep(ineligible) → 2 categories
 		const result = await findLocalityCategories(env.leadgen, "warszawa");
 		expect(result).toHaveLength(2);
 		const names = result.map((c) => c.categoryName).sort();
@@ -74,7 +74,7 @@ describe("findLocalityCategories", () => {
 	});
 
 	it("returns count=1 for single-firm category", async () => {
-		// krakow: piekarnia(gen=1) only
+		// krakow: piekarnia(done) only
 		const result = await findLocalityCategories(env.leadgen, "krakow");
 		expect(result).toHaveLength(1);
 		expect(result[0].count).toBe(1);
@@ -88,7 +88,7 @@ describe("findLocalityCategories", () => {
 	});
 
 	it("returns empty array for locality with no generated businesses", async () => {
-		// wroclaw: mechanik(site_generated=0)
+		// wroclaw: mechanik(site_status='pending')
 		const result = await findLocalityCategories(env.leadgen, "wroclaw");
 		expect(result).toEqual([]);
 	});

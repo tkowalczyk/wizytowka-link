@@ -13,6 +13,7 @@ import type {
 } from "../../types/serpapi";
 import { getCronSummary } from "../cron-log";
 import { normalizePhone } from "../phone";
+import { classifyBusinessSiteStatus } from "../site-status";
 import { slugify } from "../slug";
 import type { DailyReportStats, LeadSummary } from "../telegram";
 import { formatCronSection, sendDailyReport } from "../telegram";
@@ -29,7 +30,9 @@ import { kvStatePort, SKIP_FLAG_KEY } from "./preflight";
 
 export { SerpApiError } from "./errors";
 
-const BATCH_SIZE = 5;
+// BATCH_SIZE × columns per row must stay <= 100 (D1 param limit).
+// 4 × 21 = 84, safe. Previously 5 × 19 = 95.
+const BATCH_SIZE = 4;
 const MAX_LOCALITY_ATTEMPTS = 5;
 const SERPAPI_BASE = "https://serpapi.com/search.json";
 const MAX_PAGES_PER_CATEGORY = 5;
@@ -476,12 +479,15 @@ function toBusiness(
 	localityId: number,
 	category: string,
 ): BusinessInsert {
+	const phone = r.phone ? normalizePhone(r.phone) : null;
+	const website = r.website ?? null;
+	const classification = classifyBusinessSiteStatus({ website, phone });
 	return {
 		title: r.title,
 		slug,
-		phone: r.phone ? normalizePhone(r.phone) : null,
+		phone,
 		address: r.address ?? null,
-		website: r.website ?? null,
+		website,
 		category,
 		rating: r.rating ?? null,
 		gps_lat: r.gps_coordinates.latitude,
@@ -498,6 +504,8 @@ function toBusiness(
 			: null,
 		thumbnail_url: r.thumbnail ?? null,
 		unclaimed: r.unclaimed_listing ? 1 : 0,
+		site_status: classification.status,
+		site_ineligible_reason: classification.reason,
 	};
 }
 
@@ -508,7 +516,9 @@ async function batchInsert(
 	for (let i = 0; i < businesses.length; i += BATCH_SIZE) {
 		const chunk = businesses.slice(i, i + BATCH_SIZE);
 		const placeholders = chunk
-			.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+			.map(
+				() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			)
 			.join(", ");
 		const values = chunk.flatMap((b) => [
 			b.title,
@@ -530,6 +540,8 @@ async function batchInsert(
 			b.operating_hours,
 			b.thumbnail_url,
 			b.unclaimed,
+			b.site_status,
+			b.site_ineligible_reason,
 		]);
 		await db
 			.prepare(
@@ -537,7 +549,8 @@ async function batchInsert(
        (title, slug, phone, address, website, category, rating,
         gps_lat, gps_lng, place_id, data_cid, locality_id,
         reviews_count, google_type, google_types, description,
-        operating_hours, thumbnail_url, unclaimed)
+        operating_hours, thumbnail_url, unclaimed,
+        site_status, site_ineligible_reason)
        VALUES ${placeholders}`,
 			)
 			.bind(...values)

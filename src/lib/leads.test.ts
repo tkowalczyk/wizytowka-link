@@ -11,12 +11,12 @@ beforeAll(async () => {
 });
 
 // Shared seed has:
-// biz 1 (hydraulik-warszawa): phone, no website, site_generated=1, call_log: called→interested (seller 1)
-// biz 2 (fryzjer-anna): phone, no website, site_generated=1, call_log: rejected (seller 2 only)
-// biz 3 (dentysta-krakow): phone, no website, site_generated=0, call_log: called (seller 1)
-// biz 4 (piekarnia): phone, no website, site_generated=1, no call_log for seller 1
+// biz 1 (hydraulik-warszawa): phone, no website, site_status='done', call_log: called→interested (seller 1)
+// biz 2 (fryzjer-anna): phone, no website, site_status='done', call_log: rejected (seller 2 only)
+// biz 3 (dentysta-krakow): phone, no website, site_status='pending', call_log: called (seller 1)
+// biz 4 (piekarnia): phone, no website, site_status='done', no call_log for seller 1
 // biz 5 (sklep-agd): no phone, has website → excluded
-// biz 6 (mechanik-wroclaw): phone, no website, site_generated=0, no call_log
+// biz 6 (mechanik-wroclaw): phone, no website, site_status='pending', no call_log
 
 // Leads visible to seller 1: biz 1,2,3,4,6 (5 has website+no phone)
 // With latest call_log for seller 1: biz1=interested, biz3=called, rest=pending
@@ -135,12 +135,12 @@ describe("list", () => {
 
 	it("filters by site=generated", async () => {
 		const page = await leads.list(TEST_IDS.sellers.jan, { site: "generated" });
-		expect(page.leads.every((l) => l.site_generated === 1)).toBe(true);
+		expect(page.leads.every((l) => l.site_status === "done")).toBe(true);
 	});
 
 	it("filters by site=none", async () => {
 		const page = await leads.list(TEST_IDS.sellers.jan, { site: "none" });
-		expect(page.leads.every((l) => l.site_generated === 0)).toBe(true);
+		expect(page.leads.every((l) => l.site_status !== "done")).toBe(true);
 	});
 
 	it("sorts by date descending by default", async () => {

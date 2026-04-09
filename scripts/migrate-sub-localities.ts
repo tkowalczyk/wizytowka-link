@@ -7,7 +7,7 @@ interface SubBusiness {
 	biz_slug: string;
 	biz_lat: number;
 	biz_lng: number;
-	site_generated: number;
+	site_status: string;
 	loc_id: number;
 	loc_slug: string;
 	loc_lat: number | null;
@@ -65,7 +65,7 @@ async function main() {
 	console.log("Fetching businesses on SUB localities...");
 	const subs = d1Json<SubBusiness>(`
     SELECT b.id as biz_id, b.slug as biz_slug, b.gps_lat as biz_lat, b.gps_lng as biz_lng,
-           b.site_generated, l.id as loc_id, l.slug as loc_slug, l.lat as loc_lat, l.lng as loc_lng
+           b.site_status, l.id as loc_id, l.slug as loc_slug, l.lat as loc_lat, l.lng as loc_lng
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
     WHERE l.sym <> l.sym_pod
@@ -141,7 +141,7 @@ async function main() {
 		}
 
 		// move R2 object if site generated
-		if (biz.site_generated) {
+		if (biz.site_status === "done") {
 			const oldKey = `sites/${biz.loc_slug}/${biz.biz_slug}.json`;
 			const newKey = `sites/${best.slug}/${newSlug}.json`;
 			try {

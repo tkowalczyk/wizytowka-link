@@ -23,7 +23,7 @@ export interface Lead {
 	biz_slug: string;
 	loc_slug: string;
 	locality_name: string;
-	site_generated: number;
+	site_status: "pending" | "in_progress" | "done" | "ineligible";
 	status: LeadStatus;
 	comment: string | null;
 	created_at: string;
@@ -64,7 +64,7 @@ function buildLeadQuery(
 		mode === "rows"
 			? `SELECT b.id, b.title, b.phone, b.address, b.category, b.rating,
            b.slug as biz_slug, l.slug as loc_slug, l.name as locality_name,
-           b.site_generated,
+           b.site_status,
            COALESCE(cl.status, 'pending') as status,
            cl.comment,
            b.created_at`
@@ -90,9 +90,9 @@ function buildLeadQuery(
 	}
 
 	if (filters.site === "generated") {
-		sql += ` AND b.site_generated = 1`;
+		sql += ` AND b.site_status = 'done'`;
 	} else if (filters.site === "none") {
-		sql += ` AND b.site_generated = 0`;
+		sql += ` AND b.site_status != 'done'`;
 	}
 
 	if (filters.locality) {

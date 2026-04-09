@@ -78,7 +78,7 @@ const businesses = [
 
 for (const b of businesses) {
 	sql(
-		`INSERT OR IGNORE INTO businesses (id, locality_id, place_id, title, slug, phone, address, category, rating, gps_lat, gps_lng, site_generated) VALUES (${b.id}, 6867, '${b.place_id}', '${b.title.replace(/'/g, "''")}', '${b.slug}', '${b.phone}', '${b.address.replace(/'/g, "''")}', '${b.category}', ${b.rating}, ${b.lat}, ${b.lng}, 1)`,
+		`INSERT OR IGNORE INTO businesses (id, locality_id, place_id, title, slug, phone, address, category, rating, gps_lat, gps_lng, site_status) VALUES (${b.id}, 6867, '${b.place_id}', '${b.title.replace(/'/g, "''")}', '${b.slug}', '${b.phone}', '${b.address.replace(/'/g, "''")}', '${b.category}', ${b.rating}, ${b.lat}, ${b.lng}, 'done')`,
 	);
 }
 

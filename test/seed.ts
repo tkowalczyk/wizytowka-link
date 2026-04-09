@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS businesses (
   gps_lat        REAL    NOT NULL,
   gps_lng        REAL    NOT NULL,
   data_cid       TEXT,
-  site_generated INTEGER NOT NULL DEFAULT 0,
   created_at     TEXT NOT NULL DEFAULT (datetime('now')),
   reviews_count  INTEGER,
   google_type    TEXT,
@@ -74,8 +73,16 @@ CREATE TABLE IF NOT EXISTS businesses (
   palette_override TEXT,
   layout_override  TEXT CHECK (layout_override IN ('centered', 'split', 'minimal')),
   style_override   TEXT CHECK (style_override IN ('modern', 'elegant', 'bold')),
+  site_status    TEXT NOT NULL DEFAULT 'pending'
+                 CHECK (site_status IN ('pending', 'in_progress', 'done', 'ineligible')),
+  site_ineligible_reason TEXT
+                 CHECK (site_ineligible_reason IS NULL OR site_ineligible_reason IN ('has_website', 'no_phone')),
+  site_claimed_at TEXT,
   UNIQUE(slug, locality_id)
 );
+
+CREATE INDEX IF NOT EXISTS idx_businesses_pending
+  ON businesses(site_status) WHERE site_status = 'pending';
 
 CREATE TABLE IF NOT EXISTS sellers (
   id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,14 +128,14 @@ VALUES
   (3, 'Wrocław', 'wroclaw', '0986283', '0986283', 'dolnośląskie', 'Wrocław', 'Wrocław', 51.1079, 17.0385, 300.0, NULL),
   (4, 'Nowa Wieś', 'nowa-wies', '1000001', '1000001', 'małopolskie', 'Kraków', 'Kraków', NULL, NULL, NULL, NULL);
 
-INSERT INTO businesses (id, locality_id, place_id, title, slug, phone, address, website, category, rating, gps_lat, gps_lng, site_generated, reviews_count, unclaimed)
+INSERT INTO businesses (id, locality_id, place_id, title, slug, phone, address, website, category, rating, gps_lat, gps_lng, site_status, site_ineligible_reason, reviews_count, unclaimed)
 VALUES
-  (1, 2, 'place_aaa', 'Hydraulik Warszawa', 'hydraulik-warszawa', '+48123456789', 'ul. Marszałkowska 1, Warszawa', NULL, 'hydraulik', 4.5, 52.2297, 21.0122, 1, 42, 0),
-  (2, 2, 'place_bbb', 'Fryzjer Anna', 'fryzjer-anna', '+48987654321', 'ul. Nowy Świat 10, Warszawa', NULL, 'fryzjer', 4.8, 52.2310, 21.0150, 1, 120, 0),
-  (3, 1, 'place_ccc', 'Dentysta Kraków', 'dentysta-krakow', '+48111222333', 'ul. Floriańska 5, Kraków', NULL, 'dentysta', 4.2, 50.0647, 19.9450, 0, 15, 1),
-  (4, 1, 'place_ddd', 'Piekarnia Pod Bocianem', 'piekarnia-pod-bocianem', '+48444555666', 'ul. Grodzka 12, Kraków', NULL, 'piekarnia', 4.9, 50.0600, 19.9400, 1, 200, 0),
-  (5, 2, 'place_eee', 'Sklep AGD', 'sklep-agd', NULL, 'ul. Puławska 50, Warszawa', 'https://sklepagd.pl', 'sklep', 3.5, 52.2100, 21.0200, 0, 5, 0),
-  (6, 3, 'place_fff', 'Mechanik Wrocław', 'mechanik-wroclaw', '+48777888999', 'ul. Świdnicka 3, Wrocław', NULL, 'mechanik', 4.0, 51.1079, 17.0385, 0, 30, 1);
+  (1, 2, 'place_aaa', 'Hydraulik Warszawa', 'hydraulik-warszawa', '+48123456789', 'ul. Marszałkowska 1, Warszawa', NULL, 'hydraulik', 4.5, 52.2297, 21.0122, 'done', NULL, 42, 0),
+  (2, 2, 'place_bbb', 'Fryzjer Anna', 'fryzjer-anna', '+48987654321', 'ul. Nowy Świat 10, Warszawa', NULL, 'fryzjer', 4.8, 52.2310, 21.0150, 'done', NULL, 120, 0),
+  (3, 1, 'place_ccc', 'Dentysta Kraków', 'dentysta-krakow', '+48111222333', 'ul. Floriańska 5, Kraków', NULL, 'dentysta', 4.2, 50.0647, 19.9450, 'pending', NULL, 15, 1),
+  (4, 1, 'place_ddd', 'Piekarnia Pod Bocianem', 'piekarnia-pod-bocianem', '+48444555666', 'ul. Grodzka 12, Kraków', NULL, 'piekarnia', 4.9, 50.0600, 19.9400, 'done', NULL, 200, 0),
+  (5, 2, 'place_eee', 'Sklep AGD', 'sklep-agd', NULL, 'ul. Puławska 50, Warszawa', 'https://sklepagd.pl', 'sklep', 3.5, 52.2100, 21.0200, 'ineligible', 'has_website', 5, 0),
+  (6, 3, 'place_fff', 'Mechanik Wrocław', 'mechanik-wroclaw', '+48777888999', 'ul. Świdnicka 3, Wrocław', NULL, 'mechanik', 4.0, 51.1079, 17.0385, 'pending', NULL, 30, 1);
 
 INSERT INTO sellers (id, name, notify_chat_id, report_chat_id, token)
 VALUES

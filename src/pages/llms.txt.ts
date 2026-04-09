@@ -16,7 +16,7 @@ export const GET: APIRoute = async ({ locals }) => {
     SELECT b.title, b.slug, l.slug AS loc_slug, b.category, b.address
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
-    WHERE b.site_generated = 1
+    WHERE b.site_status = 'done'
     ORDER BY l.slug, b.slug
     LIMIT 10000
   `)

@@ -121,6 +121,72 @@ describe("discovery: runDiscovery", () => {
 		expect(results[0].title).toBe("Test Biznes"); // first one wins
 	});
 
+	it("site_status: classifies inserted rows by phone/website presence", async () => {
+		// 4 businesses covering all classification branches
+		const pendingA = fakeResult({
+			title: "Classifier Pending A",
+			place_id: "cls_pending_a",
+			phone: "+48111111111",
+			website: undefined,
+		});
+		const pendingB = fakeResult({
+			title: "Classifier Pending B",
+			place_id: "cls_pending_b",
+			phone: "+48222222222",
+			website: undefined,
+		});
+		const hasWebsite = fakeResult({
+			title: "Classifier Has Website",
+			place_id: "cls_has_website",
+			phone: "+48333333333",
+			website: "https://example.pl",
+		});
+		const noPhone = fakeResult({
+			title: "Classifier No Phone",
+			place_id: "cls_no_phone",
+			phone: undefined,
+			website: undefined,
+		});
+		const deps = makeDeps({
+			searchApi: staticSearch([pendingA, pendingB, hasWebsite, noPhone]),
+		});
+
+		await runDiscovery(deps);
+
+		const rows = await env.leadgen
+			.prepare(
+				"SELECT place_id, site_status, site_ineligible_reason FROM businesses WHERE place_id LIKE 'cls_%' ORDER BY place_id",
+			)
+			.all<{
+				place_id: string;
+				site_status: string;
+				site_ineligible_reason: string | null;
+			}>();
+
+		expect(rows.results).toEqual([
+			{
+				place_id: "cls_has_website",
+				site_status: "ineligible",
+				site_ineligible_reason: "has_website",
+			},
+			{
+				place_id: "cls_no_phone",
+				site_status: "ineligible",
+				site_ineligible_reason: "no_phone",
+			},
+			{
+				place_id: "cls_pending_a",
+				site_status: "pending",
+				site_ineligible_reason: null,
+			},
+			{
+				place_id: "cls_pending_b",
+				site_status: "pending",
+				site_ineligible_reason: null,
+			},
+		]);
+	});
+
 	it("locality resolution: address-based match preferred over GPS fallback", async () => {
 		// GPS coords are near Wrocław, but address says Kraków
 		const result = fakeResult({

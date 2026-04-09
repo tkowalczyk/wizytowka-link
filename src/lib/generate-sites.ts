@@ -22,16 +22,16 @@ const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
 
 // Batch of 5 = ~3.5min wall clock per run (at ~41s/biz GLM-5 latency), which
 // stays safely under the 5min cron interval (*/5 * * * *). A larger batch
-// would overlap with the next scheduled run and race on SELECT ... WHERE
-// site_generated = 0, causing duplicate GLM-5 calls and R2 writes. Proper
-// atomic claim pattern is tracked in issue #23.
+// would overlap with the next scheduled run and race on the pending pool,
+// causing duplicate GLM-5 calls and R2 writes. Proper atomic claim pattern
+// is tracked in issue #23 Phase 7.
 export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 	const { results } = await env.leadgen
 		.prepare(`
     SELECT b.*, l.name as locality_name, l.slug as loc_slug
     FROM businesses b
     JOIN localities l ON b.locality_id = l.id
-    WHERE b.website IS NULL AND b.phone IS NOT NULL AND b.site_generated = 0
+    WHERE b.site_status = 'pending'
     LIMIT ?
   `)
 		.bind(limit)
@@ -66,7 +66,7 @@ export async function generateSites(env: Env, limit = 5): Promise<RunResult> {
 			await putSite(env.sites, "live", biz.loc_slug, biz.slug, siteData);
 
 			await env.leadgen
-				.prepare(`UPDATE businesses SET site_generated = 1 WHERE id = ?`)
+				.prepare(`UPDATE businesses SET site_status = 'done' WHERE id = ?`)
 				.bind(biz.id)
 				.run();
 

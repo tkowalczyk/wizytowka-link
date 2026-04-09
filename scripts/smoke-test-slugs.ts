@@ -91,7 +91,7 @@ async function main() {
 			FROM businesses b
 			JOIN localities l ON b.locality_id = l.id
 			JOIN name_counts nc ON nc.name = l.name
-			WHERE nc.c > 1 AND b.site_generated = 1
+			WHERE nc.c > 1 AND b.site_status = 'done'
 			ORDER BY RANDOM() LIMIT 5
 		),
 		uniques AS (
@@ -100,7 +100,7 @@ async function main() {
 			FROM businesses b
 			JOIN localities l ON b.locality_id = l.id
 			JOIN name_counts nc ON nc.name = l.name
-			WHERE nc.c = 1 AND b.site_generated = 1
+			WHERE nc.c = 1 AND b.site_status = 'done'
 			ORDER BY RANDOM() LIMIT 5
 		)
 		SELECT * FROM collisions UNION ALL SELECT * FROM uniques
