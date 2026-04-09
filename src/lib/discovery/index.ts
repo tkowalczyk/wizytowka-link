@@ -194,6 +194,10 @@ export async function runDiscovery(
 
 		const seen = new Set<string>();
 		const businesses: BusinessInsert[] = [];
+		// Tracks slugs already reserved in this run, per locality, so duplicates
+		// within the current batch get -2/-3/... suffixes instead of silently
+		// colliding on the DB UNIQUE(slug, locality_id) via INSERT OR IGNORE.
+		const reservedSlugs = new Map<number, Set<string>>();
 		let apiCalls = 0;
 
 		for (const category of categories) {
@@ -212,7 +216,18 @@ export async function runDiscovery(
 						r.gps_coordinates.longitude,
 					);
 					const localityId = resolved?.id ?? locality.id;
-					const slug = await generateUniqueSlug(r.title, localityId, db);
+					let reserved = reservedSlugs.get(localityId);
+					if (!reserved) {
+						reserved = new Set<string>();
+						reservedSlugs.set(localityId, reserved);
+					}
+					const slug = await generateUniqueSlug(
+						r.title,
+						localityId,
+						db,
+						reserved,
+					);
+					reserved.add(slug);
 
 					businesses.push(toBusiness(r, slug, localityId, category));
 				}
@@ -428,6 +443,7 @@ async function generateUniqueSlug(
 	title: string,
 	localityId: number,
 	db: D1Database,
+	reserved: ReadonlySet<string> = new Set(),
 ): Promise<string> {
 	const base = slugify(title);
 	const { results } = await db
@@ -437,6 +453,7 @@ async function generateUniqueSlug(
 		.bind(localityId, base, `${base}-%`)
 		.all<{ slug: string }>();
 	const existing = new Set(results.map((r) => r.slug));
+	for (const slug of reserved) existing.add(slug);
 	if (!existing.has(base)) return base;
 	for (let suffix = 2; suffix <= MAX_SLUG_ATTEMPTS + 1; suffix++) {
 		const candidate = `${base}-${suffix}`;

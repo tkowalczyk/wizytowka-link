@@ -223,6 +223,45 @@ describe("discovery: runDiscovery", () => {
 		expect(row?.locality_id).toBe(TEST_IDS.localities.wroclaw); // GPS fallback
 	});
 
+	it("slug collision: duplicates within same batch get unique suffixes (#24)", async () => {
+		// 4 businesses with identical title in the same locality, different place_ids.
+		// Before the fix, generateUniqueSlug only queried the DB and didn't know about
+		// slugs reserved earlier in the same batch → duplicates silently dropped by
+		// INSERT OR IGNORE (UNIQUE constraint on slug + locality_id).
+		const mkDup = (id: string) =>
+			fakeResult({
+				title: "Dup Biznes",
+				place_id: id,
+				address: "ul. Floriańska 1, Kraków",
+				gps_coordinates: { latitude: 50.0647, longitude: 19.945 },
+			});
+		const deps = makeDeps({
+			searchApi: staticSearch([
+				mkDup("dup_001"),
+				mkDup("dup_002"),
+				mkDup("dup_003"),
+				mkDup("dup_004"),
+			]),
+		});
+
+		await runDiscovery(deps);
+
+		const { results } = await env.leadgen
+			.prepare(
+				"SELECT place_id, slug FROM businesses WHERE place_id LIKE 'dup_%' ORDER BY place_id",
+			)
+			.all<{ place_id: string; slug: string }>();
+
+		expect(results).toHaveLength(4);
+		const slugs = results.map((r) => r.slug).sort();
+		expect(slugs).toEqual([
+			"dup-biznes",
+			"dup-biznes-2",
+			"dup-biznes-3",
+			"dup-biznes-4",
+		]);
+	});
+
 	it("slug collision: same title in same locality → -2 suffix", async () => {
 		// Seed already has "Dentysta Kraków" (slug: dentysta-krakow) in Kraków
 		const result = fakeResult({
