@@ -118,6 +118,7 @@ function createTelegramNotify(env: Env): NotifyPort {
 				"0 * * * *": "Geocoder",
 				"0 8 * * *": "Discovery",
 				"*/5 * * * *": "Generator",
+				"0 9 * * 1": "Funnel",
 			});
 
 			const reportStats: DailyReportStats = {

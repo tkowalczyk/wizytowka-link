@@ -6,6 +6,7 @@ export const CRON_PATTERNS = {
 	preflight: "55 7 * * *",
 	discovery: "0 8 * * *",
 	generate: "*/5 * * * *",
+	funnel: "0 9 * * 1",
 } as const satisfies Record<string, string>;
 
 export type CronName = keyof typeof CRON_PATTERNS;
@@ -42,6 +43,10 @@ async function executeCron(env: Env, cron: string): Promise<RunResult> {
 		case CRON_PATTERNS.generate: {
 			const { generateSites } = await import("./generate-sites");
 			return generateSites(env);
+		}
+		case CRON_PATTERNS.funnel: {
+			const { runFunnelReport } = await import("./funnel");
+			return runFunnelReport(env);
 		}
 		default:
 			return { processed: 0, failed: 0 };
