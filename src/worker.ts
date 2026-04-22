@@ -8,6 +8,14 @@ export function createExports(manifest: SSRManifest) {
 	return {
 		default: {
 			async fetch(request, env: Env, ctx: ExecutionContext) {
+				const url = new URL(request.url);
+				if (url.pathname.length > 1 && url.pathname.endsWith("/")) {
+					url.pathname = url.pathname.replace(/\/+$/, "");
+					return new Response(null, {
+						status: 301,
+						headers: { Location: url.toString() },
+					});
+				}
 				// @ts-expect-error Astro vs CF workers Headers type mismatch
 				return handle(manifest, app, request, env, ctx);
 			},
