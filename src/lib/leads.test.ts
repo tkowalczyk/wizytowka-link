@@ -212,6 +212,51 @@ describe("logStatus", () => {
 		expect(biz.comment).toBe("rang once");
 	});
 
+	it("logs meeting_set status", async () => {
+		await leads.logStatus(
+			TEST_IDS.businesses.fryzjerAnna,
+			TEST_IDS.sellers.jan,
+			"meeting_set",
+			"wtorek 14:00",
+		);
+		const page = await leads.list(TEST_IDS.sellers.jan);
+		const biz = page.leads.find(
+			(l) => l.id === TEST_IDS.businesses.fryzjerAnna,
+		)!;
+		expect(biz.status).toBe("meeting_set");
+		expect(biz.comment).toBe("wtorek 14:00");
+	});
+
+	it("logs deal_closed status", async () => {
+		await leads.logStatus(
+			TEST_IDS.businesses.dentystaKrakow,
+			TEST_IDS.sellers.jan,
+			"deal_closed",
+			"podpisana umowa",
+		);
+		const page = await leads.list(TEST_IDS.sellers.jan);
+		const biz = page.leads.find(
+			(l) => l.id === TEST_IDS.businesses.dentystaKrakow,
+		)!;
+		expect(biz.status).toBe("deal_closed");
+		expect(biz.comment).toBe("podpisana umowa");
+	});
+
+	it("logs no_answer status", async () => {
+		await leads.logStatus(
+			TEST_IDS.businesses.mechanikWroclaw,
+			TEST_IDS.sellers.jan,
+			"no_answer",
+			"nie odebrał",
+		);
+		const page = await leads.list(TEST_IDS.sellers.jan);
+		const biz = page.leads.find(
+			(l) => l.id === TEST_IDS.businesses.mechanikWroclaw,
+		)!;
+		expect(biz.status).toBe("no_answer");
+		expect(biz.comment).toBe("nie odebrał");
+	});
+
 	it("does not overwrite previous entries", async () => {
 		await leads.logStatus(
 			TEST_IDS.businesses.piekarnia,
@@ -226,6 +271,28 @@ describe("logStatus", () => {
 			.bind(TEST_IDS.businesses.piekarnia, TEST_IDS.sellers.jan)
 			.all();
 		expect(rows.results.length).toBeGreaterThanOrEqual(2);
+	});
+
+	it("list filters by no_answer after logging", async () => {
+		const page = await leads.list(TEST_IDS.sellers.jan, { status: "no_answer" });
+		expect(page.total).toBeGreaterThanOrEqual(1);
+		expect(page.leads.every((l) => l.status === "no_answer")).toBe(true);
+	});
+
+	it("list filters by meeting_set after logging", async () => {
+		const page = await leads.list(TEST_IDS.sellers.jan, {
+			status: "meeting_set",
+		});
+		expect(page.total).toBeGreaterThanOrEqual(1);
+		expect(page.leads.every((l) => l.status === "meeting_set")).toBe(true);
+	});
+
+	it("list filters by deal_closed after logging", async () => {
+		const page = await leads.list(TEST_IDS.sellers.jan, {
+			status: "deal_closed",
+		});
+		expect(page.total).toBeGreaterThanOrEqual(1);
+		expect(page.leads.every((l) => l.status === "deal_closed")).toBe(true);
 	});
 });
 

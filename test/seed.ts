@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS call_log (
   business_id INTEGER NOT NULL REFERENCES businesses(id),
   seller_id   INTEGER NOT NULL REFERENCES sellers(id),
   status      TEXT    NOT NULL DEFAULT 'pending'
-              CHECK (status IN ('pending', 'called', 'interested', 'rejected')),
+              CHECK (status IN ('pending', 'called', 'interested', 'rejected', 'no_answer', 'meeting_set', 'deal_closed')),
   comment     TEXT,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );

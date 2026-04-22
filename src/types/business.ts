@@ -90,7 +90,7 @@ export interface CallLogRow {
 	id: number;
 	business_id: number;
 	seller_id: number;
-	status: "pending" | "called" | "interested" | "rejected";
+	status: "pending" | "called" | "interested" | "rejected" | "no_answer" | "meeting_set" | "deal_closed";
 	comment: string | null;
 	created_at: string;
 }

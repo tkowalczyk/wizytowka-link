@@ -12,6 +12,9 @@ const VALID_STATUSES: readonly CallLogRow["status"][] = [
 	"called",
 	"interested",
 	"rejected",
+	"no_answer",
+	"meeting_set",
+	"deal_closed",
 ] as const;
 
 function json(data: Record<string, unknown>, status = 200) {
