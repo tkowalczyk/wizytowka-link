@@ -46,14 +46,17 @@ interface Props {
 const { seller, leads, localities, currentStatus, currentLocality, currentSite, currentSort, token, page, totalPages, totalLeads } = Astro.props;
 
 const STATUS_CONFIG = {
-  pending:     { color: 'bg-gray-200 text-gray-700',  label: 'Oczekujacy' },
-  called:      { color: 'bg-blue-100 text-blue-700',   label: 'Zadzwoniono' },
-  interested:  { color: 'bg-green-100 text-green-700', label: 'Zainteresowany' },
-  rejected:    { color: 'bg-red-100 text-red-700',     label: 'Odrzucony' },
+  pending:     { color: 'bg-gray-200 text-gray-700',    label: 'Nowy' },
+  called:      { color: 'bg-blue-100 text-blue-700',     label: 'Dzwoniono' },
+  no_answer:   { color: 'bg-amber-100 text-amber-700',   label: 'Brak odpowiedzi' },
+  interested:  { color: 'bg-green-100 text-green-700',   label: 'Zainteresowany' },
+  rejected:    { color: 'bg-red-100 text-red-700',       label: 'Odmowa' },
+  meeting_set: { color: 'bg-purple-100 text-purple-700', label: 'Spotkanie' },
+  deal_closed: { color: 'bg-emerald-100 text-emerald-700', label: 'Zamknięte' },
 } as const;
 
 type StatusKey = keyof typeof STATUS_CONFIG;
-const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'interested', 'rejected'];
+const statuses: ('all' | StatusKey)[] = ['all', 'pending', 'called', 'no_answer', 'interested', 'rejected', 'meeting_set', 'deal_closed'];
 
 const nameKey = (l: Locality) => `${l.name}|${l.pow_name}|${l.woj_name}`;
 const nameCounts = new Map<string, number>();

@@ -9,6 +9,7 @@
 		"types": "wrangler types && astro check",
 		"check": "astro check",
 		"check:watch": "astro check --watch",
+		"db:migrate": "wrangler d1 migrations apply leadgen --local",
 		"db:migrate:remote": "wrangler d1 migrations apply leadgen --remote",
 		"seed:create-sql": "tsx scripts/seed-localities.ts",
 		"seed:into-d1": "tsx scripts/parse-simc.ts",
