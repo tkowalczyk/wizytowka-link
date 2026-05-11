@@ -274,7 +274,9 @@ describe("logStatus", () => {
 	});
 
 	it("list filters by no_answer after logging", async () => {
-		const page = await leads.list(TEST_IDS.sellers.jan, { status: "no_answer" });
+		const page = await leads.list(TEST_IDS.sellers.jan, {
+			status: "no_answer",
+		});
 		expect(page.total).toBeGreaterThanOrEqual(1);
 		expect(page.leads.every((l) => l.status === "no_answer")).toBe(true);
 	});

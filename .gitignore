@@ -2,6 +2,7 @@ node_modules/
 dist/
 .astro/
 .wrangler/
+.claude/
 .dev.vars
 .production.vars
 seed/.seed-state.json

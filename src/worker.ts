@@ -1,6 +1,7 @@
 import { handle } from "@astrojs/cloudflare/handler";
 import type { SSRManifest } from "astro";
 import { App } from "astro/app";
+import { goneResponse, isLegacyLocalityPath } from "./lib/legacy-slug";
 import { runScheduledCron } from "./lib/scheduled";
 
 export function createExports(manifest: SSRManifest) {
@@ -15,6 +16,9 @@ export function createExports(manifest: SSRManifest) {
 						status: 301,
 						headers: { Location: url.toString() },
 					});
+				}
+				if (await isLegacyLocalityPath(env.leadgen, url.pathname)) {
+					return goneResponse();
 				}
 				// @ts-expect-error Astro vs CF workers Headers type mismatch
 				return handle(manifest, app, request, env, ctx);
