@@ -1,4 +1,8 @@
 import type { SiteData } from "../../../types/site";
+import {
+	createDraftPreviewToken,
+	invalidateDraftPreviewToken,
+} from "../../draft-preview";
 import { deleteSite, getSite, promoteDraft, putSite } from "../../site-store";
 import { escapeHtml } from "../../telegram";
 import type { TgContext, TgHandler } from "../types";
@@ -95,11 +99,13 @@ export const draftCallbackHandler: TgHandler = {
 				await ctx.reply("Draft wygasl.");
 				return;
 			}
+			await invalidateDraftPreviewToken(ctx.env.leadgen, bizId);
 			await ctx.reply("Wizytowka zaktualizowana!");
 		}
 
 		if (action === "reject") {
 			await deleteSite(ctx.env.sites, "draft", loc.slug, biz.slug);
+			await invalidateDraftPreviewToken(ctx.env.leadgen, bizId);
 			await ctx.reply("Zmiany odrzucone. Wyslij nowa instrukcje.");
 		}
 	},
@@ -174,7 +180,11 @@ function createOwnerEditHandle(deps?: EditDeps) {
 				patchedSiteData as SiteData,
 			);
 
-			const previewUrl = `https://wizytowka.link/${loc?.slug}/${biz?.slug}?draft=1`;
+			const previewToken = await createDraftPreviewToken(
+				ctx.env.leadgen,
+				owner.business_id,
+			);
+			const previewUrl = `https://wizytowka.link/${loc.slug}/${biz.slug}?draft=1&preview_token=${encodeURIComponent(previewToken)}`;
 			const summary = d.summarizeChanges(currentSite as SiteData, patched);
 
 			await ctx.replyWithKeyboard(

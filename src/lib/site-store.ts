@@ -1,4 +1,5 @@
 import type { SiteData } from "../types/site";
+import { verifyDraftPreviewToken } from "./draft-preview";
 
 export type SiteNamespace = "live" | "draft";
 
@@ -21,6 +22,26 @@ export async function getSite(
 	const obj = await r2.get(siteKey(ns, locSlug, bizSlug));
 	if (!obj) return null;
 	return obj.json<SiteData>();
+}
+
+export async function getPublishedOrPreviewSite(
+	r2: R2Bucket,
+	db: D1Database,
+	locSlug: string,
+	bizSlug: string,
+	options: { isDraft: boolean; previewToken: string | null },
+): Promise<SiteData | null> {
+	if (options.isDraft) {
+		const canPreview = await verifyDraftPreviewToken(
+			db,
+			locSlug,
+			bizSlug,
+			options.previewToken,
+		);
+		if (!canPreview) return null;
+	}
+
+	return getSite(r2, options.isDraft ? "draft" : "live", locSlug, bizSlug);
 }
 
 export async function putSite(

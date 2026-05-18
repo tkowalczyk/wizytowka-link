@@ -1,7 +1,7 @@
 ---
 import BusinessSite from '../../components/BusinessSite.astro';
 import { env } from 'cloudflare:workers';
-import { getSite } from '../../lib/site-store';
+import { getPublishedOrPreviewSite } from '../../lib/site-store';
 import { formatLocalityLabel } from '../../lib/locality-label';
 
 const { loc, slug } = Astro.params;
@@ -12,7 +12,10 @@ const r2 = env.sites as R2Bucket;
 const db = env.leadgen as D1Database;
 
 const isDraft = Astro.url.searchParams.get('draft') === '1';
-const site = await getSite(r2, isDraft ? 'draft' : 'live', loc, slug);
+const site = await getPublishedOrPreviewSite(r2, db, loc, slug, {
+  isDraft,
+  previewToken: Astro.url.searchParams.get('preview_token'),
+});
 
 if (!site) return new Response('Not Found', { status: 404 });
 

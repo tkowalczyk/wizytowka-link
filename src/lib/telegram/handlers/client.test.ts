@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb, TEST_IDS } from "../../../../test/seed";
 import type { SiteData } from "../../../types/site";
+import { verifyDraftPreviewToken } from "../../draft-preview";
 import { putSite } from "../../site-store";
 import type { TelegramUpdate } from "../../telegram";
 import type { TgContext, TgHandler } from "../types";
@@ -214,6 +215,34 @@ describe("draftCallbackHandler", () => {
 		expect(live).not.toBeNull();
 	});
 
+	it("approve invalidates the draft preview token", async () => {
+		const { createDraftPreviewToken } = await import("../../draft-preview");
+		const token = await createDraftPreviewToken(
+			env.leadgen,
+			TEST_IDS.businesses.hydraulikWarszawa,
+		);
+		await putSite(
+			env.sites,
+			"draft",
+			"warszawa",
+			"hydraulik-warszawa",
+			STUB_SITE,
+		);
+
+		const update = cbUpdate("approve:1", 200001);
+		const ctx = makeCtx({ chatId: "200001", update });
+		await draftCallbackHandler.handle(ctx);
+
+		await expect(
+			verifyDraftPreviewToken(
+				env.leadgen,
+				"warszawa",
+				"hydraulik-warszawa",
+				token,
+			),
+		).resolves.toBe(false);
+	});
+
 	it("approve replies expired when no draft exists", async () => {
 		const update = cbUpdate("approve:1", 200001);
 		const ctx = makeCtx({ chatId: "200001", update });
@@ -222,6 +251,11 @@ describe("draftCallbackHandler", () => {
 	});
 
 	it("reject deletes draft", async () => {
+		const { createDraftPreviewToken } = await import("../../draft-preview");
+		const token = await createDraftPreviewToken(
+			env.leadgen,
+			TEST_IDS.businesses.hydraulikWarszawa,
+		);
 		await putSite(
 			env.sites,
 			"draft",
@@ -246,6 +280,14 @@ describe("draftCallbackHandler", () => {
 			"hydraulik-warszawa",
 		);
 		expect(draft).toBeNull();
+		await expect(
+			verifyDraftPreviewToken(
+				env.leadgen,
+				"warszawa",
+				"hydraulik-warszawa",
+				token,
+			),
+		).resolves.toBe(false);
 	});
 });
 
@@ -294,7 +336,7 @@ describe("ownerEditHandler", () => {
 		);
 	});
 
-	it("runs LLM edit flow and saves draft", async () => {
+	it("runs LLM edit flow, saves draft, and sends a tokenized preview URL", async () => {
 		// Put a live site
 		await putSite(
 			env.sites,
@@ -326,6 +368,20 @@ describe("ownerEditHandler", () => {
 				]),
 			]),
 		);
+		const replyHtml = vi.mocked(ctx.replyWithKeyboard).mock.calls[0]?.[0] ?? "";
+		const previewUrl = replyHtml.match(/href="([^"]+)"/)?.[1];
+		expect(previewUrl).toMatch(
+			/^https:\/\/wizytowka\.link\/warszawa\/hydraulik-warszawa\?draft=1&preview_token=.+/,
+		);
+		const token = new URL(previewUrl ?? "").searchParams.get("preview_token");
+		await expect(
+			verifyDraftPreviewToken(
+				env.leadgen,
+				"warszawa",
+				"hydraulik-warszawa",
+				token,
+			),
+		).resolves.toBe(true);
 
 		// Draft should be in R2
 		const { getSite } = await import("../../site-store");

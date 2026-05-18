@@ -37,11 +37,10 @@ function callRoute(
 	update: TelegramUpdate,
 	envOverride = fakeEnv,
 ) {
-	const { POST } = createBotRoute(config);
+	const { POST } = createBotRoute(config, envOverride);
 	return POST({
 		params: { secret },
 		request: makeRequest(update),
-		locals: { runtime: { env: envOverride } },
 	} as unknown as Parameters<typeof POST>[0]);
 }
 

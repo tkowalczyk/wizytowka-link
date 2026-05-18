@@ -111,6 +111,16 @@ CREATE TABLE IF NOT EXISTS business_owners (
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS draft_preview_tokens (
+  business_id INTEGER PRIMARY KEY REFERENCES businesses(id) ON DELETE CASCADE,
+  token_hash  TEXT NOT NULL,
+  expires_at  TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_draft_preview_tokens_expires
+  ON draft_preview_tokens(expires_at);
+
 CREATE TABLE IF NOT EXISTS alert_log (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   kind    TEXT NOT NULL,
@@ -177,6 +187,7 @@ export async function seedTestData(db: D1Database): Promise<void> {
 export async function resetDb(db: D1Database): Promise<void> {
 	const drops = [
 		"DROP TABLE IF EXISTS alert_log",
+		"DROP TABLE IF EXISTS draft_preview_tokens",
 		"DROP TABLE IF EXISTS cron_log",
 		"DROP TABLE IF EXISTS call_log",
 		"DROP TABLE IF EXISTS business_owners",

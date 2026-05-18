@@ -36,11 +36,12 @@ function buildContext(
 	};
 }
 
-export function createBotRoute(config: BotConfig): { POST: APIRoute } {
-	const POST: APIRoute = async ({ params, request, locals }) => {
-		const injectedEnv = (locals as unknown as { runtime?: { env: Env } })
-			.runtime?.env;
-		const env = injectedEnv ?? runtimeEnv;
+export function createBotRoute(
+	config: BotConfig,
+	routeEnv: Env = runtimeEnv,
+): { POST: APIRoute } {
+	const POST: APIRoute = async ({ params, request }) => {
+		const env = routeEnv;
 		const values = env as unknown as Record<string, string>;
 		const secret = values[config.secretEnvKey];
 
