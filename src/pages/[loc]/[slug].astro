@@ -58,4 +58,4 @@ if (isDraft) {
   </div>
 )}
 
-<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} locLabel={locLabel} relatedBusinesses={relatedBusinesses ?? []} />
+<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} locLabel={locLabel} relatedBusinesses={relatedBusinesses ?? []} isIndexable={!isDraft && !!biz} />

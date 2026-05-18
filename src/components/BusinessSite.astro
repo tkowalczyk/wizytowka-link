@@ -20,9 +20,10 @@ interface Props {
   locName: string;
   locLabel: string;
   relatedBusinesses: RelatedBusiness[];
+  isIndexable?: boolean;
 }
 
-const { site, biz, slug, locSlug, locName, locLabel, relatedBusinesses } = Astro.props;
+const { site, biz, slug, locSlug, locName, locLabel, relatedBusinesses, isIndexable = true } = Astro.props;
 
 const category = biz?.category ?? '';
 const resolved = resolveTheme(slug, category);
@@ -31,7 +32,9 @@ const layout = resolved.layout;
 const style = resolved.style;
 const cssVars = paletteToCSS(palette);
 
-const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, Astro.url.href)) : null;
+const canonicalUrl = `https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`;
+const robots = isIndexable ? 'index, follow' : 'noindex, nofollow';
+const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, canonicalUrl)) : null;
 
 const breadcrumbLd = JSON.stringify(buildBreadcrumbLd(site.seo.title, locSlug, locName));
 
@@ -54,21 +57,21 @@ const fontLink = style === 'elegant'
   </script>
   <title>{site.seo.title}</title>
   <meta name="description" content={site.seo.description} />
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href={`https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`} />
+  <meta name="robots" content={robots} />
+  <link rel="canonical" href={canonicalUrl} />
 
   <meta property="og:title" content={site.seo.title} />
   <meta property="og:description" content={site.seo.description} />
   <meta property="og:type" content="website" />
-  <meta property="og:url" content={`https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`} />
+  <meta property="og:url" content={canonicalUrl} />
   <meta property="og:locale" content="pl_PL" />
   <meta name="twitter:card" content="summary" />
 
   <Fragment set:html={fontLink} />
   <style set:html={cssVars} />
 
-  {jsonLd && <script type="application/ld+json" set:html={jsonLd} />}
-  <script type="application/ld+json" set:html={breadcrumbLd} />
+  {jsonLd && <script is:inline type="application/ld+json" set:html={jsonLd} />}
+  <script is:inline type="application/ld+json" set:html={breadcrumbLd} />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 </head>
 

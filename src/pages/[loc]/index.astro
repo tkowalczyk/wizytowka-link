@@ -25,6 +25,7 @@ const { results: businesses } = await db
 const url = `https://wizytowka.link/${loc}`;
 const title = `Firmy w ${locality.name} — wizytowka.link`;
 const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
+const robots = businesses.length > 0 ? 'index, follow' : 'noindex, follow';
 
 const breadcrumbLd = JSON.stringify({
   '@context': 'https://schema.org',
@@ -56,7 +57,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=8640
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
 
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content={robots} />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
