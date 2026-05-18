@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { Leads } from "../../../lib/leads";
 import type { CallLogRow } from "../../../types/business";
@@ -24,11 +25,11 @@ function json(data: Record<string, unknown>, status = 200) {
 	});
 }
 
-export const PUT: APIRoute = async ({ params, request, locals }) => {
+export const PUT: APIRoute = async ({ params, request }) => {
 	const id = parseInt(params.id ?? "", 10);
 	if (Number.isNaN(id)) return json({ error: "nieprawidlowe ID" }, 400);
 
-	const leads = new Leads(locals.runtime.env.leadgen);
+	const leads = new Leads(env.leadgen);
 	const token = Leads.extractToken(request);
 	if (!token) return json({ error: "brak tokenu" }, 401);
 

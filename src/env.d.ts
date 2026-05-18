@@ -9,7 +9,7 @@ declare namespace Cloudflare {
 	}
 }
 
-type Runtime = import("@astrojs/cloudflare").Runtime<Env>;
+type Runtime = import("@astrojs/cloudflare").Runtime;
 
 declare namespace App {
 	interface Locals extends Runtime {}

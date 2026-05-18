@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { Leads } from "../../lib/leads";
 import { normalizePhone } from "../../lib/phone";
@@ -22,9 +23,7 @@ function json(data: Record<string, unknown>, status = 200) {
 	});
 }
 
-export const POST: APIRoute = async ({ request, locals }) => {
-	const env = locals.runtime.env;
-
+export const POST: APIRoute = async ({ request }) => {
 	let body: ContactBody;
 	try {
 		body = (await request.json()) as ContactBody;

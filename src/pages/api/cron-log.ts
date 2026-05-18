@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { Leads } from "../../lib/leads";
 
@@ -8,8 +9,8 @@ function json(data: unknown, status = 200) {
 	});
 }
 
-export const GET: APIRoute = async ({ request, locals }) => {
-	const db: D1Database = locals.runtime.env.leadgen;
+export const GET: APIRoute = async ({ request }) => {
+	const db: D1Database = env.leadgen;
 	const leads = new Leads(db);
 
 	const token = Leads.extractToken(request);

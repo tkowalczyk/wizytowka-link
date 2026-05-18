@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { Leads } from "../../../lib/leads";
 import {
@@ -45,8 +46,7 @@ function createCfCache(): CachePort {
 	};
 }
 
-export const GET: APIRoute = async ({ request, locals }) => {
-	const env = locals.runtime.env;
+export const GET: APIRoute = async ({ request }) => {
 	const leads = new Leads(env.leadgen);
 
 	const token = Leads.extractToken(request);

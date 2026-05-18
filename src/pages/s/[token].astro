@@ -1,11 +1,12 @@
 ---
 import '../../styles/base.css';
+import { env } from 'cloudflare:workers';
 import SellerPanel from '../../components/SellerPanel.astro';
 import { Leads } from '../../lib/leads';
 import type { LeadFilters } from '../../lib/leads';
 
 const { token } = Astro.params;
-const leads = new Leads(Astro.locals.runtime.env.leadgen as D1Database);
+const leads = new Leads(env.leadgen as D1Database);
 
 const seller = await leads.authenticate(token!);
 if (!seller) return new Response(null, { status: 404 });

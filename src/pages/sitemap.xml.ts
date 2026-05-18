@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import { slugify } from "../lib/slug";
 
@@ -42,8 +43,8 @@ const today = new Date().toISOString().split("T")[0];
 
 const staticPages = [{ loc: "/", priority: "1.0" }];
 
-export const GET: APIRoute = async ({ locals }) => {
-	const db = locals.runtime.env.leadgen as D1Database;
+export const GET: APIRoute = async () => {
+	const db = env.leadgen as D1Database;
 
 	const [localities, rows, categoryRows] = await Promise.all([
 		db

@@ -1,12 +1,13 @@
 ---
 import '../styles/base.css';
+import { env } from 'cloudflare:workers';
 import { safeJsonScript } from '../lib/structured-data';
 
 const title = "wizytowka.link — Twoja wizytówka w internecie"
 const description =
   "Automatycznie generowane strony wizytówkowe dla polskich firm. Profesjonalna obecność online bez wysiłku — SEO, mobile, Google Maps."
 const url = "https://wizytowka.link"
-const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
+const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
 ---
 
 <html lang="pl" dir="ltr">

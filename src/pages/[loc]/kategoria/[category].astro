@@ -1,5 +1,6 @@
 ---
 import "../../../styles/base.css";
+import { env } from "cloudflare:workers";
 import { findCategoryBusinesses } from "../../../lib/category";
 import { buildBreadcrumbLd, safeJsonScript } from "../../../lib/structured-data";
 
@@ -7,7 +8,7 @@ const { loc, category } = Astro.params;
 
 if (!loc || !category) return new Response(null, { status: 404 });
 
-const db = Astro.locals.runtime.env.leadgen as D1Database;
+const db = env.leadgen as D1Database;
 
 const data = await findCategoryBusinesses(db, loc, category);
 

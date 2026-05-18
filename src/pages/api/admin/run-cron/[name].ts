@@ -1,3 +1,4 @@
+import { env as runtimeEnv } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import {
 	CRON_PATTERNS,
@@ -14,8 +15,8 @@ function json(data: unknown, status = 200) {
 }
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
-	const env = locals.runtime.env as Env & { ADMIN_TOKEN?: string };
-	const ctx = locals.runtime.ctx;
+	const env = runtimeEnv as Env & { ADMIN_TOKEN?: string };
+	const ctx = locals.cfContext;
 
 	const expected = env.ADMIN_TOKEN;
 	if (!expected) {

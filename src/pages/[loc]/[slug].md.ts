@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import type { SiteData } from "../../types/site";
 
@@ -34,17 +35,17 @@ function siteToMarkdown(site: SiteData, title: string, url: string): string {
 	return lines.join("\n");
 }
 
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params }) => {
 	const { loc, slug } = params;
 	if (!loc || !slug) return new Response(null, { status: 404 });
 
-	const r2 = locals.runtime.env.sites as R2Bucket;
+	const r2 = env.sites as R2Bucket;
 	const obj = await r2.get(`sites/${loc}/${slug}.json`);
 	if (!obj) return new Response("Not Found", { status: 404 });
 
 	const site = (await obj.json()) as SiteData;
 
-	const db = locals.runtime.env.leadgen as D1Database;
+	const db = env.leadgen as D1Database;
 	const biz = await db
 		.prepare(
 			`SELECT b.title FROM businesses b JOIN localities l ON b.locality_id = l.id WHERE l.slug = ? AND b.slug = ?`,

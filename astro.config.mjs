@@ -7,9 +7,6 @@ export default defineConfig({
 	trailingSlash: "never",
 	adapter: cloudflare({
 		imageService: "cloudflare",
-		workerEntryPoint: {
-			path: "src/worker.ts",
-		},
 	}),
 	vite: {
 		plugins: [tailwindcss()],

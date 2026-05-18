@@ -1,3 +1,4 @@
+import { env as runtimeEnv } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import {
 	sendChatAction,
@@ -37,14 +38,17 @@ function buildContext(
 
 export function createBotRoute(config: BotConfig): { POST: APIRoute } {
 	const POST: APIRoute = async ({ params, request, locals }) => {
-		const env = locals.runtime.env;
-		const secret = (env as Record<string, string>)[config.secretEnvKey];
+		const injectedEnv = (locals as unknown as { runtime?: { env: Env } })
+			.runtime?.env;
+		const env = injectedEnv ?? runtimeEnv;
+		const values = env as unknown as Record<string, string>;
+		const secret = values[config.secretEnvKey];
 
 		if (params.secret !== secret) {
 			return new Response("forbidden", { status: 403 });
 		}
 
-		const token = (env as Record<string, string>)[config.tokenEnvKey];
+		const token = values[config.tokenEnvKey];
 		const update = (await request.json()) as TelegramUpdate;
 		const chatId = extractChatId(update);
 

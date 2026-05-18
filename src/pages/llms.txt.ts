@@ -1,3 +1,4 @@
+import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 
 interface LlmsRow {
@@ -8,8 +9,8 @@ interface LlmsRow {
 	address: string;
 }
 
-export const GET: APIRoute = async ({ locals }) => {
-	const db = locals.runtime.env.leadgen as D1Database;
+export const GET: APIRoute = async () => {
+	const db = env.leadgen as D1Database;
 
 	const rows = await db
 		.prepare(`

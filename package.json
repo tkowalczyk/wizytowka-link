@@ -16,6 +16,7 @@
 		"db:migrate:fresh": "rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2 && pnpm db:migrate",
 		"seed": "pnpm db:migrate:fresh && pnpm tsx scripts/seed-local-test.ts",
 		"deploy": "wrangler deploy",
+		"audit:prod": "pnpm audit --prod",
 		"deps": "taze",
 		"deps:major": "taze major",
 		"deps:up": "taze -w && pnpm i",
@@ -27,23 +28,23 @@
 		"format": "biome format --write"
 	},
 	"dependencies": {
-		"@astrojs/cloudflare": "^12.6.13",
+		"@astrojs/cloudflare": "^13.5.1",
 		"@tailwindcss/vite": "^4.3.0",
-		"astro": "^5.18.1",
+		"astro": "^6.3.3",
 		"tailwindcss": "^4.3.0"
 	},
 	"devDependencies": {
 		"@astrojs/check": "^0.9.9",
 		"@biomejs/biome": "2.4.10",
-		"@cloudflare/vitest-pool-workers": "^0.13.5",
-		"@cloudflare/workers-types": "^4.20260511.1",
+		"@cloudflare/vitest-pool-workers": "^0.16.6",
+		"@cloudflare/workers-types": "^4.20260518.1",
 		"@types/node": "^25.6.2",
 		"playwright": "^1.59.1",
 		"taze": "^19.11.0",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
-		"vitest": "^4.1.5",
-		"wrangler": "^4.90.0"
+		"vitest": "^4.1.6",
+		"wrangler": "^4.92.0"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
