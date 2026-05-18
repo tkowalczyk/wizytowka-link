@@ -1,5 +1,6 @@
 ---
 import '../styles/base.css';
+import { safeJsonScript } from '../lib/structured-data';
 
 const title = "wizytowka.link — Twoja wizytówka w internecie"
 const description =
@@ -40,7 +41,7 @@ const turnstileSiteKey = Astro.locals.runtime.env.TURNSTILE_SITE_KEY ?? ""
     <script
       is:inline
       type="application/ld+json"
-      set:html={JSON.stringify({
+      set:html={safeJsonScript({
         "@context": "https://schema.org",
         "@graph": [
           {

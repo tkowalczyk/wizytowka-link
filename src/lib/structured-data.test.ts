@@ -3,6 +3,7 @@ import {
 	type BizData,
 	buildBreadcrumbLd,
 	buildLocalBusinessLd,
+	safeJsonScript,
 } from "./structured-data";
 
 const baseBiz: BizData = {
@@ -96,5 +97,19 @@ describe("buildBreadcrumbLd", () => {
 	it("does not include trailing slash in locality URL", () => {
 		const ld = buildBreadcrumbLd("Test", "krakow", "Kraków");
 		expect(ld.itemListElement[1].item).not.toMatch(/\/$/);
+	});
+});
+
+describe("safeJsonScript", () => {
+	it("escapes closing script tags in JSON values", () => {
+		const json = safeJsonScript({
+			name: '</script><img src=x onerror=alert("xss")>',
+		});
+
+		expect(json).not.toContain("</script>");
+		expect(json).toContain("\\u003c/script>");
+		expect(JSON.parse(json)).toEqual({
+			name: '</script><img src=x onerror=alert("xss")>',
+		});
 	});
 });

@@ -1,6 +1,7 @@
 ---
 import '../../styles/base.css';
 import type { LocalityRow, BusinessRow } from '../../types/business';
+import { safeJsonScript } from '../../lib/structured-data';
 
 const { loc } = Astro.params;
 
@@ -27,7 +28,7 @@ const title = `Firmy w ${locality.name} — wizytowka.link`;
 const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
 const robots = businesses.length > 0 ? 'index, follow' : 'noindex, follow';
 
-const breadcrumbLd = JSON.stringify({
+const breadcrumbLd = safeJsonScript({
   '@context': 'https://schema.org',
   '@type': 'BreadcrumbList',
   itemListElement: [

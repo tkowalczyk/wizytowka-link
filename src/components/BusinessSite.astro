@@ -1,7 +1,7 @@
 ---
 import type { SiteData } from '../types/site';
 import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
-import { buildLocalBusinessLd, buildBreadcrumbLd, type BizData } from '../lib/structured-data';
+import { buildLocalBusinessLd, buildBreadcrumbLd, safeJsonScript, type BizData } from '../lib/structured-data';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
@@ -34,9 +34,9 @@ const cssVars = paletteToCSS(palette);
 
 const canonicalUrl = `https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`;
 const robots = isIndexable ? 'index, follow' : 'noindex, nofollow';
-const jsonLd = biz ? JSON.stringify(buildLocalBusinessLd(biz, canonicalUrl)) : null;
+const jsonLd = biz ? safeJsonScript(buildLocalBusinessLd(biz, canonicalUrl)) : null;
 
-const breadcrumbLd = JSON.stringify(buildBreadcrumbLd(site.seo.title, locSlug, locName));
+const breadcrumbLd = safeJsonScript(buildBreadcrumbLd(site.seo.title, locSlug, locName));
 
 const fontLink = style === 'elegant'
   ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'

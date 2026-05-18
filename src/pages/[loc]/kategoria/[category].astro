@@ -1,7 +1,7 @@
 ---
 import "../../../styles/base.css";
 import { findCategoryBusinesses } from "../../../lib/category";
-import { buildBreadcrumbLd } from "../../../lib/structured-data";
+import { buildBreadcrumbLd, safeJsonScript } from "../../../lib/structured-data";
 
 const { loc, category } = Astro.params;
 
@@ -19,7 +19,7 @@ const url = `https://wizytowka.link/${loc}/kategoria/${category}`;
 const title = `${categoryName} w ${locality.name} — wizytowka.link`;
 const description = `Firmy z kategorii ${categoryName} w ${locality.name}. Znajdź lokalnych fachowców i usługodawców.`;
 
-const breadcrumbLd = JSON.stringify(
+const breadcrumbLd = safeJsonScript(
 	buildBreadcrumbLd(categoryName, loc, locality.name),
 );
 

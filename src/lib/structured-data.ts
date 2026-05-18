@@ -9,6 +9,10 @@ export interface BizData {
 	reviews_count: number | null;
 }
 
+export function safeJsonScript(value: unknown): string {
+	return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
 export function buildLocalBusinessLd(biz: BizData, url: string) {
 	return {
 		"@context": "https://schema.org",
