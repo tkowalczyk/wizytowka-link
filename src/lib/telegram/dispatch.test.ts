@@ -42,7 +42,7 @@ function callRoute(
 		params: { secret },
 		request: makeRequest(update),
 		locals: { runtime: { env: envOverride } },
-	} as any);
+	} as unknown as Parameters<typeof POST>[0]);
 }
 
 const baseConfig: BotConfig = {
@@ -109,12 +109,19 @@ describe("createBotRoute", () => {
 			const res = await callRoute(config, "test-secret-value", makeUpdate());
 			expect(res.status).toBe(200);
 
-			const calls = (globalThis.fetch as any).mock.calls;
-			const sendCall = calls.find((c: any[]) =>
-				c[0]?.includes?.("/sendMessage"),
-			);
+			const calls = (
+				globalThis.fetch as unknown as {
+					mock: { calls: [string, RequestInit?][] };
+				}
+			).mock.calls;
+			const sendCall = calls.find((c) => c[0]?.includes?.("/sendMessage"));
 			expect(sendCall).toBeTruthy();
-			const body = JSON.parse(sendCall[1].body);
+			if (!sendCall) throw new Error("Expected sendMessage call");
+			const requestInit = sendCall[1];
+			if (typeof requestInit?.body !== "string") {
+				throw new Error("Expected sendMessage body");
+			}
+			const body = JSON.parse(requestInit.body);
 			expect(body.text).toContain("blad");
 		} finally {
 			globalThis.fetch = origFetch;

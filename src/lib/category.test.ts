@@ -40,11 +40,12 @@ describe("findCategoryBusinesses", () => {
 		);
 
 		expect(result).not.toBeNull();
-		expect(result!.locality.slug).toBe("warszawa");
-		expect(result!.categoryName).toBe("hydraulik");
-		expect(result!.businesses).toHaveLength(2);
-		expect(result!.businesses[0].rating).toBe(4.5);
-		expect(result!.businesses[1].rating).toBe(3.0);
+		if (!result) throw new Error("Expected category result");
+		expect(result.locality.slug).toBe("warszawa");
+		expect(result.categoryName).toBe("hydraulik");
+		expect(result.businesses).toHaveLength(2);
+		expect(result.businesses[0].rating).toBe(4.5);
+		expect(result.businesses[1].rating).toBe(3.0);
 	});
 
 	it("excludes businesses with site_status != 'done'", async () => {

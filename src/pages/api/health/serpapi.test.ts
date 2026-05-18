@@ -20,7 +20,7 @@ async function callEndpoint(token?: string) {
 	return GET({
 		request: new Request(url, { headers }),
 		locals: { runtime: { env } },
-	} as any);
+	} as unknown as Parameters<typeof GET>[0]);
 }
 
 describe("GET /api/health/serpapi", () => {

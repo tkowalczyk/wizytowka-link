@@ -10,6 +10,14 @@ beforeAll(async () => {
 	leads = new Leads(env.leadgen);
 });
 
+type LeadRow = Awaited<ReturnType<Leads["list"]>>["leads"][number];
+
+function requireLead(leads: LeadRow[], id: number): LeadRow {
+	const lead = leads.find((l) => l.id === id);
+	if (!lead) throw new Error(`Expected lead ${id}`);
+	return lead;
+}
+
 // Shared seed has:
 // biz 1 (hydraulik-warszawa): phone, no website, site_status='done', call_log: called→interested (seller 1)
 // biz 2 (fryzjer-anna): phone, no website, site_status='done', call_log: rejected (seller 2 only)
@@ -97,18 +105,14 @@ describe("list", () => {
 
 	it("picks latest call_log via ROW_NUMBER for seller", async () => {
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz1 = page.leads.find(
-			(l) => l.id === TEST_IDS.businesses.hydraulikWarszawa,
-		)!;
+		const biz1 = requireLead(page.leads, TEST_IDS.businesses.hydraulikWarszawa);
 		expect(biz1.status).toBe("interested"); // latest of called→interested
 		expect(biz1.comment).toBe("Zainteresowany, oddzwoni");
 	});
 
 	it("defaults pending for businesses with no call_log for this seller", async () => {
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz4 = page.leads.find(
-			(l) => l.id === TEST_IDS.businesses.piekarnia,
-		)!;
+		const biz4 = requireLead(page.leads, TEST_IDS.businesses.piekarnia);
 		expect(biz4.status).toBe("pending");
 	});
 
@@ -207,7 +211,7 @@ describe("logStatus", () => {
 			"rang once",
 		);
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz = page.leads.find((l) => l.id === TEST_IDS.businesses.piekarnia)!;
+		const biz = requireLead(page.leads, TEST_IDS.businesses.piekarnia);
 		expect(biz.status).toBe("called");
 		expect(biz.comment).toBe("rang once");
 	});
@@ -220,9 +224,7 @@ describe("logStatus", () => {
 			"wtorek 14:00",
 		);
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz = page.leads.find(
-			(l) => l.id === TEST_IDS.businesses.fryzjerAnna,
-		)!;
+		const biz = requireLead(page.leads, TEST_IDS.businesses.fryzjerAnna);
 		expect(biz.status).toBe("meeting_set");
 		expect(biz.comment).toBe("wtorek 14:00");
 	});
@@ -235,9 +237,7 @@ describe("logStatus", () => {
 			"podpisana umowa",
 		);
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz = page.leads.find(
-			(l) => l.id === TEST_IDS.businesses.dentystaKrakow,
-		)!;
+		const biz = requireLead(page.leads, TEST_IDS.businesses.dentystaKrakow);
 		expect(biz.status).toBe("deal_closed");
 		expect(biz.comment).toBe("podpisana umowa");
 	});
@@ -250,9 +250,7 @@ describe("logStatus", () => {
 			"nie odebrał",
 		);
 		const page = await leads.list(TEST_IDS.sellers.jan);
-		const biz = page.leads.find(
-			(l) => l.id === TEST_IDS.businesses.mechanikWroclaw,
-		)!;
+		const biz = requireLead(page.leads, TEST_IDS.businesses.mechanikWroclaw);
 		expect(biz.status).toBe("no_answer");
 		expect(biz.comment).toBe("nie odebrał");
 	});

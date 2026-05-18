@@ -8,11 +8,11 @@ export async function startRun(
 	db: D1Database,
 	cronPattern: string,
 ): Promise<number> {
-	const { meta } = await db
+	const meta = await db
 		.prepare("INSERT INTO cron_log (cron_pattern) VALUES (?) RETURNING id")
 		.bind(cronPattern)
-		.first<{ id: number }>()
-		.then((row) => ({ meta: row! }));
+		.first<{ id: number }>();
+	if (!meta) throw new Error("Failed to create cron_log row");
 	return meta.id;
 }
 

@@ -25,7 +25,7 @@ async function callEndpoint(token?: string, query = "") {
 	return GET({
 		request: new Request(url, { headers }),
 		locals: { runtime: { env } },
-	} as any);
+	} as unknown as Parameters<typeof GET>[0]);
 }
 
 async function readBody(res: Response): Promise<CronLogResponse> {

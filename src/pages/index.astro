@@ -385,7 +385,8 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
 
     <script>
       // Navbar bg on scroll
-      const nav = document.getElementById("navbar")!;
+      const nav = document.getElementById("navbar");
+      if (!nav) throw new Error("Missing navbar");
       const update = () => {
         if (window.scrollY > 20) {
           nav.classList.add("bg-white/95", "backdrop-blur", "shadow-sm");
@@ -397,8 +398,9 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       update();
 
       // Mobile menu
-      const toggle = document.getElementById("menu-toggle")!;
-      const menu = document.getElementById("mobile-menu")!;
+      const toggle = document.getElementById("menu-toggle");
+      const menu = document.getElementById("mobile-menu");
+      if (!toggle || !menu) throw new Error("Missing mobile menu controls");
       toggle.addEventListener("click", () => {
         const open = !menu.classList.contains("hidden");
         menu.classList.toggle("hidden");
@@ -421,7 +423,11 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
 
       // Contact form
       let turnstileToken = "";
-      (window as any).onTurnstile = (token: string) => { turnstileToken = token; };
+      const pageWindow = window as Window & {
+        onTurnstile?: (token: string) => void;
+        turnstile?: { reset?: () => void };
+      };
+      pageWindow.onTurnstile = (token: string) => { turnstileToken = token; };
 
       const phoneRe = /^\+?48?\s?\d{3}\s?\d{3}\s?\d{3}$|^\d{9}$/;
       const form = document.getElementById("contact-form") as HTMLFormElement;
@@ -471,7 +477,7 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
           btn.disabled = false;
           btn.textContent = "Wyślij";
           turnstileToken = "";
-          (window as any).turnstile?.reset();
+          pageWindow.turnstile?.reset?.();
         }
       });
     </script>

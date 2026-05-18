@@ -76,7 +76,9 @@ describe("preflightDiscovery", () => {
 		expect(result.meta.threshold).toBe(200);
 
 		// payload contains searchesLeft so discovery can use it
-		const payload = JSON.parse(store.get(SKIP_FLAG_KEY)!) as {
+		const storedPayload = store.get(SKIP_FLAG_KEY);
+		if (!storedPayload) throw new Error("Expected skip flag payload");
+		const payload = JSON.parse(storedPayload) as {
 			searchesLeft: number;
 		};
 		expect(payload.searchesLeft).toBe(50);

@@ -96,7 +96,9 @@ export const POST: APIRoute = async ({ request }) => {
 	const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n\n${matchBlock}`;
 
 	for (const seller of sellers.results) {
-		await sendMessage(env.TG_NOTIFY_BOT_TOKEN, seller.notify_chat_id!, msg);
+		if (seller.notify_chat_id) {
+			await sendMessage(env.TG_NOTIFY_BOT_TOKEN, seller.notify_chat_id, msg);
+		}
 	}
 
 	return json({ ok: true });

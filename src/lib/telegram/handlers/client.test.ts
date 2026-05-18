@@ -4,9 +4,10 @@ import { resetDb, TEST_IDS } from "../../../../test/seed";
 import type { SiteData } from "../../../types/site";
 import { putSite } from "../../site-store";
 import type { TelegramUpdate } from "../../telegram";
-import type { TgContext } from "../types";
+import type { TgContext, TgHandler } from "../types";
 import {
 	draftCallbackHandler,
+	type EditDeps,
 	ownerEditHandler,
 	startLinkHandler,
 } from "./client";
@@ -24,6 +25,13 @@ function makeCtx(overrides: Partial<TgContext> = {}): TgContext {
 		typing: vi.fn(async () => {}),
 		...overrides,
 	};
+}
+
+function ownerEditHandlerWithDeps(deps: EditDeps): TgHandler {
+	if (!ownerEditHandler.withDeps) {
+		throw new Error("Expected owner edit handler dependency factory");
+	}
+	return ownerEditHandler.withDeps(deps);
 }
 
 function msgUpdate(text: string, chatId = 999): TelegramUpdate {
@@ -298,7 +306,7 @@ describe("ownerEditHandler", () => {
 
 		const stubEditContent = vi.fn(async () => PATCHED_SITE);
 		const stubSummarize = vi.fn(() => 'Naglowek: "Patched"');
-		const handler = ownerEditHandler.withDeps!({
+		const handler = ownerEditHandlerWithDeps({
 			editContent: stubEditContent,
 			summarizeChanges: stubSummarize,
 		});
@@ -340,7 +348,7 @@ describe("ownerEditHandler", () => {
 			STUB_SITE,
 		);
 
-		const handler = ownerEditHandler.withDeps!({
+		const handler = ownerEditHandlerWithDeps({
 			editContent: vi.fn(async () => {
 				throw new Error("GLM-5 timeout");
 			}),
@@ -363,7 +371,7 @@ describe("ownerEditHandler", () => {
 			STUB_SITE,
 		);
 
-		const handler = ownerEditHandler.withDeps!({
+		const handler = ownerEditHandlerWithDeps({
 			editContent: vi.fn(async () => {
 				throw new Error("random failure");
 			}),

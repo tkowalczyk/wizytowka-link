@@ -370,12 +370,19 @@ async function matchLocalityByName(
 	if (results.length === 1)
 		return { id: results[0].id, name: results[0].name, slug: results[0].slug };
 	if (lat != null && lng != null) {
-		const withCoords = results.filter((r) => r.lat != null && r.lng != null);
+		const withCoords = results.filter(
+			(
+				r,
+			): r is LocalityMatch & {
+				lat: number;
+				lng: number;
+			} => r.lat != null && r.lng != null,
+		);
 		if (withCoords.length) {
 			let best = withCoords[0];
-			let bestDist = haversine(lat, lng, best.lat!, best.lng!);
+			let bestDist = haversine(lat, lng, best.lat, best.lng);
 			for (let i = 1; i < withCoords.length; i++) {
-				const d = haversine(lat, lng, withCoords[i].lat!, withCoords[i].lng!);
+				const d = haversine(lat, lng, withCoords[i].lat, withCoords[i].lng);
 				if (d < bestDist) {
 					bestDist = d;
 					best = withCoords[i];

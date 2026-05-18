@@ -8,7 +8,8 @@ export function createSellerStartHandler(
 		match: (update) => !!update.message?.text?.startsWith("/start"),
 
 		handle: async (ctx) => {
-			const text = ctx.update.message!.text!.trim();
+			const text = ctx.update.message?.text?.trim();
+			if (!text) return;
 			const sellerToken = text.split(" ")[1];
 
 			if (!sellerToken) {

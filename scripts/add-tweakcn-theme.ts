@@ -83,9 +83,11 @@ async function main() {
 	if (!res.ok) throw new Error(`fetch ${res.status}: ${await res.text()}`);
 	const theme = (await res.json()) as TweakcnTheme;
 
-	const name = slugify(
-		theme.name || url.split("/").pop()!.replace(".json", ""),
-	);
+	const fallbackName = url.split("/").pop()?.replace(".json", "");
+	if (!theme.name && !fallbackName) {
+		throw new Error("Could not infer theme name from URL");
+	}
+	const name = slugify(theme.name || fallbackName || "");
 	const light = mapVars(theme.cssVars.light);
 	const dark = mapVars(theme.cssVars.dark);
 

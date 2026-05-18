@@ -12,7 +12,8 @@ export const startLinkHandler: TgHandler = {
 	},
 
 	handle: async (ctx) => {
-		const text = ctx.update.message!.text!.trim();
+		const text = ctx.update.message?.text?.trim();
+		if (!text) return;
 		const bizToken = text.split(" ")[1];
 
 		const owner = await ctx.env.leadgen
@@ -58,7 +59,8 @@ export const draftCallbackHandler: TgHandler = {
 	match: (update) => !!update.callback_query?.data?.match(/^(approve|reject):/),
 
 	handle: async (ctx) => {
-		const cb = ctx.update.callback_query!;
+		const cb = ctx.update.callback_query;
+		if (!cb) return;
 		const data = cb.data ?? "";
 		const [action, bizIdStr] = data.split(":");
 		const bizId = parseInt(bizIdStr, 10);
@@ -82,8 +84,13 @@ export const draftCallbackHandler: TgHandler = {
 			.bind(biz?.locality_id)
 			.first<{ slug: string }>();
 
+		if (!biz || !loc) {
+			await ctx.reply("Brak wizytowki.");
+			return;
+		}
+
 		if (action === "approve") {
-			const ok = await promoteDraft(ctx.env.sites, loc!.slug, biz!.slug);
+			const ok = await promoteDraft(ctx.env.sites, loc.slug, biz.slug);
 			if (!ok) {
 				await ctx.reply("Draft wygasl.");
 				return;
@@ -92,7 +99,7 @@ export const draftCallbackHandler: TgHandler = {
 		}
 
 		if (action === "reject") {
-			await deleteSite(ctx.env.sites, "draft", loc!.slug, biz!.slug);
+			await deleteSite(ctx.env.sites, "draft", loc.slug, biz.slug);
 			await ctx.reply("Zmiany odrzucone. Wyslij nowa instrukcje.");
 		}
 	},
@@ -120,7 +127,8 @@ async function defaultEditDeps(apiKey: string): Promise<EditDeps> {
 
 function createOwnerEditHandle(deps?: EditDeps) {
 	return async (ctx: TgContext): Promise<void> => {
-		const text = ctx.update.message!.text!.trim();
+		const text = ctx.update.message?.text?.trim();
+		if (!text) return;
 
 		const owner = await ctx.env.leadgen
 			.prepare("SELECT business_id FROM business_owners WHERE chat_id = ?")
@@ -138,11 +146,13 @@ function createOwnerEditHandle(deps?: EditDeps) {
 			.bind(biz?.locality_id)
 			.first<{ slug: string }>();
 
+		if (!biz || !loc) return;
+
 		const currentSite = await getSite(
 			ctx.env.sites,
 			"live",
-			loc!.slug,
-			biz!.slug,
+			loc.slug,
+			biz.slug,
 		);
 		if (!currentSite) {
 			await ctx.reply("Wizytowka jeszcze nie zostala wygenerowana.");
@@ -159,8 +169,8 @@ function createOwnerEditHandle(deps?: EditDeps) {
 			await putSite(
 				ctx.env.sites,
 				"draft",
-				loc!.slug,
-				biz!.slug,
+				loc.slug,
+				biz.slug,
 				patchedSiteData as SiteData,
 			);
 

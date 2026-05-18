@@ -88,7 +88,8 @@ describe("cron-log", () => {
 			.bind(id)
 			.first<{ meta: string }>();
 
-		expect(JSON.parse(row!.meta)).toEqual({
+		if (!row) throw new Error("Expected cron_log row");
+		expect(JSON.parse(row.meta)).toEqual({
 			apiCalls: 12,
 			quotaExhausted: false,
 		});
@@ -115,14 +116,16 @@ describe("getCronSummary", () => {
 
 		expect(summary).toHaveLength(2);
 
-		const geocoder = summary.find((s) => s.cron_pattern === "0 * * * *")!;
+		const geocoder = summary.find((s) => s.cron_pattern === "0 * * * *");
+		if (!geocoder) throw new Error("Expected geocoder summary");
 		expect(geocoder.total_runs).toBe(2);
 		expect(geocoder.completed).toBe(2);
 		expect(geocoder.failed).toBe(0);
 		expect(geocoder.total_processed).toBe(30);
 		expect(geocoder.total_failed_items).toBe(4);
 
-		const discovery = summary.find((s) => s.cron_pattern === "0 8 * * *")!;
+		const discovery = summary.find((s) => s.cron_pattern === "0 8 * * *");
+		if (!discovery) throw new Error("Expected discovery summary");
 		expect(discovery.total_runs).toBe(1);
 		expect(discovery.failed).toBe(1);
 	});
