@@ -3,9 +3,7 @@
 	"name": "wizytowka-link",
 	"main": "./src/worker.ts",
 	"compatibility_date": "2025-04-01",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
+	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
 		"enabled": true
 	},

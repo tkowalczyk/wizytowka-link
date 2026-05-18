@@ -16,11 +16,64 @@ interface TurnstileResponse {
 	"error-codes"?: string[];
 }
 
+const CONTACT_IP_PHONE_TTL_SECONDS = 15 * 60;
+const CONTACT_PHONE_TTL_SECONDS = 60 * 60;
+
 function json(data: Record<string, unknown>, status = 200) {
 	return new Response(JSON.stringify(data), {
 		status,
 		headers: { "Content-Type": "application/json" },
 	});
+}
+
+function getClientIp(request: Request): string {
+	return (
+		request.headers.get("CF-Connecting-IP") ??
+		request.headers.get("X-Forwarded-For")?.split(",")[0]?.trim() ??
+		"unknown"
+	);
+}
+
+async function sha256Hex(value: string): Promise<string> {
+	const bytes = new TextEncoder().encode(value);
+	const digest = await crypto.subtle.digest("SHA-256", bytes);
+	return [...new Uint8Array(digest)]
+		.map((byte) => byte.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+async function contactRateLimitKeys(
+	request: Request,
+	phone: string,
+): Promise<{ ipPhone: string; phone: string }> {
+	const ip = getClientIp(request);
+	const [ipPhoneHash, phoneHash] = await Promise.all([
+		sha256Hex(`${ip}:${phone}`),
+		sha256Hex(phone),
+	]);
+	return {
+		ipPhone: `contact:v1:ip-phone:${ipPhoneHash}`,
+		phone: `contact:v1:phone:${phoneHash}`,
+	};
+}
+
+async function isContactRateLimited(
+	request: Request,
+	phone: string,
+): Promise<boolean> {
+	const keys = await contactRateLimitKeys(request, phone);
+	const existing = await env.STATE.get([keys.ipPhone, keys.phone]);
+	if (existing.get(keys.ipPhone) || existing.get(keys.phone)) return true;
+
+	await Promise.all([
+		env.STATE.put(keys.ipPhone, "1", {
+			expirationTtl: CONTACT_IP_PHONE_TTL_SECONDS,
+		}),
+		env.STATE.put(keys.phone, "1", {
+			expirationTtl: CONTACT_PHONE_TTL_SECONDS,
+		}),
+	]);
+	return false;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -43,12 +96,17 @@ export const POST: APIRoute = async ({ request }) => {
 			body: JSON.stringify({
 				secret: env.TURNSTILE_SECRET_KEY,
 				response: body.token,
+				remoteip: getClientIp(request),
 			}),
 		},
 	);
 	const turnstile = (await turnstileRes.json()) as TurnstileResponse;
 	if (!turnstile.success) {
 		return json({ error: "weryfikacja nieudana" }, 403);
+	}
+
+	if (await isContactRateLimited(request, phone)) {
+		return json({ error: "za duzo prob" }, 429);
 	}
 
 	const leads = new Leads(env.leadgen);
