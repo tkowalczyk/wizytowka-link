@@ -446,6 +446,14 @@ async function resolveLocality(
 // -- internal: slug --
 
 const MAX_SLUG_ATTEMPTS = 50;
+const MAX_SLUG_BASE_LENGTH = 96;
+
+function businessSlugBase(title: string): string {
+	const base = slugify(title)
+		.slice(0, MAX_SLUG_BASE_LENGTH)
+		.replace(/-+$/g, "");
+	return base || "firma";
+}
 
 async function generateUniqueSlug(
 	title: string,
@@ -453,12 +461,17 @@ async function generateUniqueSlug(
 	db: D1Database,
 	reserved: ReadonlySet<string> = new Set(),
 ): Promise<string> {
-	const base = slugify(title);
+	const base = businessSlugBase(title);
+	const candidates = [
+		base,
+		...Array.from({ length: MAX_SLUG_ATTEMPTS }, (_, i) => `${base}-${i + 2}`),
+	];
+	const placeholders = candidates.map(() => "?").join(", ");
 	const { results } = await db
 		.prepare(
-			"SELECT slug FROM businesses WHERE locality_id = ? AND (slug = ? OR slug LIKE ?) ORDER BY slug",
+			`SELECT slug FROM businesses WHERE locality_id = ? AND slug IN (${placeholders}) ORDER BY slug`,
 		)
-		.bind(localityId, base, `${base}-%`)
+		.bind(localityId, ...candidates)
 		.all<{ slug: string }>();
 	const existing = new Set(results.map((r) => r.slug));
 	for (const slug of reserved) existing.add(slug);

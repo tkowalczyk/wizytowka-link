@@ -281,6 +281,26 @@ describe("discovery: runDiscovery", () => {
 		expect(row?.slug).toBe("dentysta-krakow-2");
 	});
 
+	it("slug generation: very long scraped titles do not trip D1 LIKE pattern limits", async () => {
+		const result = fakeResult({
+			place_id: "place_very_long_title",
+			title: "Bardzo Długa Nazwa ".repeat(3000),
+			address: "ul. Floriańska 30, Kraków",
+			gps_coordinates: { latitude: 50.0647, longitude: 19.945 },
+		});
+		const deps = makeDeps({ searchApi: staticSearch([result]) });
+
+		await runDiscovery(deps);
+
+		const row = await env.leadgen
+			.prepare("SELECT slug FROM businesses WHERE place_id = ?")
+			.bind("place_very_long_title")
+			.first<{ slug: string }>();
+
+		expect(row).not.toBeNull();
+		expect(row?.slug.length).toBeLessThanOrEqual(100);
+	});
+
 	it("apiCalls counter: non-429 error still reports partial calls without quotaExhausted", async () => {
 		const goodResult = fakeResult({ place_id: "place_partial_ok" });
 		let callNum = 0;
