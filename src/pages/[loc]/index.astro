@@ -1,6 +1,7 @@
 ---
 import '../../styles/base.css';
 import { env } from 'cloudflare:workers';
+import AuditmosFooterLink from '../../components/AuditmosFooterLink.astro';
 import type { LocalityRow, BusinessRow } from '../../types/business';
 import { safeJsonScript } from '../../lib/structured-data';
 
@@ -193,6 +194,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=8640
     <footer class="mt-16 border-t border-gray-100 bg-gray-50 py-10">
       <div class="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 text-center text-sm text-gray-500 sm:flex-row sm:justify-between sm:text-left">
         <div>&copy; {new Date().getFullYear()} wizytowka.link</div>
+        <AuditmosFooterLink linkClass="hover:text-gray-700" />
         <div class="flex gap-6">
           <a href="/regulamin" class="hover:text-gray-700 transition-colors">Regulamin</a>
           <a href="/polityka-prywatnosci" class="hover:text-gray-700 transition-colors">Polityka prywatności</a>

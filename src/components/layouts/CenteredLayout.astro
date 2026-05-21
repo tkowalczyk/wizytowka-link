@@ -1,5 +1,6 @@
 ---
 import type { SiteData } from '../../types/site';
+import AuditmosFooterLink from '../AuditmosFooterLink.astro';
 import CategoryLogo from '../CategoryLogo.astro';
 
 interface RelatedBusiness {
@@ -92,6 +93,7 @@ const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.
 
   <footer class="py-6 text-center text-sm text-muted-foreground">
     <p>Strona wygenerowana przez <a href="https://wizytowka.link" class="underline hover:text-foreground transition-colors">wizytowka.link</a></p>
+    <AuditmosFooterLink class="mt-1" />
   </footer>
 
 </Fragment>

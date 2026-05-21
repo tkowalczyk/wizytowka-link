@@ -1,0 +1,15 @@
+---
+interface Props {
+  class?: string;
+  linkClass?: string;
+}
+
+const { class: className = '', linkClass = 'hover:text-foreground' } = Astro.props;
+---
+
+<p class:list={['text-xs', className]}>
+  Partner technologiczny: <a
+    href="https://auditmos.com"
+    class:list={['underline underline-offset-2 transition-colors', linkClass]}
+  >tworzenie oprogramowania</a>
+</p>

@@ -1,4 +1,6 @@
 ---
+import AuditmosFooterLink from './AuditmosFooterLink.astro';
+
 interface Seller {
   id: number;
   name: string;
@@ -272,6 +274,10 @@ const SITE_FILTER = [
       )}
     </div>
   )}
+
+  <footer class="mt-10 border-t pt-6 text-center text-gray-400">
+    <AuditmosFooterLink linkClass="hover:text-gray-600" />
+  </footer>
 </div>
 
 <style>

@@ -1,5 +1,6 @@
 ---
 import '../styles/base.css';
+import AuditmosFooterLink from '../components/AuditmosFooterLink.astro';
 
 const title = "Regulamin — wizytowka.link"
 const url = "https://wizytowka.link/regulamin"
@@ -151,7 +152,10 @@ const url = "https://wizytowka.link/regulamin"
 
       </div>
 
-      <p class="mt-12 text-xs text-gray-400">wizytowka.link. Wszelkie prawa zastrzeżone 2026.</p>
+      <footer class="mt-12 space-y-2 text-xs text-gray-400">
+        <p>wizytowka.link. Wszelkie prawa zastrzeżone 2026.</p>
+        <AuditmosFooterLink linkClass="hover:text-gray-600" />
+      </footer>
     </div>
     </main>
   </body>
