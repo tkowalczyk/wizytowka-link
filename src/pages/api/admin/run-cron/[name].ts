@@ -16,7 +16,7 @@ function json(data: unknown, status = 200) {
 }
 
 export const POST: APIRoute = async ({ params, request, locals }) => {
-	const env = runtimeEnv as Env & { ADMIN_TOKEN?: string };
+	const env = runtimeEnv;
 	const ctx = locals.cfContext;
 
 	const expected = env.ADMIN_TOKEN;
