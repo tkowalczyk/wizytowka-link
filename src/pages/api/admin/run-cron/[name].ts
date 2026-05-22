@@ -1,5 +1,6 @@
 import { env as runtimeEnv } from "cloudflare:workers";
 import type { APIRoute } from "astro";
+import { timingSafeCompare } from "../../../../lib/auth";
 import {
 	CRON_PATTERNS,
 	type CronName,
@@ -23,7 +24,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 		return json({ error: "ADMIN_TOKEN not configured" }, 500);
 	}
 	const provided = request.headers.get("x-admin-token");
-	if (provided !== expected) {
+	if (!(await timingSafeCompare(provided, expected))) {
 		return json({ error: "unauthorized" }, 401);
 	}
 
