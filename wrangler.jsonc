@@ -5,7 +5,9 @@
 	"compatibility_date": "2026-05-22",
 	"compatibility_flags": ["nodejs_compat"],
 	"observability": {
-		"enabled": true
+		"enabled": true,
+		// 1.0 — sample all events; low cron volume, revisit if traffic grows
+		"head_sampling_rate": 1.0
 	},
 	"d1_databases": [
 		{
