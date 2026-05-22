@@ -1,5 +1,6 @@
 import { env as runtimeEnv } from "cloudflare:workers";
 import type { APIRoute } from "astro";
+import { timingSafeCompare } from "../auth";
 import {
 	sendChatAction,
 	sendMessage,
@@ -45,7 +46,7 @@ export function createBotRoute(
 		const values = env as unknown as Record<string, string>;
 		const secret = values[config.secretEnvKey];
 
-		if (params.secret !== secret) {
+		if (!(await timingSafeCompare(params.secret, secret))) {
 			return new Response("forbidden", { status: 403 });
 		}
 

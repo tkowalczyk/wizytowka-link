@@ -58,6 +58,14 @@ describe("createBotRoute", () => {
 		expect(res.status).toBe(403);
 	});
 
+	it("returns 403 for wrong secret of the same length as the real secret", async () => {
+		// real secret "test-secret-value" is 17 chars; wrong secret here is also 17 chars
+		const wrong = "xxxx-xxxxxx-xxxxx";
+		expect(wrong).toHaveLength("test-secret-value".length);
+		const res = await callRoute(baseConfig, wrong, makeUpdate());
+		expect(res.status).toBe(403);
+	});
+
 	it("returns 200 noop when no handlers match", async () => {
 		const res = await callRoute(baseConfig, "test-secret-value", makeUpdate());
 		expect(res.status).toBe(200);
