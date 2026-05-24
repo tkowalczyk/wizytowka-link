@@ -136,15 +136,36 @@ function createTelegramNotify(env: Env): NotifyPort {
 				)
 				.all<SellerRow>();
 
-			for (const seller of sellers.results) {
-				try {
-					await sendDailyReport(env.TG_SELLER_BOT_TOKEN, seller, reportStats);
-				} catch (err) {
-					console.log(`telegram: failed for seller ${seller.id}: ${err}`);
-				}
-			}
+			await fanOutDailyReports(
+				env.TG_SELLER_BOT_TOKEN,
+				sellers.results,
+				reportStats,
+			);
 		},
 	};
+}
+
+export type SendDailyReportFn = (
+	token: string,
+	seller: SellerRow,
+	stats: DailyReportStats,
+) => Promise<void>;
+
+export async function fanOutDailyReports(
+	token: string,
+	sellers: SellerRow[],
+	stats: DailyReportStats,
+	send: SendDailyReportFn = sendDailyReport,
+): Promise<void> {
+	const results = await Promise.allSettled(
+		sellers.map((seller) => send(token, seller, stats)),
+	);
+	for (let i = 0; i < results.length; i++) {
+		const r = results[i];
+		if (r.status === "rejected") {
+			console.log(`telegram: failed for seller ${sellers[i].id}: ${r.reason}`);
+		}
+	}
 }
 
 export function createDiscoveryDeps(env: Env): DiscoveryDeps {
