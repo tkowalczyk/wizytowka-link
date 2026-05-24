@@ -367,4 +367,21 @@ describe("ensureOwnerToken", () => {
 		const t2 = await leads.ensureOwnerToken(TEST_IDS.businesses.dentystaKrakow);
 		expect(t1).toBe(t2);
 	});
+
+	it("authenticates pre-existing old-format (base36) tokens via WHERE token = ?", async () => {
+		// Simulate a token persisted before the hex switch — base36 chars including [g-z]
+		// which are invalid under the new /^biz_[0-9a-f]{32}$/ format.
+		const legacyToken = "biz_2h4v1g3s5o5n6v5j540y5p3q653w6s01";
+		await env.leadgen
+			.prepare("INSERT INTO business_owners (business_id, token) VALUES (?, ?)")
+			.bind(TEST_IDS.businesses.fryzjerAnna, legacyToken)
+			.run();
+
+		const row = await env.leadgen
+			.prepare("SELECT business_id FROM business_owners WHERE token = ?")
+			.bind(legacyToken)
+			.first<{ business_id: number }>();
+
+		expect(row?.business_id).toBe(TEST_IDS.businesses.fryzjerAnna);
+	});
 });
