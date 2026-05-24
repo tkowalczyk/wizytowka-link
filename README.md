@@ -28,19 +28,19 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 ## Jak to dziala
 
 ```
-   Co godzine        Codziennie 7:55    Codziennie 8:00    Co 5 minut
-┌─────────────┐    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│  Geocoder   │    │  Preflight   │   │  Discovery   │   │  Generator   │
-│ (GPS miast) │    │ (SerpAPI     │──▶│ (firmy       │──▶│ (strony      │
-│             │    │  quota check)│   │  z Maps)     │   │  przez GLM-5)│
-└─────────────┘    └──────────────┘   └──────┬───────┘   └──────┬───────┘
-                                             │                   │
-                                             ▼                   ▼
-                                    ┌────────────────┐  ┌─────────────────┐
-                                    │   Telegram     │  │  wizytowka.link │
-                                    │  (3 boty:      │  │  /miasto/firma  │
-                                    │  seller/notify/│  │  (strona firmy) │
-                                    │  client)       │  └─────────────────┘
+   Co godzine        Codziennie 7:55    Codziennie 8:00    Co 5 minut       Pon 9:00
+┌─────────────┐    ┌──────────────┐   ┌──────────────┐   ┌──────────────┐  ┌──────────────┐
+│  Geocoder   │    │  Preflight   │   │  Discovery   │   │  Generator   │  │   Funnel     │
+│ (GPS miast) │    │ (SerpAPI     │──▶│ (firmy       │──▶│ (strony      │  │ (tygodniowy  │
+│             │    │  quota check)│   │  z Maps)     │   │  przez GLM-5)│  │  raport TG)  │
+└─────────────┘    └──────────────┘   └──────┬───────┘   └──────┬───────┘  └──────┬───────┘
+                                             │                   │                 │
+                                             ▼                   ▼                 ▼
+                                    ┌────────────────┐  ┌─────────────────┐ ┌──────────────┐
+                                    │   Telegram     │  │  wizytowka.link │ │  Sellers     │
+                                    │  (3 boty:      │  │  /miasto/firma  │ │ (statystyki  │
+                                    │  seller/notify/│  │  (strona firmy) │ │  konwersji)  │
+                                    │  client)       │  └─────────────────┘ └──────────────┘
                                     └────────────────┘
                                              │
                                     ┌────────────────┐
@@ -58,9 +58,11 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 
 **Generator** — co 5 minut bierze nowe firmy i przez Z.ai GLM-5 generuje tresc strony wizytowkowej (nazwa, opis uslug, wezwanie do kontaktu). Strona jest natychmiast dostepna pod adresem `wizytowka.link/{miasto}/{firma}`.
 
-**Panel sprzedawcy** — lista leadow z telefonami, statusami kontaktu i komentarzami. Dostepny przez prywatny link.
+**Panel sprzedawcy** — lista leadow z telefonami, komentarzami i 7-stopniowym lejkiem statusow (pending → called → interested / rejected / no_answer → meeting_set → deal_closed). Dostepny przez prywatny link.
 
 **Telegram** — 3 osobne boty: seller (rejestracja + raporty), notify (powiadomienia o nowych leadach), client (edycja wizytowek przez wlascicieli firm). Codzienny raport zawiera statystyki discovery + stan zdrowia cronow.
+
+**Funnel report** — w kazdy poniedzialek o 9:00 sprzedawcy dostaja przez Telegram tygodniowe podsumowanie lejka: ile leadow w kazdym z 7 statusow, konwersja od pending do deal_closed.
 
 **Cron Log** — kazde uruchomienie crona jest rejestrowane w D1 (start/complete/fail + metryki). Dostepne przez API (`/api/cron-log`) i wlaczone w raport Telegramowy.
 
@@ -70,7 +72,7 @@ Sprzedawca otwiera panel, widzi liste firm z telefonami, dzwoni i proponuje: "Zr
 pnpm install
 pnpm seed        # wipe local D1+R2, run migrations, seed test data
 pnpm build && pnpm preview
-pnpm test        # run 260+ tests (vitest + cloudflare pool)
+pnpm test        # run 320+ tests (vitest + cloudflare pool)
 ```
 
 Seed tworzy miejscowosc, 6 firm z wizytowkami, 2 sprzedawcow i logi kontaktow. Panel sprzedawcy: `http://localhost:8787/s/seller_jan_token?status=all`

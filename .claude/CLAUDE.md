@@ -16,11 +16,21 @@ Lead-gen platform: scrapes Polish businesses via SerpAPI, generates static "wizy
 src/
   worker.ts                      # CF Worker entry — delegates scheduled() to lib/scheduled.ts
   pages/
-    [loc]/[slug].astro           # Public business page
-    s/                           # Seller panel (token-authed)
+    index.astro                  # Landing page
+    regulamin.astro              # ToS
+    polityka-prywatnosci.astro   # Privacy policy
+    robots.txt.ts                # robots.txt
+    sitemap.xml.ts               # sitemap.xml
+    llms.txt.ts                  # llms.txt (LLM-readable site index)
+    [loc]/
+      index.astro                # Locality index (businesses in town)
+      [slug].astro               # Public business page
+      [slug].md.ts               # Markdown export of business page
+      kategoria/[category].astro # Locality + category listing
+    s/[token].astro              # Seller panel (token-authed)
     api/
       admin/run-cron/[name].ts   # Manual cron trigger (x-admin-token)
-      contact.ts                 # Public contact form
+      contact.ts                 # Public contact form (rate-limited, fan-out via waitUntil)
       cron-log.ts                # Seller-authed run history
       health/serpapi.ts          # SerpAPI quota probe
       leads/[id].ts              # Update lead status
@@ -28,15 +38,19 @@ src/
   lib/
     scheduled.ts                 # Single source of truth: CRON_PATTERNS + runScheduledCron
     cron-log.ts                  # startRun/completeRun/failRun + RunResult + getCronSummary
+    auth.ts                      # timingSafeCompare (Workers crypto.subtle.timingSafeEqual)
     geocoder.ts                  # Nominatim geocoding with exponential backoff
     discovery/
-      index.ts                   # discoverBusinesses + daily report wiring
+      index.ts                   # discoverBusinesses + fanOutDailyReports (Promise.allSettled)
       preflight.ts               # SerpAPI quota check + KV skip-flag
       ports.ts                   # SearchPort, NotifyPort, DiscoveryDeps
     serpapi/                     # SerpAPI client + types
+    funnel.ts                    # Weekly Telegram funnel report (7 call_log statuses)
     generate-sites.ts            # Site JSON generator (Z.ai GLM-5 → R2)
-    site-content.ts              # LLM provider (Z.ai GLM-5)
+    site-content.ts              # LLM provider (Z.ai GLM-5) with capped error body
     site-store.ts                # R2 CRUD for site JSON (live/draft)
+    site-status.ts               # SiteStatus enum + business eligibility classifier
+    draft-preview.ts             # Tokenized draft preview links (24h TTL)
     presentation.ts              # Theme resolution with per-business overrides
     themes.ts                    # 8 OKLCH palettes + style/layout variants
     category.ts                  # Category → palette mapping
@@ -45,16 +59,18 @@ src/
     telegram/                    # Dispatch pattern — handlers for 3 bots
     locality-slug.ts             # TERYT sym-fallback locality slugs
     locality-label.ts            # Locality display labels
+    legacy-slug.ts               # 410 Gone for pre-2026-04-08 locality slugs
     structured-data.ts           # JSON-LD for business pages
     slug.ts                      # Polish char normalization
     phone.ts                     # Polish phone normalization
-    token.ts                     # Token generation
+    token.ts                     # Owner token generation (biz_ + 16 random bytes hex)
+    migrations/                  # Runtime migration helpers
   components/
     BusinessSite.astro           # Main biz page wrapper (theme + CSS vars injection)
     layouts/                     # 3 layout variants: centered, split, minimal
   styles/base.css                # Tailwind import + @theme inline tokens
   types/                         # business.ts, site.ts, serpapi.ts
-migrations/                      # D1 SQL migrations
+migrations/                      # D1 SQL migrations (0001-0013)
 test/seed.ts                     # Schema + seed data for integration tests
 docs/design/                     # Numbered design docs (read before implementing features)
 ```
@@ -86,6 +102,7 @@ Current pipeline:
 - `55 7 * * *` — **preflight**: SerpAPI quota probe; sets KV skip-flag if below `DISCOVERY_MIN_QUOTA`
 - `0 8 * * *` — **discovery**: SerpAPI scrape; respects preflight skip-flag; writes to `businesses`
 - `*/5 * * * *` — **generate**: unfilled `businesses` → Z.ai GLM-5 → R2 site JSON
+- `0 9 * * 1` — **funnel**: weekly Telegram funnel report (7-status `call_log` rollup per seller)
 
 Every run is logged to `cron_log` via `startRun`/`completeRun`/`failRun`. All handlers must return `RunResult { processed, failed, meta? }`.
 </important>
@@ -95,7 +112,7 @@ Every run is logged to `cron_log` via `startRun`/`completeRun`/`failRun`. All ha
 - Use `INSERT OR IGNORE` for idempotency, `datetime('now')` for timestamps.
 - Partial indexes are used for cron queries (e.g. `WHERE searched_at IS NULL`).
 
-Schema tables: `localities` (~95k TERYT records), `businesses`, `sellers`, `call_log` (append-only), `business_owners`, `cron_log`, `alert_log`.
+Schema tables: `localities` (~95k TERYT records), `businesses` (with `site_status` enum), `sellers`, `call_log` (append-only, 7 statuses: pending/called/interested/rejected/no_answer/meeting_set/deal_closed), `business_owners`, `cron_log`, `alert_log`, `draft_preview_tokens`.
 </important>
 
 <important if="you are touching discovery, preflight, or geocoder code">
@@ -121,7 +138,9 @@ Files: `src/lib/themes.ts` (palettes), `src/lib/category.ts` (category → palet
 
 <important if="you are handling authentication or secrets">
 - **Seller auth**: token-based — URL path `/s/{token}` or `x-seller-token` header. Logic in `src/lib/leads.ts` (`Leads.authenticate`, `Leads.extractToken`).
-- **Admin auth**: single `ADMIN_TOKEN` secret, `x-admin-token` header — only for `/api/admin/run-cron/{name}`. Fail-closed (500 if secret not set).
+- **Admin auth**: single `ADMIN_TOKEN` secret, `x-admin-token` header — only for `/api/admin/run-cron/{name}`. Fail-closed (500 if secret not set). Compared via `timingSafeCompare` (`src/lib/auth.ts`).
+- **Telegram webhook secrets**: `/api/telegram/{bot}/[secret]` path param compared via `timingSafeCompare` to prevent timing oracles.
+- **Draft preview links**: `src/lib/draft-preview.ts` — 32-byte hex tokens, SHA-256 stored in D1, 24h TTL.
 - **Secrets files**: `.dev.vars` / `.production.vars` are gitignored — never commit. Production secrets via `wrangler secret put`.
 </important>
 
