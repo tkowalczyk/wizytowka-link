@@ -36,8 +36,30 @@ function telegramCalls(fetchMock: ReturnType<typeof mockFetch>) {
 	);
 }
 
+function createCfContext() {
+	const pending: Promise<unknown>[] = [];
+	return {
+		locals: {
+			cfContext: {
+				waitUntil: (p: Promise<unknown>) => {
+					pending.push(p);
+				},
+				passThroughOnException: () => {},
+			},
+		},
+		pending,
+		settle: () => Promise.allSettled(pending),
+	};
+}
+
 async function submitContact(request: Request): Promise<Response> {
-	return POST({ request } as Parameters<typeof POST>[0]);
+	const ctx = createCfContext();
+	const response = await POST({
+		request,
+		locals: ctx.locals,
+	} as Parameters<typeof POST>[0]);
+	await ctx.settle();
+	return response;
 }
 
 async function clearContactRateLimitState(): Promise<void> {
@@ -100,6 +122,118 @@ describe("POST /api/contact", () => {
 				.prepare("SELECT token FROM business_owners WHERE business_id = 3")
 				.first<{ token: string }>();
 			expect(owner).toBeNull();
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it("returns the response before the Telegram fan-out completes", async () => {
+		let releaseTelegram!: () => void;
+		const telegramGate = new Promise<void>((resolve) => {
+			releaseTelegram = resolve;
+		});
+		let telegramCompleted = 0;
+
+		const fetchMock = vi.fn(
+			async (input: RequestInfo | URL, _init?: RequestInit) => {
+				const url = input.toString();
+				if (url.includes("challenges.cloudflare.com/turnstile")) {
+					return Response.json({ success: true });
+				}
+				if (url.includes("api.telegram.org")) {
+					await telegramGate;
+					telegramCompleted++;
+					return Response.json({
+						ok: true,
+						result: {
+							message_id: 1,
+							chat: { id: 1, type: "private" },
+							date: 0,
+						},
+					});
+				}
+				throw new Error(`Unexpected fetch: ${url}`);
+			},
+		);
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		try {
+			const ctx = createCfContext();
+			const responsePromise = Promise.resolve(
+				POST({
+					request: contactRequest("+48 123 456 789"),
+					locals: ctx.locals,
+				} as Parameters<typeof POST>[0]),
+			);
+
+			const winner = await Promise.race([
+				responsePromise.then(() => "response" as const),
+				new Promise<"timeout">((resolve) =>
+					setTimeout(() => resolve("timeout"), 200),
+				),
+			]);
+			expect(winner).toBe("response");
+
+			const response = await responsePromise;
+			expect(response.status).toBe(200);
+			expect(telegramCompleted).toBe(0);
+
+			releaseTelegram();
+			await ctx.settle();
+			expect(telegramCompleted).toBe(2);
+		} finally {
+			releaseTelegram?.();
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it("isolates Telegram send failures so one rejection does not poison the fan-out", async () => {
+		const fetchMock = vi.fn(
+			async (input: RequestInfo | URL, init?: RequestInit) => {
+				const url = input.toString();
+				if (url.includes("challenges.cloudflare.com/turnstile")) {
+					return Response.json({ success: true });
+				}
+				if (url.includes("api.telegram.org")) {
+					const body = JSON.parse((init?.body ?? "{}") as string) as {
+						chat_id: string;
+					};
+					if (body.chat_id === "100001") {
+						throw new Error("simulated transport failure");
+					}
+					return Response.json({
+						ok: true,
+						result: {
+							message_id: 1,
+							chat: { id: 1, type: "private" },
+							date: 0,
+						},
+					});
+				}
+				throw new Error(`Unexpected fetch: ${url}`);
+			},
+		);
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		try {
+			const ctx = createCfContext();
+			const response = await POST({
+				request: contactRequest("+48 123 456 789"),
+				locals: ctx.locals,
+			} as Parameters<typeof POST>[0]);
+
+			expect(response.status).toBe(200);
+			expect(ctx.pending).toHaveLength(1);
+
+			const outcome = await ctx.pending[0].then(
+				() => "fulfilled" as const,
+				() => "rejected" as const,
+			);
+			expect(outcome).toBe("fulfilled");
+
+			expect(telegramCalls(fetchMock)).toHaveLength(2);
 		} finally {
 			globalThis.fetch = originalFetch;
 		}

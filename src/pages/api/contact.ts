@@ -76,7 +76,7 @@ async function isContactRateLimited(
 	return false;
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
 	let body: ContactBody;
 	try {
 		body = (await request.json()) as ContactBody;
@@ -153,11 +153,16 @@ export const POST: APIRoute = async ({ request }) => {
 
 	const msg = `📞 <b>Nowy kontakt z formularza</b>\n\nTelefon: ${phone}\n\n${matchBlock}`;
 
-	for (const seller of sellers.results) {
-		if (seller.notify_chat_id) {
-			await sendMessage(env.TG_NOTIFY_BOT_TOKEN, seller.notify_chat_id, msg);
-		}
-	}
+	const notifications = sellers.results
+		.filter((seller) => seller.notify_chat_id)
+		.map((seller) =>
+			sendMessage(
+				env.TG_NOTIFY_BOT_TOKEN,
+				seller.notify_chat_id as string,
+				msg,
+			),
+		);
+	locals.cfContext.waitUntil(Promise.allSettled(notifications));
 
 	return json({ ok: true });
 };
