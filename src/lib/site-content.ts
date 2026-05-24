@@ -18,6 +18,38 @@ interface GLMResponse {
 	choices: { message: { content: string } }[];
 }
 
+const ERROR_BODY_CAP_BYTES = 2048;
+
+async function readBodyCapped(
+	res: Response,
+	maxBytes: number,
+): Promise<string> {
+	const reader = res.body?.getReader();
+	if (!reader) return "";
+	const chunks: Uint8Array[] = [];
+	let total = 0;
+	try {
+		while (total < maxBytes) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			chunks.push(value);
+			total += value.byteLength;
+		}
+	} finally {
+		await reader.cancel().catch(() => {});
+	}
+	const merged = new Uint8Array(Math.min(total, maxBytes));
+	let off = 0;
+	for (const c of chunks) {
+		const room = merged.byteLength - off;
+		if (room <= 0) break;
+		const slice = c.byteLength > room ? c.subarray(0, room) : c;
+		merged.set(slice, off);
+		off += slice.byteLength;
+	}
+	return new TextDecoder("utf-8", { fatal: false }).decode(merged);
+}
+
 export function createGLM5(apiKey: string): LLMProvider {
 	return {
 		async complete(messages) {
@@ -38,7 +70,7 @@ export function createGLM5(apiKey: string): LLMProvider {
 				},
 			);
 			if (!res.ok) {
-				const text = await res.text();
+				const text = await readBodyCapped(res, ERROR_BODY_CAP_BYTES);
 				throw new Error(`GLM-5 ${res.status}: ${text}`);
 			}
 			const data = (await res.json()) as GLMResponse;

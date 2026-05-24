@@ -1,7 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SiteContent } from "../types/site";
 import type { LLMProvider } from "./site-content";
 import {
+	createGLM5,
 	editContent,
 	generateContent,
 	summarizeChanges,
@@ -130,5 +131,35 @@ describe("summarizeChanges", () => {
 
 	it("returns no-change message when identical", () => {
 		expect(summarizeChanges(CURRENT, CURRENT)).toBe("Brak widocznych zmian");
+	});
+});
+
+describe("createGLM5 error handling", () => {
+	const realFetch = globalThis.fetch;
+	afterEach(() => {
+		globalThis.fetch = realFetch;
+	});
+
+	it("caps large upstream error body so thrown Error stays bounded", async () => {
+		const huge = "X".repeat(1_000_000); // 1 MB simulated HTML 502 page
+		globalThis.fetch = vi.fn(
+			async () =>
+				new Response(huge, { status: 502, statusText: "Bad Gateway" }),
+		) as unknown as typeof fetch;
+
+		const llm = createGLM5("test-key");
+		let caught: unknown;
+		try {
+			await llm.complete([{ role: "user", content: "hi" }]);
+		} catch (e) {
+			caught = e;
+		}
+		expect(caught).toBeInstanceOf(Error);
+		const msg = (caught as Error).message;
+		expect(msg).toContain("502");
+		// Preserves at least the first ~500 chars of the upstream body
+		expect(msg).toMatch(/X{500,}/);
+		// Total message length is bounded — well below the 1 MB upstream payload
+		expect(msg.length).toBeLessThan(5000);
 	});
 });
