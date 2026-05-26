@@ -7,23 +7,24 @@ export interface BizData {
 	gps_lng: number;
 	rating: number | null;
 	reviews_count: number | null;
+	operating_hours?: string | null;
 }
 
 export function safeJsonScript(value: unknown): string {
 	return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-export function buildLocalBusinessLd(biz: BizData, url: string) {
+export function buildLocalBusinessLd(biz: BizData, _url: string) {
 	return {
 		"@context": "https://schema.org",
 		"@type": "LocalBusiness",
 		name: biz.title,
-		telephone: biz.phone,
 		address: {
 			"@type": "PostalAddress",
 			streetAddress: biz.address,
 			addressCountry: "PL",
 		},
+		...(biz.operating_hours ? { openingHours: biz.operating_hours } : {}),
 		geo: {
 			"@type": "GeoCoordinates",
 			latitude: biz.gps_lat,
@@ -39,7 +40,6 @@ export function buildLocalBusinessLd(biz: BizData, url: string) {
 					},
 				}
 			: {}),
-		url,
 	};
 }
 

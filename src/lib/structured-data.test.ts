@@ -15,9 +15,31 @@ const baseBiz: BizData = {
 	gps_lng: 21.1100277,
 	rating: 4.7,
 	reviews_count: 98,
+	operating_hours: "Pon-Pt 09:00-17:00",
 };
 
 describe("buildLocalBusinessLd", () => {
+	// Assumptions for issue #44:
+	// Input is the current business row shape used by generated pages.
+	// Output is LocalBusiness JSON-LD with no direct contact fields exposed.
+	// This iteration does not test full schema.org normalization of opening hours.
+	it("omits direct contact fields while preserving address and opening hours", () => {
+		const ld = buildLocalBusinessLd(
+			baseBiz,
+			"https://wizytowka.link/zabki/bistro",
+		);
+
+		expect(ld).not.toHaveProperty("telephone");
+		expect(ld).not.toHaveProperty("email");
+		expect(ld).not.toHaveProperty("url");
+		expect(ld.address).toEqual({
+			"@type": "PostalAddress",
+			streetAddress: baseBiz.address,
+			addressCountry: "PL",
+		});
+		expect(ld.openingHours).toBe(baseBiz.operating_hours);
+	});
+
 	it("includes ratingCount when both rating and reviews_count present", () => {
 		const ld = buildLocalBusinessLd(
 			baseBiz,
@@ -76,10 +98,10 @@ describe("buildLocalBusinessLd", () => {
 		});
 	});
 
-	it("passes url through", () => {
+	it("omits url from LocalBusiness metadata", () => {
 		const url = "https://wizytowka.link/zabki/bistro";
 		const ld = buildLocalBusinessLd(baseBiz, url);
-		expect(ld.url).toBe(url);
+		expect(ld).not.toHaveProperty("url");
 	});
 });
 

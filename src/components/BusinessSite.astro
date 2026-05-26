@@ -2,6 +2,7 @@
 import type { SiteData } from '../types/site';
 import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
 import { buildLocalBusinessLd, buildBreadcrumbLd, safeJsonScript, type BizData } from '../lib/structured-data';
+import { buildPublicBusinessPageModel } from '../lib/public-page';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
@@ -31,6 +32,7 @@ const palette = site.theme ? (getPaletteById(site.theme) ?? resolved.palette) : 
 const layout = resolved.layout;
 const style = resolved.style;
 const cssVars = paletteToCSS(palette);
+const page = buildPublicBusinessPageModel(site, biz);
 
 const canonicalUrl = `https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`;
 const robots = isIndexable ? 'index, follow' : 'noindex, nofollow';
@@ -84,9 +86,9 @@ const fontLink = style === 'elegant'
   </ol>
 </nav>
 <main>
-{layout === 'centered' ? <CenteredLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
-: layout === 'split' ? <SplitLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
-: <MinimalLayout site={site} category={category} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />}
+{layout === 'centered' ? <CenteredLayout site={site} page={page} category={category} slug={slug} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
+: layout === 'split' ? <SplitLayout site={site} page={page} category={category} slug={slug} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />
+: <MinimalLayout site={site} page={page} category={category} slug={slug} locSlug={locSlug} locName={locName} locLabel={locLabel} relatedBusinesses={relatedBusinesses} />}
 </main>
 
 <div id="theme-toggle" class="fixed bottom-4 right-4 z-50 flex items-center gap-1 rounded-full bg-card text-card-foreground shadow-lg ring-1 ring-border p-1">

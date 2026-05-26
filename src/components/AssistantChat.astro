@@ -1,0 +1,83 @@
+---
+interface Props {
+	locSlug: string;
+	businessSlug: string;
+	label: string;
+	firstMessage: string;
+	privacyNotice: string;
+	buttonClass: string;
+}
+
+const {
+	locSlug,
+	businessSlug,
+	label,
+	firstMessage,
+	privacyNotice,
+	buttonClass,
+} = Astro.props;
+---
+
+<div class="assistant-chat w-full sm:w-auto" data-assistant-chat>
+  <button type="button" class={buttonClass} data-chat-open>
+    {label}
+  </button>
+  <div
+    class="mt-6 hidden rounded-lg border border-border bg-card p-4 text-card-foreground shadow-lg"
+    data-chat-panel
+    role="dialog"
+    aria-label="Chat z asystentem"
+  >
+    <div class="space-y-4">
+      <div class="rounded-lg bg-muted p-4 text-sm leading-relaxed text-foreground">
+        {firstMessage}
+      </div>
+      <form class="space-y-2" data-chat-form>
+        <label class="sr-only" for={`assistant-message-${locSlug}-${businessSlug}`}>Wiadomość</label>
+        <textarea
+          id={`assistant-message-${locSlug}-${businessSlug}`}
+          class="min-h-24 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground"
+          placeholder="Napisz wiadomość"
+          disabled
+        ></textarea>
+        <p class="text-xs leading-relaxed text-muted-foreground">{privacyNotice}</p>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script is:inline define:vars={{ locSlug, businessSlug }}>
+(() => {
+  const root = document.currentScript?.previousElementSibling;
+  if (!root) return;
+  const button = root.querySelector("[data-chat-open]");
+  const panel = root.querySelector("[data-chat-panel]");
+  if (!button || !panel) return;
+
+  const storageKey = `chat-session:${locSlug}:${businessSlug}`;
+
+  async function startChat() {
+    const existingSessionId = sessionStorage.getItem(storageKey);
+    const response = await fetch("/api/chat/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        locSlug,
+        businessSlug,
+        sessionId: existingSessionId,
+      }),
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    if (data.sessionId) {
+      sessionStorage.setItem(storageKey, data.sessionId);
+      root.setAttribute("data-session-id", data.sessionId);
+    }
+  }
+
+  button.addEventListener("click", () => {
+    panel.classList.remove("hidden");
+    startChat().catch(() => {});
+  });
+})();
+</script>

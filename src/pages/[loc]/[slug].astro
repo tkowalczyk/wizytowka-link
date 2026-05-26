@@ -20,13 +20,13 @@ const site = await getPublishedOrPreviewSite(r2, db, loc, slug, {
 if (!site) return new Response('Not Found', { status: 404 });
 
 const biz = await db.prepare(`
-  SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating, b.reviews_count
+  SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating, b.reviews_count, b.operating_hours
   FROM businesses b
   JOIN localities l ON b.locality_id = l.id
   WHERE l.slug = ? AND b.slug = ?
 `).bind(loc, slug).first<{
   title: string; phone: string; address: string; category: string;
-  gps_lat: number; gps_lng: number; rating: number | null; reviews_count: number | null;
+  gps_lat: number; gps_lng: number; rating: number | null; reviews_count: number | null; operating_hours: string | null;
 }>();
 
 const locRow = await db.prepare(`SELECT name, gmi_name, pow_name FROM localities WHERE slug = ?`)

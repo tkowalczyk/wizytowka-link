@@ -1,5 +1,6 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
+import { ASSISTANT_CTA_LABEL } from "../../lib/public-page";
 import type { SiteData } from "../../types/site";
 
 function siteToMarkdown(site: SiteData, title: string, url: string): string {
@@ -23,10 +24,10 @@ function siteToMarkdown(site: SiteData, title: string, url: string): string {
 		lines.push("");
 	}
 
-	lines.push("## Kontakt");
+	lines.push("## Lokalizacja");
 	lines.push("");
 	lines.push(`- **Adres:** ${site.contact.address}`);
-	lines.push(`- **Telefon:** ${site.contact.phone}`);
+	lines.push(`- **Asystent:** ${ASSISTANT_CTA_LABEL}`);
 	lines.push("");
 	lines.push("---");
 	lines.push("");

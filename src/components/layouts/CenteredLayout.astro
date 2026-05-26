@@ -1,6 +1,8 @@
 ---
 import type { SiteData } from '../../types/site';
+import type { PublicBusinessPageModel } from '../../lib/public-page';
 import AuditmosFooterLink from '../AuditmosFooterLink.astro';
+import AssistantChat from '../AssistantChat.astro';
 import CategoryLogo from '../CategoryLogo.astro';
 
 interface RelatedBusiness {
@@ -11,14 +13,16 @@ interface RelatedBusiness {
 
 interface Props {
   site: SiteData;
+  page: PublicBusinessPageModel;
   category: string;
+  slug: string;
   locSlug: string;
   locName: string;
   locLabel: string;
   relatedBusinesses: RelatedBusiness[];
 }
 
-const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.props;
+const { site, page, category, slug, locSlug, locName, locLabel, relatedBusinesses } = Astro.props;
 ---
 
 <Fragment>
@@ -30,20 +34,13 @@ const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.
       <p class="hero-sub text-hero-accent">{site.hero.subheadline}</p>
       <p class="text-sm opacity-80 mt-2">{locLabel}</p>
       <span class="hero-divider" aria-hidden="true"></span>
-      <a
-        href={`tel:${site.contact.phone}`}
-        aria-label={`Zadzwoń: ${site.contact.phone}`}
-        class="cta bg-accent text-accent-foreground mt-8"
-      >
-        {site.contact.cta_text}
-      </a>
     </div>
   </section>
 
   <section class="py-16 px-4">
     <div class="max-w-3xl mx-auto">
       <h2 class="section-title mb-4">{site.about.title}</h2>
-      <p class="text-lg text-muted-foreground leading-relaxed">{site.about.text}</p>
+      <p class="text-lg text-muted-foreground leading-relaxed">{page.aboutText}</p>
     </div>
   </section>
 
@@ -51,7 +48,7 @@ const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.
     <div class="max-w-5xl mx-auto">
       <h2 class="section-title text-center mb-12">Usługi</h2>
       <ul class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 list-none p-0 m-0">
-        {site.services.map((s) => (
+        {page.services.map((s) => (
           <li class="card bg-card text-card-foreground">
             <h3 class="text-xl font-semibold mb-2">{s.name}</h3>
             <p class="text-muted-foreground">{s.description}</p>
@@ -62,16 +59,23 @@ const { site, category, locSlug, locName, locLabel, relatedBusinesses } = Astro.
   </section>
 
   <section class="bg-primary text-primary-foreground py-16 px-4">
-    <div class="max-w-3xl mx-auto text-center">
-      <h2 class="section-title mb-4">Kontakt</h2>
-      <address class="text-lg mb-2 not-italic opacity-90">{site.contact.address}</address>
-      <a
-        href={`tel:${site.contact.phone}`}
-        aria-label={`Zadzwoń: ${site.contact.phone}`}
-        class="cta bg-accent text-accent-foreground mt-4"
-      >
-        {site.contact.phone}
-      </a>
+    <div class="max-w-3xl mx-auto text-center space-y-4">
+      <h2 class="section-title">Lokalizacja</h2>
+      <address class="text-lg not-italic opacity-90">{page.location.address}</address>
+      {page.location.openingHours && <p class="text-sm opacity-80">Godziny otwarcia: {page.location.openingHours}</p>}
+      {page.location.mapHref && (
+        <a href={page.location.mapHref} class="inline-flex text-sm underline underline-offset-4 hover:opacity-80" target="_blank" rel="noreferrer">
+          Mapa i dojazd
+        </a>
+      )}
+      <AssistantChat
+        locSlug={locSlug}
+        businessSlug={slug}
+        label={page.assistantCtaLabel}
+        firstMessage={page.chat.firstMessage}
+        privacyNotice={page.chat.privacyNotice}
+        buttonClass="cta bg-accent text-accent-foreground mt-4 mx-auto"
+      />
     </div>
   </section>
 
