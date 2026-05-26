@@ -169,6 +169,24 @@ CREATE INDEX IF NOT EXISTS idx_analytics_events_page_type
 CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_events_chat_start_session
   ON analytics_events(event_type, session_id)
   WHERE event_type = 'chat_start' AND session_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id            TEXT PRIMARY KEY,
+  session_id    TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+  locality_slug TEXT NOT NULL,
+  business_slug TEXT NOT NULL,
+  role          TEXT NOT NULL CHECK (role IN ('visitor', 'assistant')),
+  content       TEXT NOT NULL,
+  message_index INTEGER NOT NULL,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(session_id, message_index)
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_session_index
+  ON chat_messages(session_id, message_index);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_page_created
+  ON chat_messages(locality_slug, business_slug, created_at DESC);
 `;
 
 const SEED_SQL = `
@@ -227,6 +245,7 @@ export async function seedTestData(db: D1Database): Promise<void> {
 
 export async function resetDb(db: D1Database): Promise<void> {
 	const drops = [
+		"DROP TABLE IF EXISTS chat_messages",
 		"DROP TABLE IF EXISTS analytics_events",
 		"DROP TABLE IF EXISTS chat_sessions",
 		"DROP TABLE IF EXISTS alert_log",

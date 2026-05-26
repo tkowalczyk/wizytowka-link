@@ -11,6 +11,7 @@ export default defineConfig({
 				kvNamespaces: ["STATE"],
 				bindings: {
 					TG_NOTIFY_BOT_TOKEN: "test-notify-token",
+					ZAI_API_KEY: "test-zai-key",
 					ADMIN_PANEL_URL: "https://example.test/panel/test-token",
 					ADMIN_TOKEN: "test-admin-token",
 				},

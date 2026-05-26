@@ -29,8 +29,10 @@ const {
     aria-label="Chat z asystentem"
   >
     <div class="space-y-4">
-      <div class="rounded-lg bg-muted p-4 text-sm leading-relaxed text-foreground">
-        {firstMessage}
+      <div class="space-y-3" data-chat-messages role="log" aria-live="polite" aria-relevant="additions text">
+        <div class="rounded-lg bg-muted p-4 text-sm leading-relaxed text-foreground">
+          {firstMessage}
+        </div>
       </div>
       <form class="space-y-2" data-chat-form>
         <label class="sr-only" for={`assistant-message-${locSlug}-${businessSlug}`}>Wiadomość</label>
@@ -39,7 +41,19 @@ const {
           class="min-h-24 w-full rounded-md border border-border bg-background p-3 text-sm text-foreground"
           placeholder="Napisz wiadomość"
           disabled
+          data-chat-input
         ></textarea>
+        <div class="flex items-center justify-between gap-3">
+          <p class="hidden text-xs text-destructive" data-chat-error>Nie udało się wysłać wiadomości.</p>
+          <button
+            type="submit"
+            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
+            disabled
+            data-chat-send
+          >
+            Wyślij
+          </button>
+        </div>
         <p class="text-xs leading-relaxed text-muted-foreground">{privacyNotice}</p>
       </form>
     </div>
@@ -52,9 +66,44 @@ const {
   if (!root) return;
   const button = root.querySelector("[data-chat-open]");
   const panel = root.querySelector("[data-chat-panel]");
-  if (!button || !panel) return;
+  const form = root.querySelector("[data-chat-form]");
+  const input = root.querySelector("[data-chat-input]");
+  const sendButton = root.querySelector("[data-chat-send]");
+  const messages = root.querySelector("[data-chat-messages]");
+  const error = root.querySelector("[data-chat-error]");
+  if (!button || !panel || !form || !input || !sendButton || !messages) return;
 
   const storageKey = `chat-session:${locSlug}:${businessSlug}`;
+
+  function setError(visible) {
+    if (!error) return;
+    error.classList.toggle("hidden", !visible);
+  }
+
+  function setReady(ready) {
+    input.disabled = !ready;
+    sendButton.disabled = !ready;
+    sendButton.textContent = ready ? "Wyślij" : "Wysyłanie...";
+  }
+
+  function addMessage(role, content, pending = false) {
+    const item = document.createElement("div");
+    item.className =
+      role === "visitor"
+        ? "ml-auto max-w-[85%] rounded-lg bg-accent p-3 text-sm leading-relaxed text-accent-foreground"
+        : "max-w-[85%] rounded-lg bg-muted p-3 text-sm leading-relaxed text-foreground";
+    if (pending) item.classList.add("animate-pulse");
+    item.textContent = content;
+    messages.appendChild(item);
+    item.scrollIntoView({ block: "nearest" });
+    return item;
+  }
+
+  function replaceMessage(item, content) {
+    item.classList.remove("animate-pulse");
+    item.textContent = content;
+    item.scrollIntoView({ block: "nearest" });
+  }
 
   async function startChat() {
     const existingSessionId = sessionStorage.getItem(storageKey);
@@ -72,12 +121,56 @@ const {
     if (data.sessionId) {
       sessionStorage.setItem(storageKey, data.sessionId);
       root.setAttribute("data-session-id", data.sessionId);
+      setReady(true);
+      return data.sessionId;
     }
+    return null;
   }
 
   button.addEventListener("click", () => {
     panel.classList.remove("hidden");
-    startChat().catch(() => {});
+    setError(false);
+    startChat().catch(() => setError(true));
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const content = input.value.trim();
+    if (!content) return;
+
+    setError(false);
+    setReady(false);
+    addMessage("visitor", content);
+    const pendingMessage = addMessage("assistant", "Asystent pisze...", true);
+    input.value = "";
+
+    try {
+      const sessionId =
+        root.getAttribute("data-session-id") ||
+        sessionStorage.getItem(storageKey) ||
+        (await startChat());
+      if (!sessionId) throw new Error("missing chat session");
+
+      const response = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, content }),
+      });
+      if (!response.ok) throw new Error("chat message failed");
+
+      const data = await response.json();
+      if (!data.message?.content) throw new Error("empty chat response");
+      replaceMessage(pendingMessage, data.message.content);
+    } catch {
+      setError(true);
+      replaceMessage(
+        pendingMessage,
+        "Nie udało się uzyskać odpowiedzi. Spróbuj ponownie.",
+      );
+    } finally {
+      setReady(true);
+      input.focus();
+    }
   });
 })();
 </script>

@@ -49,4 +49,23 @@ describe("chat session schema", () => {
 			]),
 		);
 	});
+
+	// Assumptions for issue #45:
+	// The transcript persistence contract is one append-only row per chat turn.
+	// Roles are stored as visitor/assistant because those are the public chat actors.
+	// Chronological rendering can sort by message_index first and created_at as the timestamp.
+	it("includes transcript fields for persisted visitor and assistant messages", async () => {
+		await expect(tableColumns("chat_messages")).resolves.toEqual(
+			expect.arrayContaining([
+				"id",
+				"session_id",
+				"locality_slug",
+				"business_slug",
+				"role",
+				"content",
+				"message_index",
+				"created_at",
+			]),
+		);
+	});
 });
