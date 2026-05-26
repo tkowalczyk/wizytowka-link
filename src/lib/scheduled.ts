@@ -6,6 +6,7 @@ export const CRON_PATTERNS = {
 	preflight: "55 7 * * *",
 	discovery: "0 8 * * *",
 	generate: "*/5 * * * *",
+	chatTimeout: "*/10 * * * *",
 	funnel: "0 9 * * 1",
 } as const satisfies Record<string, string>;
 
@@ -43,6 +44,16 @@ async function executeCron(env: Env, cron: string): Promise<RunResult> {
 		case CRON_PATTERNS.generate: {
 			const { generateSites } = await import("./generate-sites");
 			return generateSites(env);
+		}
+		case CRON_PATTERNS.chatTimeout: {
+			const { endInactiveChatSessions, sendChatEndNotification } = await import(
+				"./chat"
+			);
+			const result = await endInactiveChatSessions(env.leadgen);
+			for (const sessionId of result.sessionIds) {
+				await sendChatEndNotification(env, sessionId);
+			}
+			return { processed: result.ended, failed: 0 };
 		}
 		case CRON_PATTERNS.funnel: {
 			const { runFunnelReport } = await import("./funnel");

@@ -33,6 +33,11 @@ describe("chat session schema", () => {
 				"end_reason",
 				"telegram_start_sent_at",
 				"telegram_end_sent_at",
+				"message_count",
+				"intent_summary",
+				"intent_categories",
+				"has_complaint",
+				"has_commercial_demand",
 			]),
 		);
 

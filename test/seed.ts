@@ -143,6 +143,11 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
   end_reason             TEXT,
   telegram_start_sent_at TEXT,
   telegram_end_sent_at   TEXT,
+  message_count          INTEGER,
+  intent_summary         TEXT,
+  intent_categories      TEXT,
+  has_complaint          INTEGER NOT NULL DEFAULT 0,
+  has_commercial_demand  INTEGER NOT NULL DEFAULT 0,
   created_at             TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

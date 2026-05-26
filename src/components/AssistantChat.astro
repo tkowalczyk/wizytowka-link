@@ -45,14 +45,24 @@ const {
         ></textarea>
         <div class="flex items-center justify-between gap-3">
           <p class="hidden text-xs text-destructive" data-chat-error>Nie udało się wysłać wiadomości.</p>
-          <button
-            type="submit"
-            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
-            disabled
-            data-chat-send
-          >
-            Wyślij
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              class="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+              data-chat-end
+            >
+              Zakończ
+            </button>
+            <button
+              type="submit"
+              class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              disabled
+              data-chat-send
+            >
+              Wyślij
+            </button>
+          </div>
         </div>
         <p class="text-xs leading-relaxed text-muted-foreground">{privacyNotice}</p>
       </form>
@@ -69,11 +79,13 @@ const {
   const form = root.querySelector("[data-chat-form]");
   const input = root.querySelector("[data-chat-input]");
   const sendButton = root.querySelector("[data-chat-send]");
+  const endButton = root.querySelector("[data-chat-end]");
   const messages = root.querySelector("[data-chat-messages]");
   const error = root.querySelector("[data-chat-error]");
-  if (!button || !panel || !form || !input || !sendButton || !messages) return;
+  if (!button || !panel || !form || !input || !sendButton || !endButton || !messages) return;
 
   const storageKey = `chat-session:${locSlug}:${businessSlug}`;
+  let ended = false;
 
   function setError(visible) {
     if (!error) return;
@@ -81,9 +93,11 @@ const {
   }
 
   function setReady(ready) {
-    input.disabled = !ready;
-    sendButton.disabled = !ready;
-    sendButton.textContent = ready ? "Wyślij" : "Wysyłanie...";
+    const canInteract = ready && !ended;
+    input.disabled = !canInteract;
+    sendButton.disabled = !canInteract;
+    endButton.disabled = !canInteract;
+    sendButton.textContent = ended ? "Zakończono" : ready ? "Wyślij" : "Wysyłanie...";
   }
 
   function addMessage(role, content, pending = false) {
@@ -131,6 +145,31 @@ const {
     panel.classList.remove("hidden");
     setError(false);
     startChat().catch(() => setError(true));
+  });
+
+  endButton.addEventListener("click", async () => {
+    const sessionId =
+      root.getAttribute("data-session-id") || sessionStorage.getItem(storageKey);
+    if (!sessionId) return;
+
+    setError(false);
+    setReady(false);
+    try {
+      const response = await fetch("/api/chat/end", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (!response.ok) throw new Error("chat end failed");
+      ended = true;
+      sessionStorage.removeItem(storageKey);
+      root.removeAttribute("data-session-id");
+      addMessage("assistant", "Rozmowa została zakończona.");
+      setReady(false);
+    } catch {
+      setError(true);
+      setReady(true);
+    }
   });
 
   form.addEventListener("submit", async (event) => {

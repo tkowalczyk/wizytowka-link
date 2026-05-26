@@ -24,6 +24,51 @@ export interface ChatMessageInput {
 	content: string;
 }
 
+export interface EndChatInput {
+	sessionId: string;
+}
+
+export interface EndChatSummary {
+	sessionId: string;
+	status: "ended";
+	endReason: "visitor" | "timeout";
+	endedAt: string;
+	messageCount: number;
+	intentSummary: string;
+	intentCategories: ChatIntentCategory[];
+	hasComplaint: boolean;
+	hasCommercialDemand: boolean;
+}
+
+export type EndChatResult =
+	| { status: "ok"; session: EndChatSummary }
+	| { status: "not_found" };
+
+export interface ChatTimeoutSweepResult {
+	ended: number;
+	sessionIds: string[];
+}
+
+export type ChatIntentCategory =
+	| "booking_reservation"
+	| "quote_pricing"
+	| "availability"
+	| "complaint"
+	| "job_request"
+	| "contact_detail_request";
+
+export interface ChatIntentTranscriptMessage {
+	role: "visitor" | "assistant";
+	content: string;
+}
+
+export interface ChatIntentClassification {
+	summary: string;
+	categories: ChatIntentCategory[];
+	hasComplaint: boolean;
+	hasCommercialDemand: boolean;
+}
+
 export interface AssistantChatMessage {
 	role: "assistant";
 	content: string;
@@ -59,6 +104,17 @@ interface ChatNotificationSessionRow {
 	telegram_start_sent_at: string | null;
 }
 
+interface ChatEndNotificationSessionRow {
+	id: string;
+	locality_slug: string;
+	business_slug: string;
+	ended_at: string;
+	end_reason: "visitor" | "timeout";
+	message_count: number | null;
+	intent_summary: string | null;
+	telegram_end_sent_at: string | null;
+}
+
 interface ChatNotificationEnv {
 	leadgen: D1Database;
 	TG_NOTIFY_BOT_TOKEN: string;
@@ -72,6 +128,18 @@ interface ChatSessionRow {
 	status: "active" | "ended";
 	referrer: string | null;
 	user_agent: string | null;
+}
+
+interface EndChatSessionRow {
+	id: string;
+	status: "active" | "ended";
+	ended_at: string | null;
+	end_reason: "visitor" | "timeout" | null;
+	message_count: number | null;
+	intent_summary: string | null;
+	intent_categories: string | null;
+	has_complaint: number;
+	has_commercial_demand: number;
 }
 
 interface ChatBusinessContextRow {
@@ -145,6 +213,13 @@ export function parseChatMessageInput(body: unknown): ChatMessageInput | null {
 		sessionId: data.sessionId.trim(),
 		content: data.content.trim(),
 	};
+}
+
+export function parseEndChatInput(body: unknown): EndChatInput | null {
+	if (typeof body !== "object" || body === null) return null;
+	const data = body as Record<string, unknown>;
+	if (!isNonEmptyString(data.sessionId)) return null;
+	return { sessionId: data.sessionId.trim() };
 }
 
 async function findBusinessPage(
@@ -262,6 +337,7 @@ const CHAT_MODEL = "glm-5";
 const CHAT_TEMPERATURE = 0.2;
 const CHAT_MAX_TOKENS = 300;
 const PROVIDER_ERROR_BODY_CAP_BYTES = 2048;
+export const CHAT_INACTIVITY_TIMEOUT_MINUTES = 30;
 const ZAI_CHAT_COMPLETIONS_URL =
 	"https://api.z.ai/api/coding/paas/v4/chat/completions";
 const CHAT_SYSTEM_PROMPT = `Jestes polskim asystentem informacyjnym strony wizytowkowej.
@@ -588,6 +664,69 @@ function unknownAnswerFallback(): string {
 	return "Nie wiem na podstawie danych tej strony. W sprawach wymagających potwierdzenia skorzystaj z oficjalnego kanału firmy.";
 }
 
+export function classifyChatIntent(
+	transcript: ChatIntentTranscriptMessage[],
+): ChatIntentClassification {
+	const text = searchableText(
+		transcript
+			.filter((message) => message.role === "visitor")
+			.map((message) => message.content)
+			.join("\n"),
+	);
+	const categories: ChatIntentCategory[] = [];
+	const add = (category: ChatIntentCategory, pattern: RegExp) => {
+		if (pattern.test(text)) categories.push(category);
+	};
+
+	add("booking_reservation", /(rezerw|umow|termin|wizyte|wizyt)/);
+	add("quote_pricing", /(wycen|cennik|cena|koszt|ile koszt)/);
+	add("availability", /(dostepn|woln)/);
+	add("complaint", /(reklamac|skarg|zazalen)/);
+	add("job_request", /(praca|zatrudni|cv|etat|rekrutac)/);
+	add("contact_detail_request", /(telefon|numer|email|e-mail|mail|kontakt)/);
+
+	const distinctCategories = [...new Set(categories)];
+	const hasComplaint = distinctCategories.includes("complaint");
+	const hasCommercialDemand = distinctCategories.some((category) =>
+		[
+			"booking_reservation",
+			"quote_pricing",
+			"availability",
+			"job_request",
+		].includes(category),
+	);
+
+	return {
+		summary:
+			distinctCategories.length > 0
+				? `Wykryte intencje: ${distinctCategories.join(", ")}.`
+				: "Brak jednoznacznej intencji w rozmowie.",
+		categories: distinctCategories,
+		hasComplaint,
+		hasCommercialDemand,
+	};
+}
+
+function parseIntentCategories(value: string | null): ChatIntentCategory[] {
+	if (!value) return [];
+	try {
+		const parsed = JSON.parse(value) as unknown;
+		if (!Array.isArray(parsed)) return [];
+		return parsed.filter((item): item is ChatIntentCategory =>
+			[
+				"booking_reservation",
+				"quote_pricing",
+				"availability",
+				"complaint",
+				"job_request",
+				"contact_detail_request",
+			].includes(String(item)),
+		);
+	} catch {
+		return [];
+	}
+}
+
 function applyResponseGuardrails(
 	response: string,
 	visitorContent: string,
@@ -658,6 +797,131 @@ export async function sendChatMessage(
 	};
 }
 
+export async function endChatSession(
+	db: D1Database,
+	input: EndChatInput,
+	now = new Date(),
+): Promise<EndChatResult> {
+	return endChatSessionWithReason(db, input.sessionId, "visitor", now);
+}
+
+async function endChatSessionWithReason(
+	db: D1Database,
+	sessionId: string,
+	reason: "visitor" | "timeout",
+	now: Date,
+): Promise<EndChatResult> {
+	const session = await db
+		.prepare(
+			`SELECT id, status, ended_at, end_reason, message_count,
+              intent_summary, intent_categories, has_complaint, has_commercial_demand
+       FROM chat_sessions WHERE id = ?`,
+		)
+		.bind(sessionId)
+		.first<EndChatSessionRow>();
+	if (!session) return { status: "not_found" };
+
+	if (session.status === "ended") {
+		return {
+			status: "ok",
+			session: {
+				sessionId: session.id,
+				status: "ended",
+				endReason: session.end_reason ?? "visitor",
+				endedAt: session.ended_at ?? now.toISOString(),
+				messageCount: session.message_count ?? 0,
+				intentSummary:
+					session.intent_summary ?? "Brak jednoznacznej intencji w rozmowie.",
+				intentCategories: parseIntentCategories(session.intent_categories),
+				hasComplaint: session.has_complaint === 1,
+				hasCommercialDemand: session.has_commercial_demand === 1,
+			},
+		};
+	}
+
+	const endedAt = now.toISOString();
+	const transcript = await loadTranscript(db, session.id);
+	const messageCount = transcript.length;
+	const intent = classifyChatIntent(transcript);
+	await db
+		.prepare(
+			`UPDATE chat_sessions
+       SET status = 'ended',
+           ended_at = ?,
+           end_reason = ?,
+           message_count = ?,
+           intent_summary = ?,
+           intent_categories = ?,
+           has_complaint = ?,
+           has_commercial_demand = ?
+       WHERE id = ? AND status = 'active'`,
+		)
+		.bind(
+			endedAt,
+			reason,
+			messageCount,
+			intent.summary,
+			JSON.stringify(intent.categories),
+			intent.hasComplaint ? 1 : 0,
+			intent.hasCommercialDemand ? 1 : 0,
+			session.id,
+		)
+		.run();
+
+	return {
+		status: "ok",
+		session: {
+			sessionId: session.id,
+			status: "ended",
+			endReason: reason,
+			endedAt,
+			messageCount,
+			intentSummary: intent.summary,
+			intentCategories: intent.categories,
+			hasComplaint: intent.hasComplaint,
+			hasCommercialDemand: intent.hasCommercialDemand,
+		},
+	};
+}
+
+export async function endInactiveChatSessions(
+	db: D1Database,
+	now = new Date(),
+): Promise<ChatTimeoutSweepResult> {
+	const cutoff = new Date(
+		now.getTime() - CHAT_INACTIVITY_TIMEOUT_MINUTES * 60 * 1000,
+	).toISOString();
+	const inactive = await db
+		.prepare(
+			`SELECT id
+       FROM chat_sessions
+       WHERE status = 'active'
+         AND COALESCE(
+           (SELECT MAX(created_at) FROM chat_messages WHERE session_id = chat_sessions.id),
+           started_at
+         ) <= ?
+       ORDER BY started_at`,
+		)
+		.bind(cutoff)
+		.all<{ id: string }>();
+
+	let ended = 0;
+	const sessionIds: string[] = [];
+	for (const session of inactive.results) {
+		const result = await endChatSessionWithReason(
+			db,
+			session.id,
+			"timeout",
+			now,
+		);
+		if (result.status === "ok") {
+			ended += 1;
+			sessionIds.push(session.id);
+		}
+	}
+	return { ended, sessionIds };
+}
+
 function formatChatStartedMessage(session: ChatNotificationSessionRow): string {
 	const pageSlug = `${session.locality_slug}/${session.business_slug}`;
 	return [
@@ -666,6 +930,24 @@ function formatChatStartedMessage(session: ChatNotificationSessionRow): string {
 		`Strona: ${escapeHtml(pageSlug)}`,
 		`Rozpoczęto: ${escapeHtml(session.started_at)}`,
 		`Referrer: ${escapeHtml(session.referrer ?? "brak")}`,
+	].join("\n");
+}
+
+function formatChatEndedMessage(
+	session: ChatEndNotificationSessionRow,
+	sellerToken: string,
+): string {
+	const pageSlug = `${session.locality_slug}/${session.business_slug}`;
+	const transcriptPath = `/s/${sellerToken}?chat=${session.id}`;
+	return [
+		"🤖 <b>Chat zakończony</b>",
+		"",
+		`Strona: ${escapeHtml(pageSlug)}`,
+		`Powód: ${escapeHtml(session.end_reason)}`,
+		`Zakończono: ${escapeHtml(session.ended_at)}`,
+		`Wiadomości: ${session.message_count ?? 0}`,
+		`Intencja: ${escapeHtml(session.intent_summary ?? "brak")}`,
+		`Transkrypt: ${escapeHtml(transcriptPath)}`,
 	].join("\n");
 }
 
@@ -698,6 +980,42 @@ export async function sendChatStartNotification(
 	await env.leadgen
 		.prepare(
 			"UPDATE chat_sessions SET telegram_start_sent_at = ? WHERE id = ? AND telegram_start_sent_at IS NULL",
+		)
+		.bind(new Date().toISOString(), session.id)
+		.run();
+}
+
+export async function sendChatEndNotification(
+	env: ChatNotificationEnv,
+	sessionId: string,
+): Promise<void> {
+	const session = await env.leadgen
+		.prepare(
+			`SELECT id, locality_slug, business_slug, ended_at, end_reason,
+              message_count, intent_summary, telegram_end_sent_at
+       FROM chat_sessions
+       WHERE id = ? AND status = 'ended' AND ended_at IS NOT NULL`,
+		)
+		.bind(sessionId)
+		.first<ChatEndNotificationSessionRow>();
+	if (!session || session.telegram_end_sent_at) return;
+
+	const recipient = await env.leadgen
+		.prepare(
+			"SELECT notify_chat_id, token FROM sellers WHERE notify_chat_id IS NOT NULL ORDER BY id LIMIT 1",
+		)
+		.first<{ notify_chat_id: string; token: string }>();
+	if (!recipient) return;
+
+	await sendMessage(
+		env.TG_NOTIFY_BOT_TOKEN,
+		recipient.notify_chat_id,
+		formatChatEndedMessage(session, recipient.token),
+	);
+
+	await env.leadgen
+		.prepare(
+			"UPDATE chat_sessions SET telegram_end_sent_at = ? WHERE id = ? AND telegram_end_sent_at IS NULL",
 		)
 		.bind(new Date().toISOString(), session.id)
 		.run();
