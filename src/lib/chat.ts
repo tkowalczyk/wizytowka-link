@@ -118,6 +118,7 @@ interface ChatEndNotificationSessionRow {
 interface ChatNotificationEnv {
 	leadgen: D1Database;
 	TG_NOTIFY_BOT_TOKEN: string;
+	ADMIN_PANEL_URL?: string;
 }
 
 interface ChatSessionRow {
@@ -922,23 +923,47 @@ export async function endInactiveChatSessions(
 	return { ended, sessionIds };
 }
 
-function formatChatStartedMessage(session: ChatNotificationSessionRow): string {
+function transcriptUrl(
+	sessionId: string,
+	sellerToken: string,
+	adminPanelUrl?: string,
+): string {
+	if (adminPanelUrl) {
+		try {
+			const url = new URL(adminPanelUrl);
+			url.searchParams.set("chat", sessionId);
+			return url.toString();
+		} catch {
+			// Fall through to the production seller/admin route.
+		}
+	}
+	return `https://wizytowka.link/s/${sellerToken}?chat=${encodeURIComponent(sessionId)}`;
+}
+
+function formatChatStartedMessage(
+	session: ChatNotificationSessionRow,
+	sellerToken: string,
+	adminPanelUrl?: string,
+): string {
 	const pageSlug = `${session.locality_slug}/${session.business_slug}`;
+	const transcript = transcriptUrl(session.id, sellerToken, adminPanelUrl);
 	return [
 		"🤖 <b>Nowy chat rozpoczęty</b>",
 		"",
 		`Strona: ${escapeHtml(pageSlug)}`,
 		`Rozpoczęto: ${escapeHtml(session.started_at)}`,
 		`Referrer: ${escapeHtml(session.referrer ?? "brak")}`,
+		`Transkrypt: ${escapeHtml(transcript)}`,
 	].join("\n");
 }
 
 function formatChatEndedMessage(
 	session: ChatEndNotificationSessionRow,
 	sellerToken: string,
+	adminPanelUrl?: string,
 ): string {
 	const pageSlug = `${session.locality_slug}/${session.business_slug}`;
-	const transcriptPath = `/s/${sellerToken}?chat=${session.id}`;
+	const transcript = transcriptUrl(session.id, sellerToken, adminPanelUrl);
 	return [
 		"🤖 <b>Chat zakończony</b>",
 		"",
@@ -947,7 +972,7 @@ function formatChatEndedMessage(
 		`Zakończono: ${escapeHtml(session.ended_at)}`,
 		`Wiadomości: ${session.message_count ?? 0}`,
 		`Intencja: ${escapeHtml(session.intent_summary ?? "brak")}`,
-		`Transkrypt: ${escapeHtml(transcriptPath)}`,
+		`Transkrypt: ${escapeHtml(transcript)}`,
 	].join("\n");
 }
 
@@ -966,16 +991,17 @@ export async function sendChatStartNotification(
 
 	const recipient = await env.leadgen
 		.prepare(
-			"SELECT notify_chat_id FROM sellers WHERE notify_chat_id IS NOT NULL ORDER BY id LIMIT 1",
+			"SELECT notify_chat_id, token FROM sellers WHERE notify_chat_id IS NOT NULL ORDER BY id LIMIT 1",
 		)
-		.first<{ notify_chat_id: string }>();
+		.first<{ notify_chat_id: string; token: string }>();
 	if (!recipient) return;
 
-	await sendMessage(
+	const delivery = await sendMessage(
 		env.TG_NOTIFY_BOT_TOKEN,
 		recipient.notify_chat_id,
-		formatChatStartedMessage(session),
+		formatChatStartedMessage(session, recipient.token, env.ADMIN_PANEL_URL),
 	);
+	if (!delivery.ok) return;
 
 	await env.leadgen
 		.prepare(
@@ -1007,11 +1033,12 @@ export async function sendChatEndNotification(
 		.first<{ notify_chat_id: string; token: string }>();
 	if (!recipient) return;
 
-	await sendMessage(
+	const delivery = await sendMessage(
 		env.TG_NOTIFY_BOT_TOKEN,
 		recipient.notify_chat_id,
-		formatChatEndedMessage(session, recipient.token),
+		formatChatEndedMessage(session, recipient.token, env.ADMIN_PANEL_URL),
 	);
+	if (!delivery.ok) return;
 
 	await env.leadgen
 		.prepare(

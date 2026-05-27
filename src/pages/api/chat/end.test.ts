@@ -249,7 +249,9 @@ describe("POST /api/chat/end", () => {
 		expect(payload.text).toContain("warszawa/hydraulik-warszawa");
 		expect(payload.text).toContain("quote_pricing");
 		expect(payload.text).toContain("Wiadomości: 2");
-		expect(payload.text).toContain(`/s/seller_jan_token?chat=${sessionId}`);
+		expect(payload.text).toContain(
+			`Transkrypt: https://example.test/panel/test-token?chat=${sessionId}`,
+		);
 
 		const row = await env.leadgen
 			.prepare("SELECT telegram_end_sent_at FROM chat_sessions WHERE id = ?")

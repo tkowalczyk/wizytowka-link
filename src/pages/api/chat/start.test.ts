@@ -48,6 +48,20 @@ function mockFetch() {
 	});
 }
 
+function mockRejectedTelegramFetch() {
+	return vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+		const url = input.toString();
+		if (url.includes("api.telegram.org")) {
+			return Response.json({
+				ok: false,
+				error_code: 400,
+				description: "Bad Request: chat not found",
+			});
+		}
+		throw new Error(`Unexpected fetch: ${url}`);
+	});
+}
+
 function telegramCalls(fetchMock: ReturnType<typeof mockFetch>) {
 	return fetchMock.mock.calls.filter(([input]) =>
 		input.toString().includes("api.telegram.org"),
@@ -186,6 +200,10 @@ describe("POST /api/chat/start", () => {
 		expect(payload.text).toContain("warszawa/hydraulik-warszawa");
 		expect(payload.text).toContain(row?.started_at);
 		expect(payload.text).toContain("https://example.test/source");
+		expect(payload.text).not.toContain("Session:");
+		expect(payload.text).toContain(
+			`Transkrypt: https://example.test/panel/test-token?chat=${body.sessionId}`,
+		);
 		expect(row?.telegram_start_sent_at).toEqual(expect.any(String));
 	});
 
@@ -207,5 +225,21 @@ describe("POST /api/chat/start", () => {
 
 		expect(secondBody.sessionId).toBe(firstBody.sessionId);
 		expect(telegramCalls(fetchMock)).toHaveLength(1);
+	});
+
+	it("does not mark a start notification as sent when Telegram rejects delivery", async () => {
+		globalThis.fetch = mockRejectedTelegramFetch() as unknown as typeof fetch;
+		const { response, settled } = await submitChatStart({
+			locSlug: "warszawa",
+			businessSlug: "hydraulik-warszawa",
+		});
+		const body = (await response.json()) as ChatStartResponse;
+		await settled;
+
+		const row = await env.leadgen
+			.prepare("SELECT telegram_start_sent_at FROM chat_sessions WHERE id = ?")
+			.bind(body.sessionId)
+			.first<{ telegram_start_sent_at: string | null }>();
+		expect(row?.telegram_start_sent_at).toBeNull();
 	});
 });

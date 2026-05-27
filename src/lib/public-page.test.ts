@@ -69,4 +69,21 @@ describe("buildPublicBusinessPageModel", () => {
 		expect(model.chat.firstMessage).toBe(ASSISTANT_FIRST_MESSAGE);
 		expect(model.chat.privacyNotice).toBe(ASSISTANT_PRIVACY_NOTICE);
 	});
+
+	it("does not expose seller terminology in visitor-facing assistant copy", () => {
+		const model = buildPublicBusinessPageModel(site, biz);
+		const renderedCopy = [
+			model.assistantCtaLabel,
+			model.chat.firstMessage,
+			model.chat.privacyNotice,
+			model.aboutText,
+			...model.services.flatMap((service) => [
+				service.name,
+				service.description,
+			]),
+		].join("\n");
+
+		expect(renderedCopy.toLowerCase()).not.toContain("seller");
+		expect(renderedCopy.toLowerCase()).not.toContain("sprzedaw");
+	});
 });
