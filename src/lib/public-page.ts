@@ -25,7 +25,18 @@ export interface PublicBusinessPageModel {
 		firstMessage: string;
 		privacyNotice: string;
 	};
+	seo: {
+		title: string;
+		description: string;
+	};
 }
+
+const EMAIL_PATTERN =
+	/\b(?:e-?mail|mail|kontakt)?\s*:?\s*[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
+const URL_PATTERN =
+	/\b(?:kontakt|strona)?\s*:?\s*(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+const PHONE_PATTERN =
+	/\b(?:tel(?:efon)?\.?:?\s*)?(?:\+?48[\s.-]?)?(?:\d[\s.-]?){9,}\b/gi;
 
 function buildMapHref(biz: BizData | null): string | null {
 	if (biz?.gps_lat != null && biz.gps_lng != null) {
@@ -35,6 +46,26 @@ function buildMapHref(biz: BizData | null): string | null {
 		return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(biz.address)}`;
 	}
 	return null;
+}
+
+function stripDirectContactDetails(text: string): string {
+	return text
+		.replace(EMAIL_PATTERN, "")
+		.replace(URL_PATTERN, "")
+		.replace(PHONE_PATTERN, "")
+		.replace(/\s+([,.!?])/g, "$1")
+		.replace(/(?:\s*[,;:]\s*){2,}/g, ", ")
+		.replace(/(?:\s*[,;:]\s*)+\./g, ".")
+		.replace(/\s{2,}/g, " ")
+		.trim();
+}
+
+function safePublicMetadataText(...candidates: string[]): string {
+	for (const candidate of candidates) {
+		const cleaned = stripDirectContactDetails(candidate);
+		if (cleaned) return cleaned;
+	}
+	return "Informacje o lokalnej firmie.";
 }
 
 export function buildPublicBusinessPageModel(
@@ -58,6 +89,14 @@ export function buildPublicBusinessPageModel(
 		chat: {
 			firstMessage: ASSISTANT_FIRST_MESSAGE,
 			privacyNotice: ASSISTANT_PRIVACY_NOTICE,
+		},
+		seo: {
+			title: safePublicMetadataText(site.seo.title, site.hero.headline),
+			description: safePublicMetadataText(
+				site.seo.description,
+				site.about.text,
+				site.hero.subheadline,
+			),
 		},
 	};
 }

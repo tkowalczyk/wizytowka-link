@@ -38,7 +38,7 @@ const canonicalUrl = `https://wizytowka.link${Astro.url.pathname.replace(/\/+$/,
 const robots = isIndexable ? 'index, follow' : 'noindex, nofollow';
 const jsonLd = biz ? safeJsonScript(buildLocalBusinessLd(biz, canonicalUrl)) : null;
 
-const breadcrumbLd = safeJsonScript(buildBreadcrumbLd(site.seo.title, locSlug, locName));
+const breadcrumbLd = safeJsonScript(buildBreadcrumbLd(page.seo.title, locSlug, locName));
 
 const fontLink = style === 'elegant'
   ? '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">'
@@ -57,13 +57,13 @@ const fontLink = style === 'elegant'
         document.documentElement.classList.add('dark');
     })();
   </script>
-  <title>{site.seo.title}</title>
-  <meta name="description" content={site.seo.description} />
+  <title>{page.seo.title}</title>
+  <meta name="description" content={page.seo.description} />
   <meta name="robots" content={robots} />
   <link rel="canonical" href={canonicalUrl} />
 
-  <meta property="og:title" content={site.seo.title} />
-  <meta property="og:description" content={site.seo.description} />
+  <meta property="og:title" content={page.seo.title} />
+  <meta property="og:description" content={page.seo.description} />
   <meta property="og:type" content="website" />
   <meta property="og:url" content={canonicalUrl} />
   <meta property="og:locale" content="pl_PL" />
@@ -82,7 +82,7 @@ const fontLink = style === 'elegant'
   <ol class="flex items-center gap-1 flex-wrap">
     <li><a href="/" class="hover:underline hover:text-foreground transition-colors">Strona główna</a></li>
     <li class="before:content-['/'] before:mx-1"><a href={`/${locSlug}`} class="hover:underline hover:text-foreground transition-colors">{locName}</a></li>
-    <li class="before:content-['/'] before:mx-1 text-foreground/60 truncate max-w-[200px] sm:max-w-none">{site.seo.title}</li>
+    <li class="before:content-['/'] before:mx-1 text-foreground/60 truncate max-w-[200px] sm:max-w-none">{page.seo.title}</li>
   </ol>
 </nav>
 <main>

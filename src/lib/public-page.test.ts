@@ -70,6 +70,31 @@ describe("buildPublicBusinessPageModel", () => {
 		expect(model.chat.privacyNotice).toBe(ASSISTANT_PRIVACY_NOTICE);
 	});
 
+	it("builds public SEO metadata without direct contact details", () => {
+		// Assumptions for issue #48:
+		// Input SEO text may contain direct phone, email, or contact URL generated before contact suppression.
+		// Output SEO text is safe for meta description and OpenGraph description.
+		// This iteration does not rewrite canonical or OpenGraph page URLs owned by wizytowka.link.
+		const model = buildPublicBusinessPageModel(
+			{
+				...site,
+				seo: {
+					title: "Hydraulik Warszawa",
+					description:
+						"Lokalna firma hydrauliczna. Tel: +48 123 456 789, email kontakt@hydraulik.example, kontakt https://hydraulik.example/kontakt.",
+				},
+			},
+			biz,
+		);
+
+		expect(model.seo.description).toContain("Lokalna firma hydrauliczna");
+		expect(model.seo.description).not.toContain("+48 123 456 789");
+		expect(model.seo.description).not.toContain("kontakt@hydraulik.example");
+		expect(model.seo.description).not.toContain(
+			"https://hydraulik.example/kontakt",
+		);
+	});
+
 	it("does not expose seller terminology in visitor-facing assistant copy", () => {
 		const model = buildPublicBusinessPageModel(site, biz);
 		const renderedCopy = [
