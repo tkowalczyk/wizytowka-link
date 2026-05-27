@@ -4,9 +4,9 @@ import { env } from 'cloudflare:workers';
 import AuditmosFooterLink from '../components/AuditmosFooterLink.astro';
 import { safeJsonScript } from '../lib/structured-data';
 
-const title = "wizytowka.link — Twoja wizytówka w internecie"
+const title = "wizytowka.link — wizytówki z asystentem AI"
 const description =
-  "Automatycznie generowane strony wizytówkowe dla polskich firm. Profesjonalna obecność online bez wysiłku — SEO, mobile, Google Maps."
+  "Automatycznie generowane, niezależne wizytówki dla polskich firm z mapą, lokalnym kontekstem i asystentem AI zamiast publicznego telefonu."
 const url = "https://wizytowka.link"
 const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
 ---
@@ -58,7 +58,7 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
             name: "wizytowka.link",
             url,
             description:
-              "Platforma automatycznie generowanych stron wizytówkowych dla polskich firm.",
+              "Platforma automatycznie generowanych, niezależnych wizytówek dla polskich firm z asystentem AI.",
           },
           {
             "@type": "SoftwareApplication",
@@ -84,14 +84,14 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
   </head>
 
   <body class="bg-white text-gray-900 antialiased">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow">Przejdź do treści</a>
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:px-4 focus:py-2 focus:rounded focus:shadow">Przejdź do treści</a>
     <!-- Nav -->
     <header
       id="navbar"
-      class="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
+      class="fixed top-0 left-0 right-0 z-50 transition-all duration-150"
     >
       <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-        <a href="#" class="text-xl font-extrabold tracking-tight">
+        <a href="#" class="text-xl font-extrabold">
           <span class="text-blue-600">wizytowka</span><span class="text-gray-800">.link</span>
         </a>
         <div class="hidden items-center gap-6 md:flex">
@@ -131,28 +131,25 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
 
     <main id="main-content">
       <!-- Hero -->
-      <section class="relative overflow-hidden pt-32 pb-20 md:pt-40 md:pb-28">
-        <div class="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50"></div>
-        <div class="absolute top-20 right-0 h-72 w-72 rounded-full bg-blue-100 opacity-40 blur-3xl"></div>
-        <div class="absolute bottom-0 left-10 h-60 w-60 rounded-full bg-indigo-100 opacity-30 blur-3xl"></div>
+      <section class="relative overflow-hidden border-b border-gray-100 bg-slate-50 pt-32 pb-20 md:pt-40 md:pb-28">
         <div class="relative mx-auto max-w-4xl px-4 text-center">
-          <h1 class="text-4xl font-extrabold leading-tight tracking-tight text-gray-900 md:text-6xl md:leading-tight">
-            Twoja wizytówka<br />
-            <span class="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">w internecie</span>
+          <h1 class="text-balance text-4xl font-extrabold leading-tight text-gray-900 md:text-6xl md:leading-tight">
+            Strony internetowe<br />
+            z pomocnym asystentem
           </h1>
-          <p class="mx-auto mt-6 max-w-2xl text-lg text-gray-600 md:text-xl">
-            Automatycznie tworzymy profesjonalną stronę dla Twojej firmy — z mapą, danymi kontaktowymi i&nbsp;optymalizacją pod wyszukiwarki.
+          <p class="mx-auto mt-6 max-w-2xl text-pretty text-lg text-gray-600 md:text-xl">
+            Automatycznie tworzymy publiczne strony dla lokalnych firm — z mapą, godzinami otwarcia, opisem usług i&nbsp;przyciskiem „Zapytaj asystenta” zamiast wystawiania telefonu na stronie.
           </p>
           <div class="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <a
               href="#kontakt"
-              class="rounded-xl bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-600/25 hover:bg-blue-700 transition-all hover:shadow-blue-600/40"
+              class="rounded-lg bg-blue-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700 transition-colors"
             >
               Sprawdź swoją firmę
             </a>
             <a
               href="#jak-to-dziala"
-              class="rounded-xl border border-gray-200 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-all"
+              class="rounded-lg border border-gray-200 bg-white px-8 py-3.5 text-base font-semibold text-gray-700 shadow-sm hover:border-gray-300 hover:bg-gray-50 transition-colors"
             >
               Jak to działa?
             </a>
@@ -163,38 +160,38 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       <!-- Problem -->
       <section class="py-20 bg-white">
         <div class="mx-auto max-w-6xl px-4">
-          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
-            Dlaczego Twoja firma potrzebuje strony?
+          <h2 class="text-balance text-center text-3xl font-bold md:text-4xl">
+            Dlaczego zmieniliśmy model kontaktu?
           </h2>
-          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
-            Klienci szukają usług online — jeśli Cię nie znajdą, wybiorą konkurencję.
+          <p class="mx-auto mt-4 max-w-2xl text-center text-pretty text-gray-600">
+            Wizytówka ma pomóc klientowi zrozumieć miejsce i&nbsp;zadać pytanie, ale nie powinna udawać oficjalnej strony firmy.
           </p>
           <div class="mt-14 grid gap-8 md:grid-cols-3">
-            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+            <div class="rounded-lg border border-gray-100 bg-gray-50 p-8 text-center">
               <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
-                97%
+                1
               </div>
-              <h3 class="text-lg font-semibold">Klientów szuka online</h3>
+              <h3 class="text-lg font-semibold">Strona bez podszywania się</h3>
               <p class="mt-2 text-sm text-gray-600">
-                Zdecydowana większość konsumentów szuka lokalnych usług w&nbsp;internecie przed wizytą.
+                Wizytówka jasno działa jako niezależna strona informacyjna, a asystent mówi, że nie reprezentuje bezpośrednio firmy.
               </p>
             </div>
-            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+            <div class="rounded-lg border border-gray-100 bg-gray-50 p-8 text-center">
               <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-2xl font-bold text-amber-600">
-                70%
+                2
               </div>
-              <h3 class="text-lg font-semibold">Firm bez strony</h3>
+              <h3 class="text-lg font-semibold">Pytania zostają na stronie</h3>
               <p class="mt-2 text-sm text-gray-600">
-                Większość małych firm w&nbsp;Polsce wciąż nie posiada własnej strony internetowej.
+                Zamiast odsyłać od razu do telefonu lub e-maila, strona pozwala rozpocząć rozmowę z&nbsp;asystentem.
               </p>
             </div>
-            <div class="rounded-2xl border border-gray-100 bg-gray-50 p-8 text-center">
+            <div class="rounded-lg border border-gray-100 bg-gray-50 p-8 text-center">
               <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-2xl font-bold text-green-600">
-                3×
+                3
               </div>
-              <h3 class="text-lg font-semibold">Więcej zapytań</h3>
+              <h3 class="text-lg font-semibold">Widać realne zainteresowanie</h3>
               <p class="mt-2 text-sm text-gray-600">
-                Firmy z&nbsp;profesjonalną stroną otrzymują wielokrotnie więcej kontaktów od klientów.
+                Transkrypty i&nbsp;podsumowania intencji pokazują, o&nbsp;co odwiedzający faktycznie pytali.
               </p>
             </div>
           </div>
@@ -202,40 +199,40 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       </section>
 
       <!-- How it works -->
-      <section id="jak-to-dziala" class="py-20 bg-gradient-to-b from-gray-50 to-white">
+      <section id="jak-to-dziala" class="py-20 bg-gray-50">
         <div class="mx-auto max-w-6xl px-4">
-          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+          <h2 class="text-balance text-center text-3xl font-bold md:text-4xl">
             Jak to działa?
           </h2>
-          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
-            Trzy proste kroki — bez wysiłku z&nbsp;Twojej strony.
+          <p class="mx-auto mt-4 max-w-2xl text-center text-pretty text-gray-600">
+            Strona powstaje automatycznie, ale publiczna komunikacja pozostaje ostrożna i&nbsp;przejrzysta.
           </p>
           <div class="mt-14 grid gap-10 md:grid-cols-3">
             <div class="text-center">
-              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
                 1
               </div>
-              <h3 class="text-lg font-semibold">Znajdujemy Twoją firmę</h3>
+              <h3 class="text-lg font-semibold">Znajdujemy lokalną firmę</h3>
               <p class="mt-2 text-sm text-gray-600">
-                Automatycznie wyszukujemy dane Twojej firmy w&nbsp;publicznych rejestrach i&nbsp;mapach.
+                Automatycznie wyszukujemy lokalne firmy bez strony www i&nbsp;zbieramy publiczny kontekst: nazwę, kategorię, adres, godziny i&nbsp;mapę.
               </p>
             </div>
             <div class="text-center">
-              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
                 2
               </div>
               <h3 class="text-lg font-semibold">Generujemy stronę</h3>
               <p class="mt-2 text-sm text-gray-600">
-                AI tworzy unikalną wizytówkę z&nbsp;opisem działalności, mapą i&nbsp;danymi kontaktowymi.
+                AI tworzy unikalną stronę z&nbsp;opisem działalności, usługami, mapą, SEO i&nbsp;CTA „Zapytaj asystenta”.
               </p>
             </div>
             <div class="text-center">
-              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
+              <div class="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-lg bg-blue-600 text-2xl font-bold text-white shadow-lg shadow-blue-600/20">
                 3
               </div>
-              <h3 class="text-lg font-semibold">Publikujemy online</h3>
+              <h3 class="text-lg font-semibold">Zbieramy pytania</h3>
               <p class="mt-2 text-sm text-gray-600">
-                Strona trafia pod unikalny adres i&nbsp;jest natychmiast widoczna w&nbsp;wyszukiwarkach.
+                Asystent odpowiada z&nbsp;danych strony, nie podaje bezpośrednich kontaktów i&nbsp;zapisuje rozmowę jako sygnał popytu.
               </p>
             </div>
           </div>
@@ -245,11 +242,11 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       <!-- Features -->
       <section id="funkcje" class="py-20 bg-white">
         <div class="mx-auto max-w-6xl px-4">
-          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+          <h2 class="text-balance text-center text-3xl font-bold md:text-4xl">
             Co otrzymujesz?
           </h2>
-          <p class="mx-auto mt-4 max-w-2xl text-center text-gray-600">
-            Każda wizytówka to kompletna strona — gotowa do pracy.
+          <p class="mx-auto mt-4 max-w-2xl text-center text-pretty text-gray-600">
+            Każda wizytówka pokazuje najważniejszy kontekst i&nbsp;pozwala bezpiecznie sprawdzić zainteresowanie klientów.
           </p>
           <div class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {[
@@ -257,10 +254,10 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
               { icon: "📱", title: "Mobile-first", desc: "Responsywny design dopasowany do każdego urządzenia — telefon, tablet, komputer." },
               { icon: "🎨", title: "Unikalne motywy", desc: "24 profesjonalne szablony — każda wizytówka wygląda inaczej." },
               { icon: "📍", title: "Mapa Google", desc: "Interaktywna mapa z&nbsp;lokalizacją firmy — klienci od razu wiedzą, gdzie Cię znaleźć." },
-              { icon: "📞", title: "Dane kontaktowe", desc: "Telefon, adres, godziny otwarcia — wszystko w&nbsp;jednym miejscu." },
-              { icon: "⚡", title: "Błyskawiczne ładowanie", desc: "Statyczne strony na globalnym CDN — ładowanie poniżej sekundy." },
+              { icon: "🤖", title: "Asystent AI", desc: "Polski chat odpowiada z&nbsp;danych wizytówki i&nbsp;nie podaje telefonu, e-maila ani linków kontaktowych." },
+              { icon: "📊", title: "Dowody zainteresowania", desc: "Starty chatu, transkrypty, intencje i&nbsp;reklamacje trafiają do prywatnego panelu operatora." },
             ].map(({ icon, title, desc }) => (
-              <article class="rounded-2xl border border-gray-100 p-6 hover:border-blue-100 hover:bg-blue-50/30 transition-colors">
+              <article class="rounded-lg border border-gray-100 p-6 hover:border-blue-100 hover:bg-blue-50/30 transition-colors">
                 <div class="mb-3 text-3xl">{icon}</div>
                 <h3 class="text-base font-semibold">{title}</h3>
                 <p class="mt-2 text-sm text-gray-600" set:html={desc} />
@@ -271,19 +268,19 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       </section>
 
       <!-- Social proof -->
-      <section class="py-20 bg-gradient-to-b from-gray-50 to-white">
+      <section class="py-20 bg-gray-50">
         <div class="mx-auto max-w-6xl px-4">
-          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+          <h2 class="text-balance text-center text-3xl font-bold md:text-4xl">
             Platforma w&nbsp;liczbach
           </h2>
           <div class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { value: "95 000+", label: "Polskich miejscowości" },
               { value: "24", label: "Motywy graficzne" },
-              { value: "<1s", label: "Czas ładowania strony" },
-              { value: "100%", label: "Automatyzacja" },
+              { value: "CDN", label: "Globalne hostowanie" },
+              { value: "AI", label: "Generowanie i asystent" },
             ].map(({ value, label }) => (
-              <div class="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
+              <div class="rounded-lg bg-white border border-gray-100 p-8 text-center shadow-sm">
                 <div class="text-3xl font-extrabold text-blue-600">{value}</div>
                 <div class="mt-2 text-sm font-medium text-gray-600">{label}</div>
               </div>
@@ -295,30 +292,30 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       <!-- FAQ -->
       <section id="faq" class="py-20 bg-white">
         <div class="mx-auto max-w-3xl px-4">
-          <h2 class="text-center text-3xl font-bold tracking-tight md:text-4xl">
+          <h2 class="text-balance text-center text-3xl font-bold md:text-4xl">
             Najczęstsze pytania
           </h2>
           <div class="mt-12 divide-y divide-gray-200">
             {[
               {
-                q: "Czy muszę cokolwiek robić, żeby mieć stronę?",
-                a: "Nie. Automatycznie znajdujemy Twoją firmę i generujemy stronę wizytówkową. Nie wymagamy rejestracji ani żadnych działań z Twojej strony.",
+                q: "Czy to oficjalna strona firmy?",
+                a: "Nie. Wizytówka jest niezależną stroną informacyjną. Asystent AI również informuje, że nie reprezentuje bezpośrednio danego miejsca.",
               },
               {
-                q: "Ile to kosztuje?",
-                a: "Wygenerowana wizytówka jest bezpłatna. Oferujemy też rozszerzone opcje — własna domena, edycja treści, statystyki — w ramach płatnych planów.",
+                q: "Czy pokazujecie numer telefonu lub e-mail?",
+                a: "Nie pokazujemy bezpośredniego telefonu, e-maila ani linku kontaktowego na publicznej wizytówce. Zachowujemy kontekst taki jak adres, godziny otwarcia i mapa.",
               },
               {
-                q: "Czy mogę edytować treść swojej wizytówki?",
-                a: "Tak. Po skontaktowaniu się z nami otrzymasz dostęp do panelu, w którym możesz zaktualizować dane firmy, opis i zdjęcia.",
+                q: "Co robi asystent AI?",
+                a: "Odpowiada po polsku na pytania o miejsce, korzystając z danych wizytówki i bazy. Jeśli czegoś nie wie albo sprawa wymaga człowieka, mówi to wprost.",
               },
               {
                 q: "Skąd bierzecie dane mojej firmy?",
-                a: "Korzystamy z publicznych źródeł — Google Maps, rejestry firm. Dane kontaktowe są zawsze do weryfikacji i edycji przez właściciela.",
+                a: "Korzystamy z publicznych źródeł, takich jak mapy i rejestry firm. Właściciel może poprosić o korektę lub usunięcie wizytówki.",
               },
               {
-                q: "Czy strona jest widoczna w Google?",
-                a: "Tak. Każda wizytówka ma pełną optymalizację SEO — meta tagi, schema.org, semantyczny HTML, szybkie ładowanie — i jest indeksowana przez wyszukiwarki.",
+                q: "Czy rozmowy są zapisywane?",
+                a: "Tak, rozmowy z asystentem mogą być zapisywane, aby ocenić zainteresowanie wizytówką i poprawiać jakość odpowiedzi. Informujemy o tym przy polu chatu.",
               },
             ].map(({ q, a }) => (
               <details class="group" data-faq>
@@ -341,13 +338,13 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
       </section>
 
       <!-- CTA -->
-      <section id="kontakt" class="py-20 bg-gradient-to-br from-blue-600 to-indigo-700">
+      <section id="kontakt" class="py-20 bg-blue-700">
         <div class="mx-auto max-w-3xl px-4 text-center">
-          <h2 class="text-3xl font-bold text-white md:text-4xl">
+          <h2 class="text-balance text-3xl font-bold text-white md:text-4xl">
             Sprawdź, czy Twoja firma ma już wizytówkę
           </h2>
-          <p class="mx-auto mt-4 max-w-xl text-blue-100">
-            Zostaw numer telefonu — oddzwonimy i pomożemy założyć wizytówkę.
+          <p class="mx-auto mt-4 max-w-xl text-pretty text-blue-100">
+            Jeśli jesteś właścicielem firmy, zostaw numer telefonu — oddzwonimy i pomożemy zweryfikować lub uporządkować wizytówkę.
           </p>
           <form id="contact-form" class="mx-auto mt-10 flex max-w-lg flex-col gap-3 sm:flex-row">
             <label for="phone-input" class="sr-only">Numer telefonu</label>
@@ -356,12 +353,12 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
               id="phone-input"
               placeholder="+48 600 123 456"
               required
-              class="flex-1 rounded-xl border-0 px-5 py-3.5 text-base text-gray-900 shadow-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+              class="flex-1 rounded-lg border-0 px-5 py-3.5 text-base text-gray-900 shadow-lg placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-white/50"
             />
             <button
               type="submit"
               id="contact-btn"
-              class="rounded-xl bg-white px-6 py-3.5 text-base font-semibold text-blue-600 shadow-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
+              class="rounded-lg bg-white px-6 py-3.5 text-base font-semibold text-blue-600 shadow-lg hover:bg-blue-50 transition-colors disabled:opacity-50"
             >
               Wyślij
             </button>
