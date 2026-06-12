@@ -43,6 +43,46 @@ function throwingLLM(): LLMProvider {
 	};
 }
 
+function countingThrowingLLM() {
+	let calls = 0;
+	const llm: LLMProvider = {
+		async complete() {
+			calls++;
+			throw new Error("LLM boom");
+		},
+	};
+	return {
+		llm,
+		get calls() {
+			return calls;
+		},
+	};
+}
+
+function failingTitleLLM(title: string): LLMProvider {
+	return {
+		async complete(messages) {
+			if (messages.some((message) => message.content.includes(title))) {
+				throw new Error("LLM boom");
+			}
+			return JSON.stringify({
+				hero: { headline: "Test headline", subheadline: "Test sub" },
+				about: { title: "O nas", text: "Test about" },
+				services: [
+					{ name: "Usługa A", description: "Opis A" },
+					{ name: "Usługa B", description: "Opis B" },
+				],
+				contact: {
+					cta_text: "Zadzwoń",
+					phone: "+48100200300",
+					address: "ul. Testowa 1",
+				},
+				seo: { title: "SEO title", description: "SEO description" },
+			});
+		},
+	};
+}
+
 function fakePutSite() {
 	const writes: { key: string; data: SiteData }[] = [];
 	const put = async (
@@ -70,6 +110,16 @@ function makeDeps(
 }
 
 describe("generateSites return type", () => {
+	// Issue #54 TDD assumptions:
+	// Input: eligible rows are businesses with site_status='pending' or stale
+	// in_progress claims; retry metadata lives on the businesses row.
+	// Output: failed generation keeps the row pending for a later retry, increments
+	// a fail counter, and sets a future retry timestamp.
+	// Boundaries: immediate reruns must skip backoff-gated rows; stale in_progress
+	// recovery still works; fairness is based on retry state, then stable id order.
+	// Not tested here: exact wall-clock cron cadence, Z.ai billing, or production
+	// scale performance.
+
 	it("returns RunResult with zeroes when nothing to generate", async () => {
 		// mark all pending businesses as already generated
 		await env.leadgen
@@ -155,7 +205,7 @@ describe("generateSites return type", () => {
 		expect(row?.site_status).toBe("in_progress");
 	});
 
-	it("error rollback: failed generation returns row to 'pending'", async () => {
+	it("error rollback: failed generation records retry backoff", async () => {
 		// Isolate biz 3 as the only candidate.
 		await env.leadgen
 			.prepare("UPDATE businesses SET site_status = 'done' WHERE id = 6")
@@ -166,11 +216,127 @@ describe("generateSites return type", () => {
 		expect(result).toEqual({ processed: 0, failed: 1 });
 		const row = await env.leadgen
 			.prepare(
-				"SELECT site_status, site_claimed_at FROM businesses WHERE id = 3",
+				`SELECT site_status, site_claimed_at, site_fail_count,
+                site_retry_after > datetime('now', '+5 minutes') AS backs_off_past_next_cron
+         FROM businesses WHERE id = 3`,
 			)
-			.first<{ site_status: string; site_claimed_at: string | null }>();
+			.first<{
+				site_status: string;
+				site_claimed_at: string | null;
+				site_fail_count: number;
+				backs_off_past_next_cron: number;
+			}>();
 		expect(row?.site_status).toBe("pending");
 		expect(row?.site_claimed_at).toBeNull();
+		expect(row?.site_fail_count).toBe(1);
+		expect(row?.backs_off_past_next_cron).toBe(1);
+	});
+
+	it("extends backoff for repeated generation failures", async () => {
+		// Isolate biz 3 as the only candidate.
+		await env.leadgen
+			.prepare("UPDATE businesses SET site_status = 'done' WHERE id = 6")
+			.run();
+
+		await runGenerateSites(makeDeps({ llm: throwingLLM() }), 5);
+		await env.leadgen
+			.prepare(
+				"UPDATE businesses SET site_retry_after = datetime('now', '-1 minute') WHERE id = 3",
+			)
+			.run();
+
+		const result = await runGenerateSites(makeDeps({ llm: throwingLLM() }), 5);
+
+		expect(result).toEqual({ processed: 0, failed: 1 });
+		const row = await env.leadgen
+			.prepare(
+				`SELECT site_fail_count,
+                site_retry_after > datetime('now', '+59 minutes') AS uses_second_backoff
+         FROM businesses WHERE id = 3`,
+			)
+			.first<{ site_fail_count: number; uses_second_backoff: number }>();
+		expect(row?.site_fail_count).toBe(2);
+		expect(row?.uses_second_backoff).toBe(1);
+	});
+
+	it("clears retry metadata after a retry succeeds", async () => {
+		// Isolate biz 3 as a retry-eligible row that previously failed.
+		await env.leadgen
+			.prepare("UPDATE businesses SET site_status = 'done' WHERE id = 6")
+			.run();
+		await env.leadgen
+			.prepare(
+				`UPDATE businesses
+         SET site_fail_count = 2,
+             site_retry_after = datetime('now', '-1 minute')
+         WHERE id = 3`,
+			)
+			.run();
+
+		const result = await runGenerateSites(makeDeps(), 5);
+
+		expect(result).toEqual({ processed: 1, failed: 0 });
+		const row = await env.leadgen
+			.prepare(
+				"SELECT site_status, site_fail_count, site_retry_after FROM businesses WHERE id = 3",
+			)
+			.first<{
+				site_status: string;
+				site_fail_count: number;
+				site_retry_after: string | null;
+			}>();
+		expect(row?.site_status).toBe("done");
+		expect(row?.site_fail_count).toBe(0);
+		expect(row?.site_retry_after).toBeNull();
+	});
+
+	it("does not re-call the LLM for a business that just failed", async () => {
+		// Isolate biz 3 as the only candidate.
+		await env.leadgen
+			.prepare("UPDATE businesses SET site_status = 'done' WHERE id = 6")
+			.run();
+		const llm = countingThrowingLLM();
+
+		await runGenerateSites(makeDeps({ llm: llm.llm }), 5);
+		await runGenerateSites(makeDeps({ llm: llm.llm }), 5);
+
+		expect(llm.calls).toBe(1);
+	});
+
+	it("does not let retrying failed rows starve fresh pending businesses", async () => {
+		await env.leadgen
+			.prepare("UPDATE businesses SET site_status = 'done'")
+			.run();
+		await env.leadgen
+			.prepare(`
+				INSERT INTO businesses
+				(id, locality_id, place_id, title, slug, phone, address, category, rating, gps_lat, gps_lng, site_status, site_fail_count, site_retry_after)
+				VALUES
+				(101, 1, 'fail_101', 'Failing Site 101', 'failing-site-101', '+48100100101', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(102, 1, 'fail_102', 'Failing Site 102', 'failing-site-102', '+48100100102', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(103, 1, 'fail_103', 'Failing Site 103', 'failing-site-103', '+48100100103', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(104, 1, 'fail_104', 'Failing Site 104', 'failing-site-104', '+48100100104', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(105, 1, 'fail_105', 'Failing Site 105', 'failing-site-105', '+48100100105', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(106, 1, 'fail_106', 'Failing Site 106', 'failing-site-106', '+48100100106', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(107, 1, 'fail_107', 'Failing Site 107', 'failing-site-107', '+48100100107', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(108, 1, 'fail_108', 'Failing Site 108', 'failing-site-108', '+48100100108', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(109, 1, 'fail_109', 'Failing Site 109', 'failing-site-109', '+48100100109', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(110, 1, 'fail_110', 'Failing Site 110', 'failing-site-110', '+48100100110', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(111, 1, 'fail_111', 'Failing Site 111', 'failing-site-111', '+48100100111', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 1, datetime('now', '-1 minute')),
+				(999, 1, 'healthy_999', 'Healthy Site 999', 'healthy-site-999', '+48100999999', 'a', 'cat', 4.0, 50.0, 19.0, 'pending', 0, NULL)
+			`)
+			.run();
+
+		const result = await runGenerateSites(
+			makeDeps({ llm: failingTitleLLM("Failing Site") }),
+			10,
+		);
+
+		expect(result).toEqual({ processed: 1, failed: 9 });
+		const healthy = await env.leadgen
+			.prepare("SELECT site_status FROM businesses WHERE id = 999")
+			.first<{ site_status: string }>();
+		expect(healthy?.site_status).toBe("done");
 	});
 
 	it("race: parallel runs never claim the same row", async () => {

@@ -78,6 +78,8 @@ CREATE TABLE IF NOT EXISTS businesses (
   site_ineligible_reason TEXT
                  CHECK (site_ineligible_reason IS NULL OR site_ineligible_reason IN ('has_website', 'no_phone')),
   site_claimed_at TEXT,
+  site_retry_after TEXT,
+  site_fail_count INTEGER NOT NULL DEFAULT 0,
   UNIQUE(slug, locality_id)
 );
 

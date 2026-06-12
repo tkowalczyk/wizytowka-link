@@ -14,6 +14,7 @@ interface BusinessRow {
 	slug: string;
 	locality_name: string;
 	loc_slug: string;
+	site_fail_count: number;
 }
 
 export interface GenerateSitesDeps {
@@ -32,6 +33,14 @@ const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
 // in-flight claims are never accidentally stolen.
 const STALE_CLAIM_TTL = "-15 minutes";
 
+const SITE_RETRY_BACKOFF_MINUTES = [10, 60, 360, 1440] as const;
+
+function siteRetryBackoffMinutes(failCount: number): number {
+	return SITE_RETRY_BACKOFF_MINUTES[
+		Math.min(failCount - 1, SITE_RETRY_BACKOFF_MINUTES.length - 1)
+	];
+}
+
 export async function runGenerateSites(
 	deps: GenerateSitesDeps,
 	limit = 10,
@@ -47,8 +56,10 @@ export async function runGenerateSites(
        SET site_status = 'in_progress', site_claimed_at = datetime('now')
        WHERE id IN (
          SELECT id FROM businesses
-         WHERE site_status = 'pending'
+         WHERE (site_status = 'pending'
+           AND (site_retry_after IS NULL OR site_retry_after <= datetime('now')))
             OR (site_status = 'in_progress' AND site_claimed_at < datetime('now', ?))
+         ORDER BY site_fail_count ASC, id ASC
          LIMIT ?
        )
        RETURNING id`,
@@ -99,7 +110,12 @@ export async function runGenerateSites(
 
 			await db
 				.prepare(
-					`UPDATE businesses SET site_status = 'done', site_claimed_at = NULL WHERE id = ?`,
+					`UPDATE businesses
+           SET site_status = 'done',
+               site_claimed_at = NULL,
+               site_fail_count = 0,
+               site_retry_after = NULL
+           WHERE id = ?`,
 				)
 				.bind(biz.id)
 				.run();
@@ -109,14 +125,19 @@ export async function runGenerateSites(
 		} catch (err) {
 			console.error(`fail biz ${biz.id}: ${(err as Error).message}`);
 			failed++;
-			// Rollback the claim so the row is retried by a future run instead
-			// of being stuck as 'in_progress' until the stale TTL kicks in.
+			const failCount = biz.site_fail_count + 1;
+			const retryMinutes = siteRetryBackoffMinutes(failCount);
 			try {
 				await db
 					.prepare(
-						`UPDATE businesses SET site_status = 'pending', site_claimed_at = NULL WHERE id = ?`,
+						`UPDATE businesses
+             SET site_status = 'pending',
+                 site_claimed_at = NULL,
+                 site_fail_count = ?,
+                 site_retry_after = datetime('now', '+' || ? || ' minutes')
+             WHERE id = ?`,
 					)
-					.bind(biz.id)
+					.bind(failCount, retryMinutes, biz.id)
 					.run();
 			} catch (rollbackErr) {
 				console.error(
