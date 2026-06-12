@@ -1,7 +1,8 @@
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "../../../../test/seed";
-import { startChatSession } from "../../../lib/chat";
+import { endChatSession, startChatSession } from "../../../lib/chat";
+import { CRON_PATTERNS, runScheduledCron } from "../../../lib/scheduled";
 import { POST } from "./end";
 
 interface ChatEndResponse {
@@ -41,6 +42,13 @@ function createCfContext() {
 	};
 }
 
+function executionContext(): ExecutionContext {
+	return {
+		waitUntil: () => {},
+		passThroughOnException: () => {},
+	} as unknown as ExecutionContext;
+}
+
 function mockFetch() {
 	return vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
 		const url = input.toString();
@@ -54,10 +62,44 @@ function mockFetch() {
 	});
 }
 
+function mockBlockingTelegramFetch() {
+	let release: () => void = () => {};
+	const released = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+	const fetchMock = vi.fn(
+		async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = input.toString();
+			if (url.includes("api.telegram.org")) {
+				await released;
+				return Response.json({
+					ok: true,
+					result: { message_id: 1, chat: { id: 1, type: "private" }, date: 0 },
+				});
+			}
+			throw new Error(`Unexpected fetch: ${url} ${String(init?.body ?? "")}`);
+		},
+	);
+	return { fetchMock, release };
+}
+
 function telegramCalls(fetchMock: ReturnType<typeof mockFetch>) {
 	return fetchMock.mock.calls.filter(([input]) =>
 		input.toString().includes("api.telegram.org"),
 	);
+}
+
+async function waitForTelegramCalls(
+	fetchMock: ReturnType<typeof mockFetch>,
+	count: number,
+): Promise<void> {
+	const deadline = Date.now() + 1000;
+	while (telegramCalls(fetchMock).length < count) {
+		if (Date.now() > deadline) {
+			throw new Error(`timed out waiting for ${count} Telegram call(s)`);
+		}
+		await new Promise((resolve) => setTimeout(resolve, 5));
+	}
 }
 
 async function submitChatEnd(body: Record<string, unknown>): Promise<{
@@ -258,5 +300,32 @@ describe("POST /api/chat/end", () => {
 			.bind(sessionId)
 			.first<{ telegram_end_sent_at: string | null }>();
 		expect(row?.telegram_end_sent_at).toEqual(expect.any(String));
+	});
+
+	it("sends at most one end notification when visitor end and sweep race", async () => {
+		const { fetchMock, release } = mockBlockingTelegramFetch();
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId();
+		const ended = await endChatSession(env.leadgen, { sessionId });
+		expect(ended.status).toBe("ok");
+
+		const apiEnd = submitChatEnd({ sessionId });
+		const sweep = runScheduledCron(
+			env,
+			CRON_PATTERNS.chatTimeout,
+			executionContext(),
+		);
+		await waitForTelegramCalls(fetchMock, 1);
+		await new Promise((resolve) => setTimeout(resolve, 25));
+		release();
+
+		const [{ response, settled }, sweepResult] = await Promise.all([
+			apiEnd,
+			sweep,
+		]);
+		expect(response.status).toBe(200);
+		await settled;
+		expect(sweepResult).toMatchObject({ processed: 0, failed: 0 });
+		expect(telegramCalls(fetchMock)).toHaveLength(1);
 	});
 });

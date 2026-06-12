@@ -939,6 +939,22 @@ export async function endInactiveChatSessions(
 	return { ended, sessionIds };
 }
 
+export async function pendingChatEndNotificationSessionIds(
+	db: D1Database,
+): Promise<string[]> {
+	const pending = await db
+		.prepare(
+			`SELECT id
+       FROM chat_sessions
+       WHERE status = 'ended'
+         AND ended_at IS NOT NULL
+         AND telegram_end_sent_at IS NULL
+       ORDER BY ended_at`,
+		)
+		.all<{ id: string }>();
+	return pending.results.map((session) => session.id);
+}
+
 function transcriptUrl(
 	sessionId: string,
 	sellerToken: string,
@@ -1027,6 +1043,19 @@ export async function sendChatStartNotification(
 		.run();
 }
 
+async function resetChatEndNotificationClaim(
+	db: D1Database,
+	sessionId: string,
+	sentAt: string,
+): Promise<void> {
+	await db
+		.prepare(
+			"UPDATE chat_sessions SET telegram_end_sent_at = NULL WHERE id = ? AND telegram_end_sent_at = ?",
+		)
+		.bind(sessionId, sentAt)
+		.run();
+}
+
 export async function sendChatEndNotification(
 	env: ChatNotificationEnv,
 	sessionId: string,
@@ -1049,17 +1078,26 @@ export async function sendChatEndNotification(
 		.first<{ notify_chat_id: string; token: string }>();
 	if (!recipient) return;
 
-	const delivery = await sendMessage(
-		env.TG_NOTIFY_BOT_TOKEN,
-		recipient.notify_chat_id,
-		formatChatEndedMessage(session, recipient.token, env.ADMIN_PANEL_URL),
-	);
-	if (!delivery.ok) return;
-
-	await env.leadgen
+	const sentAt = new Date().toISOString();
+	const claim = await env.leadgen
 		.prepare(
 			"UPDATE chat_sessions SET telegram_end_sent_at = ? WHERE id = ? AND telegram_end_sent_at IS NULL",
 		)
-		.bind(new Date().toISOString(), session.id)
+		.bind(sentAt, session.id)
 		.run();
+	if (claim.meta.changes !== 1) return;
+
+	try {
+		const delivery = await sendMessage(
+			env.TG_NOTIFY_BOT_TOKEN,
+			recipient.notify_chat_id,
+			formatChatEndedMessage(session, recipient.token, env.ADMIN_PANEL_URL),
+		);
+		if (delivery.ok) return;
+	} catch (error) {
+		await resetChatEndNotificationClaim(env.leadgen, session.id, sentAt);
+		throw error;
+	}
+
+	await resetChatEndNotificationClaim(env.leadgen, session.id, sentAt);
 }

@@ -46,12 +46,21 @@ async function executeCron(env: Env, cron: string): Promise<RunResult> {
 			return generateSites(env);
 		}
 		case CRON_PATTERNS.chatTimeout: {
-			const { endInactiveChatSessions, sendChatEndNotification } = await import(
-				"./chat"
-			);
+			const {
+				endInactiveChatSessions,
+				pendingChatEndNotificationSessionIds,
+				sendChatEndNotification,
+			} = await import("./chat");
 			const result = await endInactiveChatSessions(env.leadgen);
-			for (const sessionId of result.sessionIds) {
-				await sendChatEndNotification(env, sessionId);
+			const sessionIds = await pendingChatEndNotificationSessionIds(
+				env.leadgen,
+			);
+			for (const sessionId of sessionIds) {
+				try {
+					await sendChatEndNotification(env, sessionId);
+				} catch (error) {
+					console.error("chat end notification failed:", error);
+				}
 			}
 			return { processed: result.ended, failed: 0 };
 		}
