@@ -4,10 +4,28 @@ export interface RunResult {
 	meta?: Record<string, unknown>;
 }
 
+const STALE_CRON_RUN_MINUTES = 60;
+const STALE_CRON_RUN_ERROR = "stale: never completed";
+
+async function markStaleRunsFailed(db: D1Database): Promise<void> {
+	await db
+		.prepare(
+			`UPDATE cron_log
+       SET status = 'failed',
+           error = ?,
+           finished_at = datetime('now')
+       WHERE status = 'running'
+         AND started_at < datetime('now', ?)`,
+		)
+		.bind(STALE_CRON_RUN_ERROR, `-${STALE_CRON_RUN_MINUTES} minutes`)
+		.run();
+}
+
 export async function startRun(
 	db: D1Database,
 	cronPattern: string,
 ): Promise<number> {
+	await markStaleRunsFailed(db);
 	const meta = await db
 		.prepare("INSERT INTO cron_log (cron_pattern) VALUES (?) RETURNING id")
 		.bind(cronPattern)
@@ -45,6 +63,7 @@ export interface CronSummaryRow {
 	total_runs: number;
 	completed: number;
 	failed: number;
+	stale: number;
 	total_processed: number;
 	total_failed_items: number;
 }
@@ -52,6 +71,7 @@ export interface CronSummaryRow {
 export async function getCronSummary(
 	db: D1Database,
 ): Promise<CronSummaryRow[]> {
+	await markStaleRunsFailed(db);
 	const { results } = await db
 		.prepare(
 			`SELECT
@@ -59,6 +79,7 @@ export async function getCronSummary(
          COUNT(*) as total_runs,
          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+         SUM(CASE WHEN status = 'failed' AND error = ? THEN 1 ELSE 0 END) as stale,
          SUM(items_processed) as total_processed,
          SUM(items_failed) as total_failed_items
        FROM cron_log
@@ -66,6 +87,7 @@ export async function getCronSummary(
        GROUP BY cron_pattern
        ORDER BY cron_pattern`,
 		)
+		.bind(STALE_CRON_RUN_ERROR)
 		.all<CronSummaryRow>();
 	return results;
 }

@@ -155,7 +155,9 @@ export function formatCronSection(
 
 	const lines = stats.map((s) => {
 		const label = labels[s.cron_pattern] ?? s.cron_pattern;
-		const icon = s.failed > 0 ? "\u274C" : "\u2705";
+		const stale = s.stale ?? 0;
+		const failed = Math.max(0, s.failed - stale);
+		const icon = s.failed > 0 || stale > 0 ? "\u274C" : "\u2705";
 		const parts = [
 			`${icon} <b>${escapeHtml(label)}</b>: ${s.total_runs} uruchomien`,
 		];
@@ -163,7 +165,8 @@ export function formatCronSection(
 			parts.push(`${s.total_processed} przetworzonych`);
 		if (s.total_failed_items > 0)
 			parts.push(`${s.total_failed_items} bledow pozycji`);
-		if (s.failed > 0) parts.push(`${s.failed} blad${s.failed > 1 ? "ow" : ""}`);
+		if (failed > 0) parts.push(`${failed} blad${failed > 1 ? "ow" : ""}`);
+		if (stale > 0) parts.push(`${stale} przerwany${stale > 1 ? "e" : ""}`);
 		return parts.join(", ");
 	});
 

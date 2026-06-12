@@ -102,6 +102,31 @@ describe("getCronSummary", () => {
 		expect(summary).toEqual([]);
 	});
 
+	// Assumptions for issue #57:
+	// A running row older than 60 minutes is stale and must be visible as a failed
+	// cron run in summaries; a newer running row remains in-progress and is not stale.
+	// This slice covers summary/reaping behavior, not isolate death itself.
+	it("surfaces running rows older than the stale threshold as stale failures", async () => {
+		await env.leadgen
+			.prepare(
+				"INSERT INTO cron_log (cron_pattern, started_at, status) VALUES ('0 8 * * *', datetime('now', '-2 hours'), 'running')",
+			)
+			.run();
+		await env.leadgen
+			.prepare(
+				"INSERT INTO cron_log (cron_pattern, started_at, status) VALUES ('0 8 * * *', datetime('now', '-30 minutes'), 'running')",
+			)
+			.run();
+
+		const summary = await getCronSummary(env.leadgen);
+
+		const discovery = summary.find((s) => s.cron_pattern === "0 8 * * *");
+		if (!discovery) throw new Error("Expected discovery summary");
+		expect(discovery.total_runs).toBe(2);
+		expect(discovery.failed).toBe(1);
+		expect(discovery.stale).toBe(1);
+	});
+
 	it("aggregates runs by cron_pattern for last 24h", async () => {
 		const id1 = await startRun(env.leadgen, "0 * * * *");
 		await completeRun(env.leadgen, id1, { processed: 10, failed: 1 });

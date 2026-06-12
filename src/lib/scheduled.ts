@@ -78,16 +78,25 @@ export async function runScheduledCron(
 	cron: string,
 	ctx: ExecutionContext,
 ): Promise<RunResult | { error: string }> {
-	const runId = await startRun(env.leadgen, cron);
+	let runId: number | null = null;
+	try {
+		runId = await startRun(env.leadgen, cron);
+	} catch (err) {
+		console.error(`[scheduled] ${cron} logging start failed:`, err);
+	}
 	try {
 		const result = await executeCron(env, cron);
-		await completeRun(env.leadgen, runId, result);
+		if (runId !== null) {
+			await completeRun(env.leadgen, runId, result);
+		}
 		if (cron === CRON_PATTERNS.discovery) {
 			dispatchCriticalAlert(env, ctx, result);
 		}
 		return result;
 	} catch (err) {
-		await failRun(env.leadgen, runId, err);
+		if (runId !== null) {
+			await failRun(env.leadgen, runId, err);
+		}
 		console.error(`[scheduled] ${cron} error:`, err);
 		return { error: err instanceof Error ? err.message : String(err) };
 	}

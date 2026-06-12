@@ -24,6 +24,29 @@ function mockFetch() {
 	});
 }
 
+function envWithCronLogInsertFailure(): Env {
+	const flakyDb = new Proxy(env.leadgen, {
+		get(target, prop, receiver) {
+			if (prop !== "prepare") {
+				return Reflect.get(target, prop, receiver);
+			}
+			return (query: string) => {
+				if (query.includes("INSERT INTO cron_log")) {
+					return {
+						bind: () => ({
+							first: async () => {
+								throw new Error("cron_log insert failed");
+							},
+						}),
+					};
+				}
+				return target.prepare(query);
+			};
+		},
+	});
+	return { ...env, leadgen: flakyDb as D1Database } as Env;
+}
+
 function mockTelegramFetchSequence(responses: Array<{ ok: boolean }>) {
 	return vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
 		const url = input.toString();
@@ -93,6 +116,31 @@ describe("runScheduledCron", () => {
 			executionContext(),
 		);
 
+		expect(result).toMatchObject({ processed: 1, failed: 0 });
+		const row = await env.leadgen
+			.prepare("SELECT status, end_reason FROM chat_sessions WHERE id = ?")
+			.bind(sessionId)
+			.first<{ status: string; end_reason: string | null }>();
+		expect(row).toEqual({ status: "ended", end_reason: "timeout" });
+		expect(telegramCalls(fetchMock)).toHaveLength(1);
+	});
+
+	// Assumptions for issue #57:
+	// Logging is observability-only; if creating the cron_log row fails, the cron
+	// workload still runs. Without a run id there is no completion/failure row to
+	// update, so this slice only asserts the workload side effect and result.
+	it("still executes the cron job when startRun throws", async () => {
+		const fetchMock = mockFetch();
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId("2020-01-01T00:00:00.000Z");
+
+		const result = await runScheduledCron(
+			envWithCronLogInsertFailure(),
+			CRON_PATTERNS.chatTimeout,
+			executionContext(),
+		);
+
+		expect("error" in result).toBe(false);
 		expect(result).toMatchObject({ processed: 1, failed: 0 });
 		const row = await env.leadgen
 			.prepare("SELECT status, end_reason FROM chat_sessions WHERE id = ?")

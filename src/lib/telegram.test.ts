@@ -45,6 +45,7 @@ describe("formatCronSection", () => {
 				total_runs: 24,
 				completed: 24,
 				failed: 0,
+				stale: 0,
 				total_processed: 500,
 				total_failed_items: 3,
 			},
@@ -65,6 +66,7 @@ describe("formatCronSection", () => {
 				total_runs: 1,
 				completed: 0,
 				failed: 1,
+				stale: 0,
 				total_processed: 0,
 				total_failed_items: 0,
 			},
@@ -77,6 +79,26 @@ describe("formatCronSection", () => {
 		expect(result).toContain("1 blad");
 	});
 
+	it("formats a stale run with warning icon", () => {
+		const stats: CronSummaryRow[] = [
+			{
+				cron_pattern: "0 8 * * *",
+				total_runs: 1,
+				completed: 0,
+				failed: 0,
+				stale: 1,
+				total_processed: 0,
+				total_failed_items: 0,
+			},
+		];
+
+		const result = formatCronSection(stats, CRON_LABELS);
+
+		expect(result).toContain("\u274C"); // ❌
+		expect(result).toContain("Discovery");
+		expect(result).toContain("1 przerwany");
+	});
+
 	it("uses cron pattern as fallback label", () => {
 		const stats: CronSummaryRow[] = [
 			{
@@ -84,6 +106,7 @@ describe("formatCronSection", () => {
 				total_runs: 1,
 				completed: 1,
 				failed: 0,
+				stale: 0,
 				total_processed: 5,
 				total_failed_items: 0,
 			},
@@ -101,6 +124,7 @@ describe("formatCronSection", () => {
 				total_runs: 1,
 				completed: 1,
 				failed: 0,
+				stale: 0,
 				total_processed: 10,
 				total_failed_items: 0,
 			},
