@@ -1,200 +1,21 @@
 /**
  * D1 seed helpers for integration tests.
- * SCHEMA_SQL represents the final state after all migrations (0001-0009).
+ * applySchema runs the production migrations so tests use the production schema.
  * SEED_SQL populates a minimal dataset covering all tables + relationships.
  */
 
-const SCHEMA_SQL = `
-CREATE TABLE IF NOT EXISTS localities (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  name        TEXT    NOT NULL,
-  slug        TEXT    NOT NULL UNIQUE,
-  sym         TEXT    NOT NULL UNIQUE,
-  sym_pod     TEXT,
-  woj         TEXT,
-  woj_name    TEXT,
-  pow         TEXT,
-  pow_name    TEXT,
-  gmi         TEXT,
-  gmi_name    TEXT,
-  lat            REAL,
-  lng            REAL,
-  distance_km    REAL,
-  geocode_failed INTEGER NOT NULL DEFAULT 0,
-  searched_at    TEXT,
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
-  nominatim_place_id INTEGER,
-  osm_type    TEXT,
-  osm_id      INTEGER,
-  nominatim_type TEXT,
-  place_rank  INTEGER,
-  address_type TEXT,
-  bbox        TEXT,
-  geocode_retry_after TEXT,
-  geocode_fail_count INTEGER NOT NULL DEFAULT 0
-);
+const migrationFiles = import.meta.glob("../migrations/*.sql", {
+	query: "?raw",
+	import: "default",
+	eager: true,
+}) as Record<string, string>;
 
-CREATE TABLE IF NOT EXISTS cron_log (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  cron_pattern    TEXT NOT NULL,
-  started_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  finished_at     TEXT,
-  items_processed INTEGER DEFAULT 0,
-  items_failed    INTEGER DEFAULT 0,
-  status          TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed')),
-  error           TEXT,
-  meta            TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_cron_log_pattern ON cron_log(cron_pattern, started_at DESC);
-
-CREATE TABLE IF NOT EXISTS businesses (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  locality_id    INTEGER NOT NULL REFERENCES localities(id),
-  place_id       TEXT    NOT NULL UNIQUE,
-  title          TEXT    NOT NULL,
-  slug           TEXT    NOT NULL,
-  phone          TEXT,
-  address        TEXT,
-  website        TEXT,
-  category       TEXT    NOT NULL,
-  rating         REAL,
-  gps_lat        REAL    NOT NULL,
-  gps_lng        REAL    NOT NULL,
-  data_cid       TEXT,
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
-  reviews_count  INTEGER,
-  google_type    TEXT,
-  google_types   TEXT,
-  description    TEXT,
-  operating_hours TEXT,
-  thumbnail_url  TEXT,
-  unclaimed      INTEGER DEFAULT 0,
-  palette_override TEXT,
-  layout_override  TEXT CHECK (layout_override IN ('centered', 'split', 'minimal')),
-  style_override   TEXT CHECK (style_override IN ('modern', 'elegant', 'bold')),
-  site_status    TEXT NOT NULL DEFAULT 'pending'
-                 CHECK (site_status IN ('pending', 'in_progress', 'done', 'ineligible')),
-  site_ineligible_reason TEXT
-                 CHECK (site_ineligible_reason IS NULL OR site_ineligible_reason IN ('has_website', 'no_phone')),
-  site_claimed_at TEXT,
-  site_retry_after TEXT,
-  site_fail_count INTEGER NOT NULL DEFAULT 0,
-  UNIQUE(slug, locality_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_businesses_pending
-  ON businesses(site_status) WHERE site_status = 'pending';
-
-CREATE TABLE IF NOT EXISTS sellers (
-  id              INTEGER PRIMARY KEY AUTOINCREMENT,
-  name            TEXT    NOT NULL,
-  notify_chat_id  TEXT,
-  report_chat_id  TEXT,
-  token           TEXT    NOT NULL UNIQUE,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS call_log (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  business_id INTEGER NOT NULL REFERENCES businesses(id),
-  seller_id   INTEGER NOT NULL REFERENCES sellers(id),
-  status      TEXT    NOT NULL DEFAULT 'pending'
-              CHECK (status IN ('pending', 'called', 'interested', 'rejected', 'no_answer', 'meeting_set', 'deal_closed')),
-  comment     TEXT,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS business_owners (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  business_id INTEGER NOT NULL REFERENCES businesses(id),
-  chat_id     TEXT,
-  token       TEXT    NOT NULL UNIQUE,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS draft_preview_tokens (
-  business_id INTEGER PRIMARY KEY REFERENCES businesses(id) ON DELETE CASCADE,
-  token_hash  TEXT NOT NULL,
-  expires_at  TEXT NOT NULL,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_draft_preview_tokens_expires
-  ON draft_preview_tokens(expires_at);
-
-CREATE TABLE IF NOT EXISTS alert_log (
-  id      INTEGER PRIMARY KEY AUTOINCREMENT,
-  kind    TEXT NOT NULL,
-  sent_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_alert_log_kind_sent ON alert_log(kind, sent_at DESC);
-
-CREATE TABLE IF NOT EXISTS chat_sessions (
-  id                     TEXT PRIMARY KEY,
-  business_id            INTEGER NOT NULL REFERENCES businesses(id),
-  locality_slug          TEXT NOT NULL,
-  business_slug          TEXT NOT NULL,
-  started_at             TEXT NOT NULL DEFAULT (datetime('now')),
-  ended_at               TEXT,
-  status                 TEXT NOT NULL DEFAULT 'active'
-                         CHECK (status IN ('active', 'ended')),
-  referrer               TEXT,
-  user_agent             TEXT,
-  end_reason             TEXT,
-  telegram_start_sent_at TEXT,
-  telegram_end_sent_at   TEXT,
-  message_count          INTEGER,
-  intent_summary         TEXT,
-  intent_categories      TEXT,
-  has_complaint          INTEGER NOT NULL DEFAULT 0,
-  has_commercial_demand  INTEGER NOT NULL DEFAULT 0,
-  created_at             TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_page_started
-  ON chat_sessions(locality_slug, business_slug, started_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_chat_sessions_status
-  ON chat_sessions(status, started_at DESC);
-
-CREATE TABLE IF NOT EXISTS analytics_events (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  event_type    TEXT NOT NULL CHECK (event_type IN ('page_visit', 'chat_start')),
-  locality_slug TEXT NOT NULL,
-  business_slug TEXT NOT NULL,
-  session_id    TEXT,
-  occurred_at   TEXT NOT NULL DEFAULT (datetime('now')),
-  referrer      TEXT,
-  user_agent    TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_analytics_events_page_type
-  ON analytics_events(locality_slug, business_slug, event_type, occurred_at DESC);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_events_chat_start_session
-  ON analytics_events(event_type, session_id)
-  WHERE event_type = 'chat_start' AND session_id IS NOT NULL;
-
-CREATE TABLE IF NOT EXISTS chat_messages (
-  id            TEXT PRIMARY KEY,
-  session_id    TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
-  locality_slug TEXT NOT NULL,
-  business_slug TEXT NOT NULL,
-  role          TEXT NOT NULL CHECK (role IN ('visitor', 'assistant')),
-  content       TEXT NOT NULL,
-  message_index INTEGER NOT NULL,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(session_id, message_index)
-);
-
-CREATE INDEX IF NOT EXISTS idx_chat_messages_session_index
-  ON chat_messages(session_id, message_index);
-
-CREATE INDEX IF NOT EXISTS idx_chat_messages_page_created
-  ON chat_messages(locality_slug, business_slug, created_at DESC);
-`;
+function sqlStatements(sql: string): string[] {
+	return sql
+		.split(";")
+		.map((statement) => statement.replace(/^\s*--.*$/gm, "").trim())
+		.filter(Boolean);
+}
 
 const SEED_SQL = `
 INSERT INTO localities (id, name, slug, sym, sym_pod, woj_name, pow_name, gmi_name, lat, lng, distance_km, searched_at)
@@ -232,21 +53,20 @@ VALUES
 `;
 
 export async function applySchema(db: D1Database): Promise<void> {
-	// D1 exec is picky with multi-statement SQL — split on semicolons
-	const statements = SCHEMA_SQL.split(";")
-		.map((s) => s.trim())
-		.filter((s) => s.length > 0 && !s.startsWith("--"));
-	for (const stmt of statements) {
-		await db.prepare(stmt).run();
+	const orderedMigrations = Object.entries(migrationFiles).sort(([a], [b]) =>
+		a.localeCompare(b),
+	);
+
+	for (const [, migrationSql] of orderedMigrations) {
+		for (const statement of sqlStatements(migrationSql)) {
+			await db.prepare(statement).run();
+		}
 	}
 }
 
 export async function seedTestData(db: D1Database): Promise<void> {
-	const statements = SEED_SQL.split(";")
-		.map((s) => s.trim())
-		.filter((s) => s.length > 0 && !s.startsWith("--"));
-	for (const stmt of statements) {
-		await db.prepare(stmt).run();
+	for (const statement of sqlStatements(SEED_SQL)) {
+		await db.prepare(statement).run();
 	}
 }
 
