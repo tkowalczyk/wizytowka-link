@@ -69,17 +69,23 @@ function fakeLLM(response: string): LLMProvider {
 }
 
 describe("generateContent", () => {
-	it("returns valid SiteContent without theme", async () => {
+	// Issue #58 TDD assumptions:
+	// Input: BusinessInput.phone is the canonical D1 phone, and the LLM may
+	// return a different valid contact.phone.
+	// Output: generated content preserves validated LLM fields except phone,
+	// which must be replaced with the canonical business phone.
+	// Boundaries: this does not change contact.address handling.
+	it("publishes the canonical business phone without theme", async () => {
 		const llm = fakeLLM(VALID_JSON);
 		const result = await generateContent(llm, {
 			title: "Test Firma",
 			category: "restauracja",
 			address: "ul. Testowa 1",
-			phone: "123456789",
+			phone: "+48 123 456 789",
 			rating: 4.5,
 		});
 		expect(result.hero.headline).toBe("Witamy");
-		expect(result.contact.phone).toBe("123");
+		expect(result.contact.phone).toBe("+48 123 456 789");
 		expect(result).not.toHaveProperty("theme");
 	});
 });

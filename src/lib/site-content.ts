@@ -134,7 +134,9 @@ export async function generateContent(
 		{ role: "system", content: SYSTEM_PROMPT },
 		{ role: "user", content: buildUserPrompt(biz) },
 	]);
-	return validateContent(raw);
+	const content = validateContent(raw);
+	content.contact.phone = biz.phone;
+	return content;
 }
 
 const EDIT_SYSTEM_PROMPT = `Jestes asystentem edycji wizytowek firmowych.
