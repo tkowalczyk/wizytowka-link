@@ -31,6 +31,17 @@ export interface PublicBusinessPageModel {
 	};
 }
 
+export interface PublicPageVisitInput {
+	locSlug: string;
+	businessSlug: string;
+}
+
+export interface PublicPageVisitMeta {
+	referrer: string | null;
+	userAgent: string | null;
+	occurredAt?: string;
+}
+
 const EMAIL_PATTERN =
 	/\b(?:e-?mail|mail|kontakt)?\s*:?\s*[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi;
 const URL_PATTERN =
@@ -99,4 +110,30 @@ export function buildPublicBusinessPageModel(
 			),
 		},
 	};
+}
+
+export async function recordPublicPageVisit(
+	db: D1Database,
+	input: PublicPageVisitInput,
+	meta: PublicPageVisitMeta,
+): Promise<void> {
+	const occurredAt = meta.occurredAt ?? new Date().toISOString();
+	await db
+		.prepare(
+			`INSERT INTO analytics_events (
+         event_type, locality_slug, business_slug, occurred_at, referrer, user_agent
+       )
+       SELECT 'page_visit', l.slug, b.slug, ?, ?, ?
+       FROM businesses b
+       JOIN localities l ON b.locality_id = l.id
+       WHERE l.slug = ? AND b.slug = ? AND b.site_status = 'done'`,
+		)
+		.bind(
+			occurredAt,
+			meta.referrer,
+			meta.userAgent,
+			input.locSlug,
+			input.businessSlug,
+		)
+		.run();
 }
