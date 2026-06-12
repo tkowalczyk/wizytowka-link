@@ -40,7 +40,9 @@ export async function loadSellerPanelRouteData(
 		(url.searchParams.get("site") as LeadFilters["site"]) ?? "generated";
 	const sortBy =
 		(url.searchParams.get("sort") as LeadFilters["sort"]) ?? "date";
-	const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10));
+	const rawPage = url.searchParams.get("page") || "1";
+	const parsedPage = parseInt(rawPage, 10);
+	const page = Number.isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
 	const chatSessionId = url.searchParams.get("chat");
 
 	const chatEvidence = chatSessionId

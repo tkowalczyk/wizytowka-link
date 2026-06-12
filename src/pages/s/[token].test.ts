@@ -7,4 +7,10 @@ describe("seller/admin route", () => {
 		expect(sellerRouteSource).toContain("chatEvidence={data.chatEvidence}");
 		expect(sellerRouteSource).toContain("recentChats={data.recentChats}");
 	});
+
+	it("marks token-authenticated seller panel responses private and uncacheable", () => {
+		expect(sellerRouteSource).toMatch(
+			/Astro\.response\.headers\.set\(\s*["']Cache-Control["'],\s*["']private, no-store["']\s*\)/,
+		);
+	});
 });

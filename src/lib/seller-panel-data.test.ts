@@ -4,6 +4,8 @@ import { resetDb, TEST_IDS } from "../../test/seed";
 import { startChatSession } from "./chat";
 import { loadSellerPanelRouteData } from "./seller-panel-data";
 
+// Issue #61 assumptions: malformed page params fall back to page 1; route
+// behavior tests use exported public handlers/pages with real D1 test data.
 async function activeSessionId() {
 	const result = await startChatSession(
 		env.leadgen,
@@ -34,6 +36,17 @@ describe("loadSellerPanelRouteData", () => {
 		expect(data?.chatEvidence).toBeNull();
 		expect(data?.leadPage.total).toBeGreaterThan(0);
 		expect(data?.currentSite).toBe("generated");
+	});
+
+	it("treats a non-numeric page param as page 1", async () => {
+		const data = await loadSellerPanelRouteData(
+			env.leadgen,
+			TEST_IDS.tokens.sellerJan,
+			new URL("https://wizytowka.link/s/seller_jan_token?page=abc"),
+		);
+
+		expect(data?.page).toBe(1);
+		expect(data?.leadPage.page).toBe(1);
 	});
 
 	it("keeps the seller/admin lead list while opening a chat transcript deep link", async () => {

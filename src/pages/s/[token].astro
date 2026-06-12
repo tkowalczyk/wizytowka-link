@@ -7,6 +7,8 @@ import { loadSellerPanelRouteData } from '../../lib/seller-panel-data';
 const { token } = Astro.params;
 if (!token) return new Response(null, { status: 404 });
 
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+
 const url = new URL(Astro.request.url);
 const data = await loadSellerPanelRouteData(env.leadgen as D1Database, token, url);
 if (!data) return new Response(null, { status: 404 });
