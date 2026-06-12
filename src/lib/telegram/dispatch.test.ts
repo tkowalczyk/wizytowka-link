@@ -77,6 +77,44 @@ describe("createBotRoute", () => {
 		expect(res.status).toBe(200);
 	});
 
+	it("returns 200 for a malformed JSON body", async () => {
+		const { POST } = createBotRoute(baseConfig, fakeEnv);
+		const res = await POST({
+			params: { secret: "test-secret-value" },
+			request: new Request("http://test/api/telegram/bot/the-secret", {
+				method: "POST",
+				body: "{not json",
+				headers: { "Content-Type": "application/json" },
+			}),
+		} as unknown as Parameters<typeof POST>[0]);
+
+		expect(res.status).toBe(200);
+	});
+
+	it("returns 200 for an update whose message lacks a chat", async () => {
+		const update = {
+			update_id: 1,
+			message: { message_id: 1 },
+		} as unknown as TelegramUpdate;
+		const res = await callRoute(baseConfig, "test-secret-value", update);
+
+		expect(res.status).toBe(200);
+	});
+
+	it("returns 200 when a handler matcher throws", async () => {
+		const handler: TgHandler = {
+			match: () => {
+				throw new Error("bad update shape");
+			},
+			handle: vi.fn(),
+		};
+		const config: BotConfig = { ...baseConfig, handlers: [handler] };
+		const res = await callRoute(config, "test-secret-value", makeUpdate());
+
+		expect(res.status).toBe(200);
+		expect(handler.handle).not.toHaveBeenCalled();
+	});
+
 	it("dispatches to first matching handler", async () => {
 		const handled: string[] = [];
 		const h1: TgHandler = {

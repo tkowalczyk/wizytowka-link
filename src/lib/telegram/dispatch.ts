@@ -13,9 +13,16 @@ import type {
 	TgContext,
 } from "./types";
 
-function extractChatId(update: TelegramUpdate): string | null {
-	if (update.callback_query) return String(update.callback_query.from.id);
-	if (update.message) return String(update.message.chat.id);
+function extractChatId(update: unknown): string | null {
+	if (!update || typeof update !== "object") return null;
+
+	const maybeUpdate = update as Partial<TelegramUpdate>;
+	const callbackFromId = maybeUpdate.callback_query?.from?.id;
+	if (callbackFromId != null) return String(callbackFromId);
+
+	const messageChatId = maybeUpdate.message?.chat?.id;
+	if (messageChatId != null) return String(messageChatId);
+
 	return null;
 }
 
@@ -51,15 +58,28 @@ export function createBotRoute(
 		}
 
 		const token = values[config.tokenEnvKey];
-		const update = (await request.json()) as TelegramUpdate;
+		let update: unknown;
+		try {
+			update = await request.json();
+		} catch {
+			return new Response("ok");
+		}
 		const chatId = extractChatId(update);
 
 		if (!chatId) return new Response("ok");
 
-		const ctx = buildContext(env, token, chatId, update);
+		const ctx = buildContext(env, token, chatId, update as TelegramUpdate);
 
 		for (const handler of config.handlers) {
-			if (handler.match(update, ctx)) {
+			let matches = false;
+			try {
+				matches = handler.match(update as TelegramUpdate, ctx);
+			} catch (err) {
+				console.error("telegram handler match error:", err);
+				continue;
+			}
+
+			if (matches) {
 				try {
 					await handler.handle(ctx);
 				} catch (err) {
