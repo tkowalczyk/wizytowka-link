@@ -140,6 +140,12 @@ describe("createGLM5 error handling", () => {
 		globalThis.fetch = realFetch;
 	});
 
+	// Issue #56 TDD assumptions:
+	// Input: createGLM5 can use an injected fetch and per-request timeout for
+	// boundary tests; production defaults remain internal constants.
+	// Output: hung requests reject with an abort/timeout-flavored Error.
+	// Boundaries: this does not test real Z.ai latency, retry policy, or streaming.
+
 	it("caps large upstream error body so thrown Error stays bounded", async () => {
 		const huge = "X".repeat(1_000_000); // 1 MB simulated HTML 502 page
 		globalThis.fetch = vi.fn(
@@ -161,5 +167,37 @@ describe("createGLM5 error handling", () => {
 		expect(msg).toMatch(/X{500,}/);
 		// Total message length is bounded — well below the 1 MB upstream payload
 		expect(msg.length).toBeLessThan(5000);
+	});
+
+	it("aborts a hung GLM-5 request after the timeout", async () => {
+		const hangingFetch = (
+			_url: string | URL | Request,
+			init?: RequestInit,
+		): Promise<Response> => {
+			return new Promise((_resolve, reject) => {
+				const signal = init?.signal;
+				if (signal?.aborted) {
+					reject(new DOMException("Aborted", "AbortError"));
+					return;
+				}
+				signal?.addEventListener(
+					"abort",
+					() => reject(new DOMException("Aborted", "AbortError")),
+					{ once: true },
+				);
+			});
+		};
+		globalThis.fetch = hangingFetch as typeof fetch;
+
+		const llm = createGLM5("test-key", hangingFetch as typeof fetch, 20);
+
+		await expect(
+			Promise.race([
+				llm.complete([{ role: "user", content: "hi" }]),
+				new Promise((_resolve, reject) =>
+					setTimeout(() => reject(new Error("test-hung")), 500),
+				),
+			]),
+		).rejects.toThrow(/timeout|abort/i);
 	});
 });

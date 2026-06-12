@@ -7,8 +7,10 @@ import {
 	type GenerateSitesDeps,
 	generateSites,
 	runGenerateSites,
+	STALE_CLAIM_TTL_MS,
+	WALL_TIME_BUDGET_MS,
 } from "./generate-sites";
-import type { LLMProvider } from "./site-content";
+import { GLM5_TIMEOUT_MS, type LLMProvider } from "./site-content";
 
 beforeEach(() => resetDb(env.leadgen));
 
@@ -139,6 +141,12 @@ describe("generateSites return type", () => {
 		expect(result).toEqual({ processed: 0, failed: 0 });
 	});
 
+	it("keeps stale-claim TTL above wall budget plus one GLM-5 timeout", () => {
+		expect(STALE_CLAIM_TTL_MS).toBeGreaterThan(
+			WALL_TIME_BUDGET_MS + GLM5_TIMEOUT_MS,
+		);
+	});
+
 	it("tracer: claims pending row, marks done after success", async () => {
 		// Pre-condition: keep only biz 3 (dentysta-krakow) as pending so we can
 		// reason about a single row. Mark biz 6 (mechanik-wroclaw) as done.
@@ -159,15 +167,15 @@ describe("generateSites return type", () => {
 		expect(row?.site_claimed_at).toBeNull();
 	});
 
-	it("stale claim recovery: in_progress older than 15min returns to pool", async () => {
+	it("stale claim recovery: in_progress older than TTL returns to pool", async () => {
 		// Reduce pool to a single recoverable row.
 		await env.leadgen
 			.prepare("UPDATE businesses SET site_status = 'done' WHERE id = 6")
 			.run();
-		// Manually mark biz 3 as 'in_progress' with a stale claim (-20min).
+		// Manually mark biz 3 as 'in_progress' with a stale claim (-25min).
 		await env.leadgen
 			.prepare(
-				"UPDATE businesses SET site_status = 'in_progress', site_claimed_at = datetime('now', '-20 minutes') WHERE id = 3",
+				"UPDATE businesses SET site_status = 'in_progress', site_claimed_at = datetime('now', '-25 minutes') WHERE id = 3",
 			)
 			.run();
 

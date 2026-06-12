@@ -19,6 +19,7 @@ interface GLMResponse {
 }
 
 const ERROR_BODY_CAP_BYTES = 2048;
+export const GLM5_TIMEOUT_MS = 120 * 1000;
 
 async function readBodyCapped(
 	res: Response,
@@ -50,25 +51,45 @@ async function readBodyCapped(
 	return new TextDecoder("utf-8", { fatal: false }).decode(merged);
 }
 
-export function createGLM5(apiKey: string): LLMProvider {
+export function createGLM5(
+	apiKey: string,
+	fetchImpl: typeof fetch = fetch,
+	timeoutMs = GLM5_TIMEOUT_MS,
+): LLMProvider {
 	return {
 		async complete(messages) {
-			const res = await fetch(
-				"https://api.z.ai/api/coding/paas/v4/chat/completions",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${apiKey}`,
+			const controller = new AbortController();
+			const timer = setTimeout(() => controller.abort(), timeoutMs);
+			let res: Response;
+			try {
+				res = await fetchImpl(
+					"https://api.z.ai/api/coding/paas/v4/chat/completions",
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${apiKey}`,
+						},
+						body: JSON.stringify({
+							model: "glm-5",
+							messages,
+							temperature: 0.7,
+							max_tokens: 6000,
+						}),
+						signal: controller.signal,
 					},
-					body: JSON.stringify({
-						model: "glm-5",
-						messages,
-						temperature: 0.7,
-						max_tokens: 6000,
-					}),
-				},
-			);
+				);
+			} catch (err) {
+				if (
+					controller.signal.aborted ||
+					(err instanceof Error && err.name === "AbortError")
+				) {
+					throw new Error(`GLM-5 timeout after ${timeoutMs}ms`);
+				}
+				throw err;
+			} finally {
+				clearTimeout(timer);
+			}
 			if (!res.ok) {
 				const text = await readBodyCapped(res, ERROR_BODY_CAP_BYTES);
 				throw new Error(`GLM-5 ${res.status}: ${text}`);

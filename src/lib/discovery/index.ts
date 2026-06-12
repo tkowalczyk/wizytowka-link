@@ -36,6 +36,7 @@ const BATCH_SIZE = 4;
 const MAX_LOCALITY_ATTEMPTS = 5;
 const SERPAPI_BASE = "https://serpapi.com/search.json";
 const MAX_PAGES_PER_CATEGORY = 5;
+export const SERPAPI_SEARCH_TIMEOUT_MS = 30 * 1000;
 
 const DEFAULT_CATEGORIES = [
 	"firma",
@@ -58,7 +59,11 @@ const DEFAULT_CATEGORIES = [
 	"usługi",
 ];
 
-function createSerpApiSearch(env: Env): SearchPort {
+export function createSerpApiSearch(
+	env: Pick<Env, "SERP_API_KEY">,
+	fetchImpl: typeof fetch = fetch,
+	timeoutMs = SERPAPI_SEARCH_TIMEOUT_MS,
+): SearchPort {
 	return {
 		async search(locality, category) {
 			const results: SerpApiLocalResult[] = [];
@@ -69,8 +74,25 @@ function createSerpApiSearch(env: Env): SearchPort {
 			let calls = 0;
 			try {
 				while (url && page < MAX_PAGES_PER_CATEGORY) {
-					const res = await fetch(url);
 					calls++;
+					const controller = new AbortController();
+					const timer = setTimeout(() => controller.abort(), timeoutMs);
+					let res: Response;
+					try {
+						res = await fetchImpl(url, { signal: controller.signal });
+					} catch (err) {
+						if (
+							controller.signal.aborted ||
+							(err instanceof Error && err.name === "AbortError")
+						) {
+							throw new SerpApiError(`SerpAPI timeout after ${timeoutMs}ms`, {
+								calls,
+							});
+						}
+						throw err;
+					} finally {
+						clearTimeout(timer);
+					}
 					if (!res.ok)
 						throw new SerpApiError(`SerpAPI ${res.status}`, {
 							calls,

@@ -1,9 +1,10 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb, TEST_IDS } from "../../../test/seed";
+import type { Locality } from "../../types/business";
 import type { SerpApiLocalResult } from "../../types/serpapi";
 import { SerpApiError } from "./errors";
-import { runDiscovery } from "./index";
+import { createSerpApiSearch, runDiscovery } from "./index";
 import type { DiscoveryDeps, NotifyPort, SearchPort, StatePort } from "./ports";
 import { SKIP_FLAG_KEY } from "./preflight";
 
@@ -60,6 +61,56 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): DiscoveryDeps {
 }
 
 // -- tests --
+
+describe("discovery: createSerpApiSearch", () => {
+	// Issue #56 TDD assumptions:
+	// Input: the SerpAPI search client can use an injected fetch and timeout for
+	// boundary tests; production defaults stay in the client factory.
+	// Output: a hung search rejects as SerpApiError with a timeout/abort message.
+	// Boundaries: this does not test live SerpAPI latency, quota, or pagination.
+	it("aborts a hung SerpAPI search request after the timeout", async () => {
+		const hangingFetch = (
+			_url: string | URL | Request,
+			init?: RequestInit,
+		): Promise<Response> => {
+			return new Promise((_resolve, reject) => {
+				const signal = init?.signal;
+				if (signal?.aborted) {
+					reject(new DOMException("Aborted", "AbortError"));
+					return;
+				}
+				signal?.addEventListener(
+					"abort",
+					() => reject(new DOMException("Aborted", "AbortError")),
+					{ once: true },
+				);
+			});
+		};
+		const search = createSerpApiSearch(
+			{ SERP_API_KEY: "test-key" } as Env,
+			hangingFetch as typeof fetch,
+			20,
+		);
+		const locality: Locality = {
+			id: 1,
+			name: "Kraków",
+			slug: "krakow",
+			lat: 50.0647,
+			lng: 19.945,
+			distance_km: 0,
+			searched_at: null,
+		};
+
+		await expect(
+			Promise.race([
+				search.search(locality, "firma"),
+				new Promise((_resolve, reject) =>
+					setTimeout(() => reject(new Error("test-hung")), 500),
+				),
+			]),
+		).rejects.toThrow(/timeout|abort/i);
+	});
+});
 
 describe("discovery: runDiscovery", () => {
 	beforeEach(async () => {

@@ -1,7 +1,12 @@
 import type { SiteData } from "../types/site";
 import type { RunResult } from "./cron-log";
 import { getOverrides, resolveFullTheme } from "./presentation";
-import { createGLM5, generateContent, type LLMProvider } from "./site-content";
+import {
+	createGLM5,
+	GLM5_TIMEOUT_MS,
+	generateContent,
+	type LLMProvider,
+} from "./site-content";
 import { putSite as defaultPutSite } from "./site-store";
 
 interface BusinessRow {
@@ -26,12 +31,19 @@ export interface GenerateSitesDeps {
 
 // Workers scheduled handlers have a 15min wall-clock limit; we break out early
 // at 12min to leave margin for in-flight GLM-5 request + D1/R2 writes.
-const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
+export const WALL_TIME_BUDGET_MS = 12 * 60 * 1000;
 
 // Stale claim TTL — rows stuck in 'in_progress' longer than this are
-// reclaimed by the next run. Generously above the 12min wall budget so
-// in-flight claims are never accidentally stolen.
-const STALE_CLAIM_TTL = "-15 minutes";
+// reclaimed by the next run. It must exceed the wall budget plus the longest
+// single GLM-5 request so in-flight claims are never accidentally stolen.
+export const STALE_CLAIM_TTL_MS = 20 * 60 * 1000;
+const STALE_CLAIM_TTL = `-${STALE_CLAIM_TTL_MS / 60_000} minutes`;
+
+if (STALE_CLAIM_TTL_MS <= WALL_TIME_BUDGET_MS + GLM5_TIMEOUT_MS) {
+	throw new Error(
+		"STALE_CLAIM_TTL_MS must exceed wall budget plus GLM-5 timeout",
+	);
+}
 
 const SITE_RETRY_BACKOFF_MINUTES = [10, 60, 360, 1440] as const;
 
