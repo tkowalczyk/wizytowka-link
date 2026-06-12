@@ -271,7 +271,7 @@ export async function runDiscovery(
 		}
 
 		await batchInsert(db, businesses);
-		await markSearched(db, locality.id);
+		if (!hardStop) await markSearched(db, locality.id);
 
 		const newLeads = await countTodayLeads(db);
 		totalApiCalls += apiCalls;

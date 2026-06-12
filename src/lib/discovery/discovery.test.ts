@@ -374,6 +374,88 @@ describe("discovery: runDiscovery", () => {
 		expect(stats.totalApiCalls).toBe(2);
 	});
 
+	it("hard stop: leaves locality unsearched when scrape stops mid-locality", async () => {
+		// Assumptions: auth/payment/quota are hard stops, partial inserts stay
+		// persisted, and retry eligibility is driven by searched_at remaining NULL.
+		const goodResult = fakeResult({ place_id: "place_hard_stop_partial" });
+		let callNum = 0;
+		const searchApi: SearchPort = {
+			search: async () => {
+				callNum++;
+				if (callNum === 1) return { results: [goodResult], calls: 1 };
+				throw new SerpApiError("SerpAPI 429 quota exhausted", {
+					calls: 1,
+					status: 429,
+				});
+			},
+		};
+		const deps = makeDeps({
+			searchApi,
+			categories: ["firma", "sklep", "restauracja"],
+		});
+
+		await runDiscovery(deps);
+
+		const row = await env.leadgen
+			.prepare("SELECT searched_at FROM localities WHERE id = ?")
+			.bind(TEST_IDS.localities.krakow)
+			.first<{ searched_at: string | null }>();
+
+		expect(row?.searched_at).toBeNull();
+	});
+
+	it("hard stop: later run retries same locality and completes all categories", async () => {
+		const calls: Array<{ category: string; locality: string }> = [];
+		const searchApi: SearchPort = {
+			search: async (locality, category) => {
+				calls.push({ category, locality: locality.name });
+				if (calls.length === 1) {
+					return {
+						results: [fakeResult({ place_id: "place_retry_partial" })],
+						calls: 1,
+					};
+				}
+				if (calls.length === 2) {
+					throw new SerpApiError("SerpAPI 429 quota exhausted", {
+						calls: 1,
+						status: 429,
+					});
+				}
+				return {
+					results: [
+						fakeResult({
+							place_id: `place_retry_${category}`,
+							title: `Retry ${category}`,
+						}),
+					],
+					calls: 1,
+				};
+			},
+		};
+		const deps = makeDeps({
+			searchApi,
+			categories: ["firma", "sklep", "restauracja"],
+		});
+
+		await runDiscovery(deps);
+		await runDiscovery(deps);
+
+		expect(calls).toEqual([
+			{ locality: "Kraków", category: "firma" },
+			{ locality: "Kraków", category: "sklep" },
+			{ locality: "Kraków", category: "firma" },
+			{ locality: "Kraków", category: "sklep" },
+			{ locality: "Kraków", category: "restauracja" },
+		]);
+
+		const row = await env.leadgen
+			.prepare("SELECT searched_at FROM localities WHERE id = ?")
+			.bind(TEST_IDS.localities.krakow)
+			.first<{ searched_at: string | null }>();
+
+		expect(row?.searched_at).not.toBeNull();
+	});
+
 	it("multi-locality retry: 0 leads in first locality → tries next", async () => {
 		// Push existing businesses to yesterday so countTodayLeads starts at 0
 		await env.leadgen
