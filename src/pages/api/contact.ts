@@ -3,7 +3,7 @@ import type { APIRoute } from "astro";
 import { Leads } from "../../lib/leads";
 import { normalizePhone } from "../../lib/phone";
 import { siteKey } from "../../lib/site-store";
-import { sendMessage } from "../../lib/telegram";
+import { escapeHtml, sendMessage } from "../../lib/telegram";
 import type { SellerRow } from "../../types/business";
 
 interface ContactBody {
@@ -127,7 +127,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 			const siteObj = await env.sites.head(siteR2Key);
 
 			const deepLink = `t.me/wizytowka_klient_bot?start=${ownerToken}`;
-			let line = `\n${i + 1}. ${m.title} — ${m.category} — ${m.locality_name}`;
+			let line = `\n${i + 1}. ${escapeHtml(m.title)} — ${escapeHtml(m.category)} — ${escapeHtml(m.locality_name)}`;
 			if (siteObj) {
 				line += `\n   🌐 wizytowka.link/${m.locality_slug}/${m.slug}`;
 			}

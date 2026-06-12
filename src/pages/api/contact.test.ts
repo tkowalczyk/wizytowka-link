@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { resetDb } from "../../../test/seed";
+import { resetDb, TEST_IDS } from "../../../test/seed";
 import { POST } from "./contact";
 
 function contactRequest(phone: string, ip = "203.0.113.10"): Request {
@@ -93,6 +93,44 @@ describe("POST /api/contact", () => {
 			]);
 			expect(bodies[0].text).toContain("Hydraulik Warszawa");
 			expect(bodies[0].text).toContain("biz_hydraulik_token");
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it("escapes scraped business fields in the Telegram notification", async () => {
+		await env.leadgen
+			.prepare("UPDATE businesses SET title = ?, category = ? WHERE id = ?")
+			.bind(
+				"A&B <Auto-Serwis> Kowalski",
+				"Repair & <Service>",
+				TEST_IDS.businesses.hydraulikWarszawa,
+			)
+			.run();
+		await env.leadgen
+			.prepare("UPDATE localities SET name = ? WHERE id = ?")
+			.bind("Warszawa <Center> & okolice", TEST_IDS.localities.warszawa)
+			.run();
+
+		const fetchMock = mockFetch();
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+		try {
+			const response = await submitContact(contactRequest("+48 123 456 789"));
+
+			expect(response.status).toBe(200);
+
+			const calls = telegramCalls(fetchMock);
+			expect(calls).toHaveLength(2);
+			const body = JSON.parse(calls[0][1]?.body as string);
+
+			expect(body.text).toContain("A&amp;B &lt;Auto-Serwis&gt; Kowalski");
+			expect(body.text).toContain("Repair &amp; &lt;Service&gt;");
+			expect(body.text).toContain("Warszawa &lt;Center&gt; &amp; okolice");
+			expect(body.text).not.toContain("A&B <Auto-Serwis> Kowalski");
+			expect(body.text).not.toContain("Repair & <Service>");
+			expect(body.text).not.toContain("Warszawa <Center> & okolice");
 		} finally {
 			globalThis.fetch = originalFetch;
 		}
