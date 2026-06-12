@@ -5,6 +5,7 @@ import {
 	sendChatStartNotification,
 	startChatSession,
 } from "../../../lib/chat";
+import { isChatStartRateLimited } from "../../../lib/chat-rate-limit";
 
 function json(data: Record<string, unknown>, status = 200) {
 	return new Response(JSON.stringify(data), {
@@ -23,6 +24,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
 	const input = parseStartChatInput(rawBody);
 	if (!input) return json({ error: "nieprawidlowe dane" }, 400);
+
+	if (await isChatStartRateLimited(env.STATE, request, input)) {
+		return json({ error: "za duzo prob" }, 429);
+	}
 
 	const result = await startChatSession(env.leadgen, input, {
 		referrer: request.headers.get("Referer"),

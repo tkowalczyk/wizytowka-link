@@ -8,11 +8,15 @@ interface ChatStartResponse {
 	status: "active";
 }
 
-function chatStartRequest(body: Record<string, unknown>): Request {
+function chatStartRequest(
+	body: Record<string, unknown>,
+	ip = "203.0.113.20",
+): Request {
 	return new Request("https://wizytowka.link/api/chat/start", {
 		method: "POST",
 		headers: {
 			"Content-Type": "application/json",
+			"CF-Connecting-IP": ip,
 			Referer: "https://example.test/source",
 			"User-Agent": "Vitest Agent",
 		},
@@ -80,12 +84,18 @@ async function submitChatStart(body: Record<string, unknown>): Promise<{
 	return { response, settled: ctx.settle() };
 }
 
+async function clearChatRateLimitState(): Promise<void> {
+	const listed = await env.STATE.list({ prefix: "chat:v1:" });
+	await Promise.all(listed.keys.map((key) => env.STATE.delete(key.name)));
+}
+
 describe("POST /api/chat/start", () => {
 	let originalFetch: typeof fetch;
 	let fetchMock: ReturnType<typeof mockFetch>;
 
 	beforeEach(async () => {
 		await resetDb(env.leadgen);
+		await clearChatRateLimitState();
 		originalFetch = globalThis.fetch;
 		fetchMock = mockFetch();
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
@@ -99,6 +109,8 @@ describe("POST /api/chat/start", () => {
 	// Request body identifies the current generated page as { locSlug, businessSlug, sessionId? }.
 	// Referrer and user agent are read from request headers.
 	// Retrying with a known active sessionId returns that stored session.
+	// Assumptions for issue #50:
+	// Sessionless chat starts are capped at one new session per 15 minutes for the same client IP and page slug.
 	it("creates an active chat session for the current generated page", async () => {
 		const { response, settled } = await submitChatStart({
 			locSlug: "warszawa",
@@ -205,6 +217,39 @@ describe("POST /api/chat/start", () => {
 			`Transkrypt: https://example.test/panel/test-token?chat=${body.sessionId}`,
 		);
 		expect(row?.telegram_start_sent_at).toEqual(expect.any(String));
+	});
+
+	it("rate-limits repeated sessionless starts from the same client and page before duplicate side effects", async () => {
+		const first = await submitChatStart({
+			locSlug: "warszawa",
+			businessSlug: "hydraulik-warszawa",
+		});
+		expect(first.response.status).toBe(200);
+		await first.settled;
+
+		const second = await submitChatStart({
+			locSlug: "warszawa",
+			businessSlug: "hydraulik-warszawa",
+		});
+		expect(second.response.status).toBe(429);
+		expect(await second.response.json()).toEqual({ error: "za duzo prob" });
+		await second.settled;
+
+		expect(telegramCalls(fetchMock)).toHaveLength(1);
+
+		const sessions = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS count FROM chat_sessions WHERE locality_slug = 'warszawa' AND business_slug = 'hydraulik-warszawa'",
+			)
+			.first<{ count: number }>();
+		expect(sessions?.count).toBe(1);
+
+		const starts = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS count FROM analytics_events WHERE event_type = 'chat_start' AND locality_slug = 'warszawa' AND business_slug = 'hydraulik-warszawa'",
+			)
+			.first<{ count: number }>();
+		expect(starts?.count).toBe(1);
 	});
 
 	it("does not resend the Telegram start notification when retrying the same active session", async () => {

@@ -5,6 +5,7 @@ import {
 	parseChatMessageInput,
 	sendChatMessage,
 } from "../../../lib/chat";
+import { isChatMessageRateLimited } from "../../../lib/chat-rate-limit";
 
 function json(data: Record<string, unknown>, status = 200) {
 	return new Response(JSON.stringify(data), {
@@ -24,6 +25,10 @@ export const POST: APIRoute = async ({ request }) => {
 	const input = parseChatMessageInput(rawBody);
 	if (!input) return json({ error: "nieprawidlowe dane" }, 400);
 
+	if (await isChatMessageRateLimited(env.STATE, request, input.sessionId)) {
+		return json({ error: "za duzo prob" }, 429);
+	}
+
 	const result = await sendChatMessage(
 		env.leadgen,
 		env.sites,
@@ -36,6 +41,9 @@ export const POST: APIRoute = async ({ request }) => {
 	}
 	if (result.status === "ended") {
 		return json({ error: "sesja zakonczona" }, 409);
+	}
+	if (result.status === "rate_limited") {
+		return json({ error: "za duzo prob" }, 429);
 	}
 
 	return json({ message: result.message });

@@ -78,7 +78,8 @@ export interface AssistantChatMessage {
 export type ChatMessageResult =
 	| { status: "ok"; message: AssistantChatMessage }
 	| { status: "not_found" }
-	| { status: "ended" };
+	| { status: "ended" }
+	| { status: "rate_limited" };
 
 export interface ChatLLMMessage {
 	role: "system" | "user" | "assistant";
@@ -88,6 +89,9 @@ export interface ChatLLMMessage {
 export interface ChatLLMProvider {
 	complete(messages: ChatLLMMessage[]): Promise<string>;
 }
+
+export const MAX_CHAT_MESSAGE_CHARS = 1000;
+export const MAX_CHAT_SESSION_MESSAGES = 30;
 
 interface BusinessPageRow {
 	id: number;
@@ -210,9 +214,11 @@ export function parseChatMessageInput(body: unknown): ChatMessageInput | null {
 	if (!isNonEmptyString(data.sessionId) || !isNonEmptyString(data.content)) {
 		return null;
 	}
+	const content = data.content.trim();
+	if (content.length > MAX_CHAT_MESSAGE_CHARS) return null;
 	return {
 		sessionId: data.sessionId.trim(),
-		content: data.content.trim(),
+		content,
 	};
 }
 
@@ -444,6 +450,17 @@ async function nextMessageIndex(
 		.bind(sessionId)
 		.first<{ next_index: number }>();
 	return row?.next_index ?? 1;
+}
+
+async function countStoredChatMessages(
+	db: D1Database,
+	sessionId: string,
+): Promise<number> {
+	const row = await db
+		.prepare("SELECT COUNT(*) AS count FROM chat_messages WHERE session_id = ?")
+		.bind(sessionId)
+		.first<{ count: number }>();
+	return row?.count ?? 0;
 }
 
 async function appendChatMessage(
@@ -761,6 +778,10 @@ export async function sendChatMessage(
 	const session = await findChatSession(db, input.sessionId);
 	if (!session) return { status: "not_found" };
 	if (session.status !== "active") return { status: "ended" };
+	const existingMessageCount = await countStoredChatMessages(db, session.id);
+	if (existingMessageCount > MAX_CHAT_SESSION_MESSAGES - 2) {
+		return { status: "rate_limited" };
+	}
 
 	await appendChatMessage(db, session, "visitor", input.content);
 	const { allowed, sensitiveValues } = await loadChatContext(db, r2, session);

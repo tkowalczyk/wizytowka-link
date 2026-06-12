@@ -14,10 +14,13 @@ interface ChatMessageResponse {
 	};
 }
 
-function chatMessageRequest(body: Record<string, unknown>): Request {
+function chatMessageRequest(
+	body: Record<string, unknown>,
+	ip = "203.0.113.10",
+): Request {
 	return new Request("https://wizytowka.link/api/chat/messages", {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+		headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip },
 		body: JSON.stringify(body),
 	});
 }
@@ -34,6 +37,11 @@ async function activeSessionId() {
 	);
 	if (!result) throw new Error("failed to create test chat session");
 	return result.sessionId;
+}
+
+async function clearChatRateLimitState(): Promise<void> {
+	const listed = await env.STATE.list({ prefix: "chat:v1:" });
+	await Promise.all(listed.keys.map((key) => env.STATE.delete(key.name)));
 }
 
 function mockZaiFetch(answer: string) {
@@ -94,6 +102,7 @@ describe("POST /api/chat/messages", () => {
 
 	beforeEach(async () => {
 		await resetDb(env.leadgen);
+		await clearChatRateLimitState();
 		await deleteSite(env.sites, "live", "warszawa", "hydraulik-warszawa");
 		originalFetch = globalThis.fetch;
 	});
@@ -106,6 +115,110 @@ describe("POST /api/chat/messages", () => {
 	// Request body is { sessionId, content } for the current active chat session.
 	// A successful response stores exactly one visitor row and one assistant row.
 	// Unknown sessions return 404; ended sessions return 409 and do not store messages.
+	// Assumptions for issue #50:
+	// Visitor content is capped at 1000 characters before any LLM or persistence side effects.
+	// The session cap is 30 stored transcript messages, counted across visitor and assistant rows.
+	// Burst limits are enforced per client IP and chat session.
+	it("rejects overlong visitor content before calling the LLM", async () => {
+		const fetchMock = mockZaiFetch("Nie powinno byc wywolane.");
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId();
+
+		const response = await POST({
+			request: chatMessageRequest({
+				sessionId,
+				content: "a".repeat(5000),
+			}),
+		} as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(400);
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		const count = await env.leadgen
+			.prepare("SELECT COUNT(*) AS count FROM chat_messages")
+			.first<{ count: number }>();
+		expect(count?.count).toBe(0);
+	});
+
+	it("rate-limits a session that already reached the transcript message cap", async () => {
+		const fetchMock = mockZaiFetch("Nie powinno byc wywolane.");
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId();
+		for (let index = 1; index <= 30; index++) {
+			await env.leadgen
+				.prepare(
+					`INSERT INTO chat_messages (
+             id, session_id, locality_slug, business_slug, role, content, message_index, created_at
+           ) VALUES (?, ?, 'warszawa', 'hydraulik-warszawa', ?, ?, ?, ?)`,
+				)
+				.bind(
+					`msg-cap-${index}`,
+					sessionId,
+					index % 2 === 1 ? "visitor" : "assistant",
+					`Wiadomosc ${index}`,
+					index,
+					`2026-05-26T10:${String(index).padStart(2, "0")}:00.000Z`,
+				)
+				.run();
+		}
+
+		const response = await POST({
+			request: chatMessageRequest({
+				sessionId,
+				content: "Czy moge zadac jeszcze jedno pytanie?",
+			}),
+		} as Parameters<typeof POST>[0]);
+
+		expect(response.status).toBe(429);
+		expect(await response.json()).toEqual({ error: "za duzo prob" });
+		expect(fetchMock).not.toHaveBeenCalled();
+
+		const count = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS count FROM chat_messages WHERE session_id = ?",
+			)
+			.bind(sessionId)
+			.first<{ count: number }>();
+		expect(count?.count).toBe(30);
+	});
+
+	it("rate-limits burst messages from the same client and session before calling the LLM", async () => {
+		const fetchMock = mockZaiFetchSequence(
+			Array.from({ length: 10 }, (_, index) => `Odpowiedz ${index + 1}`),
+		);
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId();
+
+		for (let index = 1; index <= 10; index++) {
+			const response = await POST({
+				request: chatMessageRequest({
+					sessionId,
+					content: `Pytanie ${index}`,
+				}),
+			} as Parameters<typeof POST>[0]);
+			expect(response.status).toBe(200);
+		}
+
+		const limited = await POST({
+			request: chatMessageRequest({
+				sessionId,
+				content: "Pytanie 11",
+			}),
+		} as Parameters<typeof POST>[0]);
+
+		expect(limited.status).toBe(429);
+		expect(await limited.json()).toEqual({ error: "za duzo prob" });
+		expect(fetchMock).toHaveBeenCalledTimes(10);
+
+		const count = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS count FROM chat_messages WHERE session_id = ?",
+			)
+			.bind(sessionId)
+			.first<{ count: number }>();
+		expect(count?.count).toBe(20);
+	});
+
 	it("stores a visitor message and assistant response for an active session", async () => {
 		globalThis.fetch = mockZaiFetch(
 			"Adres tego miejsca to ul. Marszałkowska 1, Warszawa.",
