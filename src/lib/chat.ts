@@ -439,19 +439,6 @@ async function findChatSession(
 		.first<ChatSessionRow>();
 }
 
-async function nextMessageIndex(
-	db: D1Database,
-	sessionId: string,
-): Promise<number> {
-	const row = await db
-		.prepare(
-			"SELECT COALESCE(MAX(message_index), 0) + 1 AS next_index FROM chat_messages WHERE session_id = ?",
-		)
-		.bind(sessionId)
-		.first<{ next_index: number }>();
-	return row?.next_index ?? 1;
-}
-
 async function countStoredChatMessages(
 	db: D1Database,
 	sessionId: string,
@@ -470,28 +457,36 @@ async function appendChatMessage(
 	content: string,
 ): Promise<StoredChatMessageRow> {
 	const createdAt = new Date().toISOString();
-	const messageIndex = await nextMessageIndex(db, session.id);
+	const messageId = crypto.randomUUID();
 	await db
 		.prepare(
 			`INSERT INTO chat_messages (
          id, session_id, locality_slug, business_slug, role, content, message_index, created_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       )
+       SELECT ?, ?, ?, ?, ?, ?,
+              COALESCE((SELECT MAX(message_index) FROM chat_messages WHERE session_id = ?), 0) + 1,
+              ?`,
 		)
 		.bind(
-			crypto.randomUUID(),
+			messageId,
 			session.id,
 			session.locality_slug,
 			session.business_slug,
 			role,
 			content,
-			messageIndex,
+			session.id,
 			createdAt,
 		)
 		.run();
+	const stored = await db
+		.prepare("SELECT message_index FROM chat_messages WHERE id = ?")
+		.bind(messageId)
+		.first<{ message_index: number }>();
+	if (!stored) throw new Error("failed to append chat message");
 	return {
 		role,
 		content,
-		message_index: messageIndex,
+		message_index: stored.message_index,
 		created_at: createdAt,
 	};
 }

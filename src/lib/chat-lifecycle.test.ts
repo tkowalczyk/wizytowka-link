@@ -1,7 +1,11 @@
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb } from "../../test/seed";
-import { endInactiveChatSessions, startChatSession } from "./chat";
+import {
+	endInactiveChatSessions,
+	sendChatMessage,
+	startChatSession,
+} from "./chat";
 
 async function activeSessionId(startedAt: string) {
 	const result = await startChatSession(
@@ -41,6 +45,69 @@ async function appendStoredMessage(params: {
 		)
 		.run();
 }
+
+describe("chat message storage", () => {
+	beforeEach(async () => {
+		await resetDb(env.leadgen);
+	});
+
+	// Assumptions for issue #51:
+	// Two active-session visitor messages may be submitted for the same session concurrently.
+	// Success means both sendChatMessage calls return ok and persist one visitor row plus one assistant row each.
+	// The durable ordering contract is distinct, gapless message_index values within the session.
+	// This slice does not change route-level rate limiting or ended-session behavior.
+	it("stores concurrent visitor messages without losing either", async () => {
+		const sessionId = await activeSessionId("2026-05-26T10:00:00.000Z");
+		const delayedLlm = {
+			async complete() {
+				await Promise.resolve();
+				return "Odpowiedź asystenta.";
+			},
+		};
+
+		const results = await Promise.all([
+			sendChatMessage(
+				env.leadgen,
+				env.sites,
+				{ sessionId, content: "pierwsza" },
+				delayedLlm,
+			),
+			sendChatMessage(
+				env.leadgen,
+				env.sites,
+				{ sessionId, content: "druga" },
+				delayedLlm,
+			),
+		]);
+
+		expect(results.map((result) => result.status)).toEqual(["ok", "ok"]);
+		const rows = await env.leadgen
+			.prepare(
+				`SELECT role, content, message_index
+         FROM chat_messages
+         WHERE session_id = ?
+         ORDER BY message_index`,
+			)
+			.bind(sessionId)
+			.all<{
+				role: "visitor" | "assistant";
+				content: string;
+				message_index: number;
+			}>();
+
+		expect(rows.results).toHaveLength(4);
+		expect(rows.results.map((row) => row.message_index)).toEqual([1, 2, 3, 4]);
+		expect(rows.results.filter((row) => row.role === "visitor")).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ content: "pierwsza" }),
+				expect.objectContaining({ content: "druga" }),
+			]),
+		);
+		expect(rows.results.filter((row) => row.role === "assistant")).toHaveLength(
+			2,
+		);
+	});
+});
 
 describe("chat lifecycle timeout sweep", () => {
 	beforeEach(async () => {
