@@ -5,6 +5,7 @@ import {
 	ASSISTANT_FIRST_MESSAGE,
 	ASSISTANT_PRIVACY_NOTICE,
 	buildPublicBusinessPageModel,
+	publicCacheControl,
 } from "./public-page";
 import type { BizData } from "./structured-data";
 
@@ -127,5 +128,25 @@ describe("buildPublicBusinessPageModel", () => {
 
 		expect(renderedCopy.toLowerCase()).not.toContain("seller");
 		expect(renderedCopy.toLowerCase()).not.toContain("sprzedaw");
+	});
+});
+
+describe("publicCacheControl", () => {
+	// Issue #72 gap 1: promoteDraft/changeTheme perform no cache purge, so the old
+	// 24h browser max-age broke the owner's approve-then-verify loop. Decision (a):
+	// lower browser max-age to <= 5 min so the canonical URL self-heals quickly.
+	const parseMaxAge = (header: string): number | null => {
+		const match = header.match(/(?:^|[,\s])max-age=(\d+)/i);
+		return match ? Number(match[1]) : null;
+	};
+
+	it("keeps the browser max-age at or below 300 seconds", () => {
+		const maxAge = parseMaxAge(publicCacheControl());
+		expect(maxAge).not.toBeNull();
+		expect(maxAge as number).toBeLessThanOrEqual(300);
+	});
+
+	it("stays publicly cacheable", () => {
+		expect(publicCacheControl()).toMatch(/(?:^|[,\s])public(?:[,\s]|$)/);
 	});
 });
