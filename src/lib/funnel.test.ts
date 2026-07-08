@@ -39,6 +39,34 @@ describe("getFunnelStats", () => {
 		expect(Object.keys(stats.counts)).toHaveLength(7);
 	});
 
+	it("tie-breaks same-second statuses by id — latest insert wins", async () => {
+		const db = env.leadgen;
+		const sellerId = TEST_IDS.sellers.jan;
+		await db.prepare("DELETE FROM call_log").run();
+
+		// Two statuses tapped within the same second (call_log.created_at has
+		// second precision). "called" first, then "interested" (higher id).
+		const ts = "2026-01-01 12:00:00";
+		await db
+			.prepare(
+				"INSERT INTO call_log (business_id, seller_id, status, created_at) VALUES (?, ?, ?, ?)",
+			)
+			.bind(1, sellerId, "called", ts)
+			.run();
+		await db
+			.prepare(
+				"INSERT INTO call_log (business_id, seller_id, status, created_at) VALUES (?, ?, ?, ?)",
+			)
+			.bind(1, sellerId, "interested", ts)
+			.run();
+
+		const stats = await getFunnelStats(db, sellerId);
+
+		expect(stats.total).toBe(1);
+		expect(stats.counts.interested).toBe(1);
+		expect(stats.counts.called).toBe(0);
+	});
+
 	it("returns zero counts for seller with no call_log entries", async () => {
 		// Insert a seller with no call_log
 		await env.leadgen
@@ -123,6 +151,34 @@ describe("getWeekOverWeekDelta", () => {
 		expect(delta.interested).toBe(1);
 		expect(delta.deal_closed).toBe(1);
 		expect(delta.pending).toBe(0);
+	});
+
+	it("tie-breaks same-second statuses by id within the week window", async () => {
+		const db = env.leadgen;
+		const sellerId = TEST_IDS.sellers.jan;
+		await db.prepare("DELETE FROM call_log").run();
+
+		// Identical timestamp inside the current week for both rows.
+		const { t: ts } = (await db
+			.prepare("SELECT datetime('now', '-1 hours') AS t")
+			.first<{ t: string }>()) as { t: string };
+		await db
+			.prepare(
+				"INSERT INTO call_log (business_id, seller_id, status, created_at) VALUES (?, ?, ?, ?)",
+			)
+			.bind(1, sellerId, "called", ts)
+			.run();
+		await db
+			.prepare(
+				"INSERT INTO call_log (business_id, seller_id, status, created_at) VALUES (?, ?, ?, ?)",
+			)
+			.bind(1, sellerId, "interested", ts)
+			.run();
+
+		const delta = await getWeekOverWeekDelta(db, sellerId);
+
+		expect(delta.interested).toBe(1);
+		expect(delta.called).toBe(0);
 	});
 });
 

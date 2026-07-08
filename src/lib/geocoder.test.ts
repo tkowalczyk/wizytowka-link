@@ -1,10 +1,11 @@
 import { env } from "cloudflare:workers";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "../../test/seed";
 import {
 	type GeocoderDeps,
 	type GeoResult,
 	geocodeLocalities,
+	nominatimWithFallback,
 } from "./geocoder";
 
 function successGeo(overrides: Partial<GeoResult> = {}): GeoResult {
@@ -185,5 +186,35 @@ describe("geocodeLocalities", () => {
 
 		expect(result.processed).toBe(0);
 		expect(result.failed).toBe(1);
+	});
+});
+
+describe("nominatimWithFallback", () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it("treats a fallback 429 as rate-limited, not 'not found' — no backoff penalty", async () => {
+		// Primary returns no result → the shorter fallback query fires ~1.1s later,
+		// right when Nominatim's 1 req/s policy is most likely to 429 us. A 429 must
+		// stop the run (mirroring the primary), NOT ratchet the locality's backoff.
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValueOnce(new Response("[]", { status: 200 }))
+			.mockResolvedValueOnce(new Response("", { status: 429 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		// id=4 (Nowa Wieś) has lat=NULL → the only eligible locality.
+		await geocodeLocalities(makeDeps({ geocode: nominatimWithFallback }));
+
+		const row = await env.leadgen
+			.prepare(
+				"SELECT geocode_fail_count, geocode_retry_after FROM localities WHERE id = 4",
+			)
+			.first<{
+				geocode_fail_count: number;
+				geocode_retry_after: string | null;
+			}>();
+
+		expect(row?.geocode_fail_count).toBe(0);
+		expect(row?.geocode_retry_after).toBeNull();
 	});
 });
