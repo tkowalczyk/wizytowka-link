@@ -3,6 +3,7 @@ import '../../styles/base.css';
 import { env } from 'cloudflare:workers';
 import AuditmosFooterLink from '../../components/AuditmosFooterLink.astro';
 import type { LocalityRow, BusinessRow } from '../../types/business';
+import { pluralizeFirma } from '../../lib/pluralize';
 import { safeJsonScript } from '../../lib/structured-data';
 
 const { loc } = Astro.params;
@@ -126,7 +127,7 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=8640
         <p class="mt-1 text-sm text-gray-400">
           {businesses.length === 0
             ? 'Brak firm z wygenerowanymi wizytówkami w tej miejscowości.'
-            : `${businesses.length} ${businesses.length === 1 ? 'firma' : businesses.length < 5 ? 'firmy' : 'firm'} w katalogu`}
+            : `${businesses.length} ${pluralizeFirma(businesses.length)} w katalogu`}
         </p>
       </div>
 

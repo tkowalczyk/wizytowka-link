@@ -22,6 +22,14 @@ describe("resolveFullTheme", () => {
 		expect(result.paletteId).toBe("ocean");
 	});
 
+	it("falls back to the default palette for prototype-chain override ids", () => {
+		const defaults = resolveTheme("test-slug", "restauracja");
+		const result = resolveFullTheme("test-slug", "restauracja", {
+			paletteId: "constructor",
+		});
+		expect(result.palette).toBe(defaults.palette);
+	});
+
 	it("applies layout override", () => {
 		const result = resolveFullTheme("test-slug", "restauracja", {
 			layout: "split",

@@ -406,7 +406,9 @@ function hashStr(s: string): number {
 
 function pickPaletteId(slug: string, category: string): string {
 	const cat = category.toLowerCase();
-	const group = CATEGORY_MAP[cat];
+	const group = Object.hasOwn(CATEGORY_MAP, cat)
+		? CATEGORY_MAP[cat]
+		: undefined;
 	const pool = group ? CATEGORY_PALETTES[group] : PALETTE_IDS;
 	return pool[hashStr(slug) % pool.length];
 }
@@ -440,7 +442,7 @@ export function resolveTheme(slug: string, category: string): ThemeConfig {
 }
 
 export function getPaletteById(id: string): PaletteVars | undefined {
-	return PALETTES[id];
+	return Object.hasOwn(PALETTES, id) ? PALETTES[id] : undefined;
 }
 
 export function isLayoutVariant(value: unknown): value is LayoutVariant {

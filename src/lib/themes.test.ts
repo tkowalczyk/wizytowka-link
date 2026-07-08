@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { isLayoutVariant, isStyleVariant } from "./themes";
+import {
+	getPaletteById,
+	isLayoutVariant,
+	isStyleVariant,
+	resolveTheme,
+} from "./themes";
+
+describe("getPaletteById", () => {
+	// Assumptions: palette ids are plain strings; prototype-member names are not
+	// valid palette ids; this slice does not validate persisted override shape.
+	it("treats prototype-chain keys as unknown palettes", () => {
+		expect(getPaletteById("constructor")).toBeUndefined();
+	});
+});
+
+describe("resolveTheme", () => {
+	// Assumptions: scraped categories are untrusted strings; unknown categories
+	// fall back to the general palette pool; this slice does not test hashing.
+	it("does not throw for prototype-chain category names", () => {
+		expect(() => resolveTheme("some-slug", "Constructor")).not.toThrow();
+	});
+});
 
 describe("isLayoutVariant", () => {
 	it("accepts every known layout variant", () => {
