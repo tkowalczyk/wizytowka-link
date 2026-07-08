@@ -2,6 +2,20 @@ import type { SiteData, SiteService } from "../types/site";
 import { formatOperatingHours } from "./operating-hours";
 import type { BizData } from "./structured-data";
 
+/**
+ * Cache-Control for public (non-draft) business pages and their .md exports.
+ *
+ * Issue #72 gap 1: promoteDraft (owner approval) and changeTheme perform no
+ * cache purge, so the previous 24h browser `max-age` left owners staring at
+ * stale content right after tapping "Zatwierdź" — the emotional peak of the
+ * flow. Decision (a): keep the browser `max-age` short (5 min) so the canonical
+ * URL self-heals without any purge machinery. `s-maxage` is inert until edge
+ * caching is enabled; a real CF purge (option c) is the follow-up for that day.
+ */
+export function publicCacheControl(): string {
+	return "public, max-age=300, s-maxage=604800";
+}
+
 export const ASSISTANT_CTA_LABEL = "Zapytaj asystenta";
 export const ASSISTANT_FIRST_MESSAGE =
 	"Cześć! Jestem asystentem AI i nie reprezentuję bezpośrednio tego miejsca. Zapytaj mnie o to miejsce - jeśli sprawa wymaga kontaktu z człowiekiem, podpowiem Ci najlepszy następny krok.";

@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
-import { ASSISTANT_CTA_LABEL } from "../../lib/public-page";
+import { ASSISTANT_CTA_LABEL, publicCacheControl } from "../../lib/public-page";
+import { isPubliclyServable } from "../../lib/site-status";
 import type { SiteData } from "../../types/site";
 
 function siteToMarkdown(site: SiteData, title: string, url: string): string {
@@ -49,10 +50,16 @@ export const GET: APIRoute = async ({ params }) => {
 	const db = env.leadgen as D1Database;
 	const biz = await db
 		.prepare(
-			`SELECT b.title FROM businesses b JOIN localities l ON b.locality_id = l.id WHERE l.slug = ? AND b.slug = ?`,
+			`SELECT b.title, b.site_status FROM businesses b JOIN localities l ON b.locality_id = l.id WHERE l.slug = ? AND b.slug = ?`,
 		)
 		.bind(loc, slug)
-		.first<{ title: string }>();
+		.first<{ title: string; site_status: string }>();
+
+	// Issue #72 gap 2: a live R2 object may outlive its 'done' status (owner
+	// removal, GDPR erasure, re-classification). Withhold anything not 'done'.
+	if (biz && !isPubliclyServable(biz.site_status)) {
+		return new Response("Gone", { status: 410 });
+	}
 
 	const title = biz?.title ?? site.hero.headline;
 	const canonical = `https://wizytowka.link/${loc}/${slug}`;
@@ -61,7 +68,7 @@ export const GET: APIRoute = async ({ params }) => {
 	return new Response(md, {
 		headers: {
 			"Content-Type": "text/markdown; charset=utf-8",
-			"Cache-Control": "public, max-age=86400, s-maxage=604800",
+			"Cache-Control": publicCacheControl(),
 			Link: `<${canonical}>; rel="canonical"`,
 		},
 	});

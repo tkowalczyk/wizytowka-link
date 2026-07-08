@@ -2,6 +2,8 @@
 import BusinessSite from '../../components/BusinessSite.astro';
 import { env } from 'cloudflare:workers';
 import { getPublishedOrPreviewSite } from '../../lib/site-store';
+import { isPubliclyServable } from '../../lib/site-status';
+import { publicCacheControl } from '../../lib/public-page';
 import { formatLocalityLabel } from '../../lib/locality-label';
 
 const { loc, slug } = Astro.params;
@@ -20,14 +22,23 @@ const site = await getPublishedOrPreviewSite(r2, db, loc, slug, {
 if (!site) return new Response('Not Found', { status: 404 });
 
 const biz = await db.prepare(`
-  SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating, b.reviews_count, b.operating_hours
+  SELECT b.title, b.phone, b.address, b.category, b.gps_lat, b.gps_lng, b.rating, b.reviews_count, b.operating_hours, b.site_status
   FROM businesses b
   JOIN localities l ON b.locality_id = l.id
   WHERE l.slug = ? AND b.slug = ?
 `).bind(loc, slug).first<{
   title: string; phone: string; address: string; category: string;
   gps_lat: number; gps_lng: number; rating: number | null; reviews_count: number | null; operating_hours: string | null;
+  site_status: string;
 }>();
+
+// Issue #72 gap 2: a live R2 object may outlive its 'done' status (owner
+// removal, GDPR erasure, re-classification). On the public (non-draft) path,
+// withhold anything not 'done' as 410 Gone so it stops being served + indexed.
+// The draft-preview path stays intentionally viewable via its token.
+if (!isDraft && biz && !isPubliclyServable(biz.site_status)) {
+  return new Response('Gone', { status: 410 });
+}
 
 const locRow = await db.prepare(`SELECT name, gmi_name, pow_name FROM localities WHERE slug = ?`)
   .bind(loc).first<{ name: string; gmi_name: string | null; pow_name: string | null }>();
@@ -52,7 +63,7 @@ const { results: relatedBusinesses } = await db.prepare(`
 if (isDraft) {
   Astro.response.headers.set('Cache-Control', 'no-store');
 } else {
-  Astro.response.headers.set('Cache-Control', 'public, max-age=86400, s-maxage=604800');
+  Astro.response.headers.set('Cache-Control', publicCacheControl());
 }
 ---
 
