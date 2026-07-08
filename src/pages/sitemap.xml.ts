@@ -17,6 +17,22 @@ interface CategoryRow {
 	category: string;
 }
 
+interface StaticPage {
+	loc: string;
+	priority: string;
+}
+
+interface AssembleSitemapUrlsInput {
+	domain: string;
+	today: string;
+	staticPages: StaticPage[];
+	localities: LocalityRow[];
+	businesses: SitemapRow[];
+	categoryRows: CategoryRow[];
+}
+
+const MAX_SITEMAP_URLS = 50_000;
+
 export function buildCategoryUrls(
 	rows: CategoryRow[],
 	domain: string,
@@ -39,12 +55,58 @@ export function buildCategoryUrls(
 
 const DOMAIN = "https://wizytowka.link";
 
-const today = new Date().toISOString().split("T")[0];
-
 const staticPages = [{ loc: "/", priority: "1.0" }];
+
+export function assembleSitemapUrls({
+	domain,
+	today,
+	staticPages,
+	localities,
+	businesses,
+	categoryRows,
+}: AssembleSitemapUrlsInput): string[] {
+	const urls: string[] = [];
+	const append = (url: string) => {
+		if (urls.length < MAX_SITEMAP_URLS) urls.push(url);
+	};
+
+	for (const p of staticPages) {
+		append(`  <url>
+    <loc>${domain}${p.loc}</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>${p.priority}</priority>
+  </url>`);
+	}
+
+	for (const l of localities) {
+		append(`  <url>
+    <loc>${domain}/${l.slug}</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>`);
+	}
+
+	for (const u of buildCategoryUrls(categoryRows, domain)) {
+		append(u);
+	}
+
+	for (const r of businesses) {
+		const lastmod = r.created_at.split(" ")[0];
+		append(`  <url>
+    <loc>${domain}/${r.loc_slug}/${r.slug}</loc>
+    <lastmod>${lastmod}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>`);
+	}
+
+	return urls;
+}
 
 export const GET: APIRoute = async () => {
 	const db = env.leadgen as D1Database;
+	const today = new Date().toISOString().split("T")[0];
 
 	const [localities, rows, categoryRows] = await Promise.all([
 		db
@@ -76,38 +138,14 @@ export const GET: APIRoute = async () => {
 			.all<CategoryRow>(),
 	]);
 
-	const urls: string[] = [];
-
-	for (const p of staticPages) {
-		urls.push(`  <url>
-    <loc>${DOMAIN}${p.loc}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>${p.priority}</priority>
-  </url>`);
-	}
-
-	for (const l of localities.results) {
-		urls.push(`  <url>
-    <loc>${DOMAIN}/${l.slug}</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>`);
-	}
-
-	for (const r of rows.results) {
-		const lastmod = r.created_at.split(" ")[0];
-		urls.push(`  <url>
-    <loc>${DOMAIN}/${r.loc_slug}/${r.slug}</loc>
-    <lastmod>${lastmod}</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.7</priority>
-  </url>`);
-	}
-
-	for (const u of buildCategoryUrls(categoryRows.results, DOMAIN)) {
-		urls.push(u);
-	}
+	const urls = assembleSitemapUrls({
+		domain: DOMAIN,
+		today,
+		staticPages,
+		localities: localities.results,
+		businesses: rows.results,
+		categoryRows: categoryRows.results,
+	});
 
 	const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
