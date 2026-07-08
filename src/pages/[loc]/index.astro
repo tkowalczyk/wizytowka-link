@@ -3,6 +3,7 @@ import '../../styles/base.css';
 import { env } from 'cloudflare:workers';
 import AuditmosFooterLink from '../../components/AuditmosFooterLink.astro';
 import type { LocalityRow, BusinessRow } from '../../types/business';
+import { findLocalityCategories } from '../../lib/category';
 import { pluralizeFirma } from '../../lib/pluralize';
 import { safeJsonScript } from '../../lib/structured-data';
 
@@ -25,6 +26,8 @@ const { results: businesses } = await db
   )
   .bind(locality.id)
   .all<BusinessRow>();
+
+const categories = await findLocalityCategories(db, loc);
 
 const url = `https://wizytowka.link/${loc}`;
 const title = `Firmy w ${locality.name} — wizytowka.link`;
@@ -130,6 +133,27 @@ Astro.response.headers.set('Cache-Control', 'public, max-age=3600, s-maxage=8640
             : `${businesses.length} ${pluralizeFirma(businesses.length)} w katalogu`}
         </p>
       </div>
+
+      {categories.length > 0 && (
+        <nav aria-label="Kategorie" class="mb-8">
+          <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">
+            Przeglądaj według kategorii
+          </h2>
+          <ul class="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <li>
+                <a
+                  href={`/${loc}/kategoria/${cat.slug}`}
+                  class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:border-blue-200 hover:text-blue-600"
+                >
+                  {cat.categoryName}
+                  <span class="text-xs text-gray-400">{cat.count}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
 
       {businesses.length > 0 ? (
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

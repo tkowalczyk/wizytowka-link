@@ -120,4 +120,23 @@ describe("findLocalityCategories", () => {
 		const result = await findLocalityCategories(env.leadgen, "wroclaw");
 		expect(result).toEqual([]);
 	});
+
+	it("surfaces slugs that resolve to non-empty category pages (issue #71 no-orphan contract)", async () => {
+		// The locality index renders one link per category using cat.slug.
+		// Each of those hrefs must resolve back through findCategoryBusinesses to
+		// a real, non-empty category page — otherwise the links are orphans again.
+		// Guards against slug drift between the link builder and the route lookup.
+		const categories = await findLocalityCategories(env.leadgen, "warszawa");
+		expect(categories.length).toBeGreaterThan(0);
+
+		for (const cat of categories) {
+			const page = await findCategoryBusinesses(
+				env.leadgen,
+				"warszawa",
+				cat.slug,
+			);
+			expect(page).not.toBeNull();
+			expect(page?.businesses.length).toBeGreaterThan(0);
+		}
+	});
 });
