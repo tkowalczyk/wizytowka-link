@@ -48,6 +48,33 @@ describe("findCategoryBusinesses", () => {
 		expect(result.businesses[1].rating).toBe(3.0);
 	});
 
+	it("lists businesses from all raw categories sharing a slug", async () => {
+		await env.leadgen
+			.prepare(
+				"INSERT INTO businesses (locality_id, place_id, title, slug, category, rating, gps_lat, gps_lng, site_status) VALUES (2, 'place_collision_1', 'Fryzjer Męski Centrum', 'fryzjer-meski-centrum', 'Fryzjer Męski', 4.1, 52.23, 21.01, 'done')",
+			)
+			.run();
+		await env.leadgen
+			.prepare(
+				"INSERT INTO businesses (locality_id, place_id, title, slug, category, rating, gps_lat, gps_lng, site_status) VALUES (2, 'place_collision_2', 'Fryzjer Meski Praga', 'fryzjer-meski-praga', 'Fryzjer Meski', 4.7, 52.24, 21.02, 'done')",
+			)
+			.run();
+
+		const result = await findCategoryBusinesses(
+			env.leadgen,
+			"warszawa",
+			"fryzjer-meski",
+		);
+
+		expect(result).not.toBeNull();
+		if (!result) throw new Error("Expected category result");
+		expect(result.categoryName).toBe("Fryzjer Meski");
+		expect(result.businesses.map((business) => business.title)).toEqual([
+			"Fryzjer Meski Praga",
+			"Fryzjer Męski Centrum",
+		]);
+	});
+
 	it("excludes businesses with site_status != 'done'", async () => {
 		// krakow has 'dentysta' with site_status='pending' and 'piekarnia' with site_status='done'
 		// 'dentysta' should not match any category slug

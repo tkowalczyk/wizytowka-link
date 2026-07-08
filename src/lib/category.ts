@@ -32,20 +32,23 @@ export async function findCategoryBusinesses(
 		.bind(locality.id)
 		.all<{ category: string }>();
 
-	const match = categoryRows.find(
-		(row) => slugify(row.category) === categorySlug,
-	);
+	const matches = categoryRows
+		.filter((row) => slugify(row.category) === categorySlug)
+		.map((row) => row.category)
+		.sort();
 
-	if (!match) return null;
+	if (matches.length === 0) return null;
+
+	const placeholders = matches.map(() => "?").join(", ");
 
 	const { results: businesses } = await db
 		.prepare(
-			"SELECT * FROM businesses WHERE locality_id = ? AND category = ? AND site_status = 'done' ORDER BY rating DESC",
+			`SELECT * FROM businesses WHERE locality_id = ? AND category IN (${placeholders}) AND site_status = 'done' ORDER BY rating DESC`,
 		)
-		.bind(locality.id, match.category)
+		.bind(locality.id, ...matches)
 		.all<BusinessRow>();
 
-	return { locality, categoryName: match.category, businesses };
+	return { locality, categoryName: matches[0], businesses };
 }
 
 export async function findLocalityCategories(
