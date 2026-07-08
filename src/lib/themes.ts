@@ -442,3 +442,11 @@ export function resolveTheme(slug: string, category: string): ThemeConfig {
 export function getPaletteById(id: string): PaletteVars | undefined {
 	return PALETTES[id];
 }
+
+export function isLayoutVariant(value: unknown): value is LayoutVariant {
+	return typeof value === "string" && (LAYOUTS as string[]).includes(value);
+}
+
+export function isStyleVariant(value: unknown): value is StyleVariant {
+	return typeof value === "string" && (STYLES as string[]).includes(value);
+}

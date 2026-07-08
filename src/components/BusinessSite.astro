@@ -1,6 +1,6 @@
 ---
 import type { SiteData } from '../types/site';
-import { resolveTheme, getPaletteById, paletteToCSS } from '../lib/themes';
+import { resolveTheme, getPaletteById, paletteToCSS, isLayoutVariant, isStyleVariant } from '../lib/themes';
 import { buildLocalBusinessLd, buildBreadcrumbLd, safeJsonScript, type BizData } from '../lib/structured-data';
 import { buildPublicBusinessPageModel } from '../lib/public-page';
 import CenteredLayout from './layouts/CenteredLayout.astro';
@@ -29,8 +29,8 @@ const { site, biz, slug, locSlug, locName, locLabel, relatedBusinesses, isIndexa
 const category = biz?.category ?? '';
 const resolved = resolveTheme(slug, category);
 const palette = site.theme ? (getPaletteById(site.theme) ?? resolved.palette) : resolved.palette;
-const layout = resolved.layout;
-const style = resolved.style;
+const layout = isLayoutVariant(site.layout) ? site.layout : resolved.layout;
+const style = isStyleVariant(site.style) ? site.style : resolved.style;
 const cssVars = paletteToCSS(palette);
 const page = buildPublicBusinessPageModel(site, biz);
 
