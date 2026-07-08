@@ -1,4 +1,5 @@
 import type { SiteData, SiteService } from "../types/site";
+import { formatOperatingHours } from "./operating-hours";
 import type { BizData } from "./structured-data";
 
 export const ASSISTANT_CTA_LABEL = "Zapytaj asystenta";
@@ -94,7 +95,7 @@ export function buildPublicBusinessPageModel(
 		},
 		location: {
 			address: site.contact.address,
-			openingHours: biz?.operating_hours ?? null,
+			openingHours: formatOperatingHours(biz?.operating_hours).display,
 			mapHref: buildMapHref(biz),
 		},
 		chat: {

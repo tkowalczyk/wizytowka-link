@@ -382,6 +382,38 @@ describe("POST /api/chat/messages", () => {
 		expect(requestText).not.toContain("https://example.test/source");
 	});
 
+	it("sends human-readable operating hours to the LLM, not a raw JSON blob", async () => {
+		await env.leadgen
+			.prepare(
+				`UPDATE businesses
+         SET operating_hours = ?
+         WHERE slug = 'hydraulik-warszawa'`,
+			)
+			.bind(JSON.stringify({ monday: "9 AM to 5 PM", tuesday: "9 AM to 5 PM" }))
+			.run();
+		await putSite(
+			env.sites,
+			"live",
+			"warszawa",
+			"hydraulik-warszawa",
+			sampleSite,
+		);
+		const fetchMock = mockZaiFetch("Godziny są dostępne na stronie.");
+		globalThis.fetch = fetchMock as unknown as typeof fetch;
+		const sessionId = await activeSessionId();
+
+		await POST({
+			request: chatMessageRequest({
+				sessionId,
+				content: "Jakie są godziny?",
+			}),
+		} as Parameters<typeof POST>[0]);
+
+		const requestText = JSON.stringify(zaiRequestBody(fetchMock));
+		expect(requestText).not.toContain('{\\"monday\\"');
+		expect(requestText).toContain("poniedziałek");
+	});
+
 	it("preserves previous turns in a two-message visitor conversation", async () => {
 		const fetchMock = mockZaiFetchSequence([
 			"Adres to ul. Marszałkowska 1.",

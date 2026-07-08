@@ -70,6 +70,23 @@ describe("buildPublicBusinessPageModel", () => {
 		expect(model.chat.privacyNotice).toBe(ASSISTANT_PRIVACY_NOTICE);
 	});
 
+	it("renders operating hours as human-readable Polish text, not a JSON blob", () => {
+		// The exact shape toBusiness() persists: JSON.stringify of a
+		// Record<string, string> keyed by lowercase English day names.
+		const scrapedHours = JSON.stringify({
+			monday: "9 AM to 5 PM",
+			tuesday: "9 AM to 5 PM",
+		});
+		const model = buildPublicBusinessPageModel(site, {
+			...biz,
+			operating_hours: scrapedHours,
+		});
+
+		expect(model.location.openingHours).not.toMatch(/^\{/);
+		expect(model.location.openingHours).toContain("poniedziałek");
+		expect(model.location.openingHours).toContain("09:00");
+	});
+
 	it("builds public SEO metadata without direct contact details", () => {
 		// Assumptions for issue #48:
 		// Input SEO text may contain direct phone, email, or contact URL generated before contact suppression.

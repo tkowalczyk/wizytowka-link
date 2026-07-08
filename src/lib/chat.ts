@@ -1,4 +1,5 @@
 import type { SiteData } from "../types/site";
+import { formatOperatingHours } from "./operating-hours";
 import { getSite } from "./site-store";
 import { escapeHtml, sendMessage } from "./telegram";
 
@@ -560,7 +561,9 @@ async function loadChatContext(
 				title: cleanText(business.title),
 				category: cleanText(business.category),
 				address: cleanNullableText(business.address),
-				openingHours: cleanNullableText(business.operating_hours),
+				openingHours: cleanNullableText(
+					formatOperatingHours(business.operating_hours).display,
+				),
 				description: cleanNullableText(business.description),
 				rating: business.rating,
 				reviewsCount: business.reviews_count,
