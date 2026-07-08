@@ -237,11 +237,12 @@ export async function runDiscovery(
 		if (!locality) break;
 
 		const seen = new Set<string>();
-		const businesses: BusinessInsert[] = [];
-		// Tracks slugs already reserved in this run, per locality, so duplicates
-		// within the current batch get -2/-3/... suffixes instead of silently
-		// colliding on the DB UNIQUE(slug, locality_id) via INSERT OR IGNORE.
-		const reservedSlugs = new Map<number, Set<string>>();
+		// Collect raw results across all categories first, then resolve
+		// localities + assign slugs in one batched pass. Doing that DB work per
+		// result (2–4 queries each) can blow the Workers subrequest cap on a
+		// large locality and abort the whole run after the SerpAPI spend (#63).
+		const rawResults: Array<{ result: SerpApiLocalResult; category: string }> =
+			[];
 		let apiCalls = 0;
 
 		for (const category of categories) {
@@ -252,28 +253,7 @@ export async function runDiscovery(
 				for (const r of results) {
 					if (seen.has(r.place_id)) continue;
 					seen.add(r.place_id);
-
-					const resolved = await resolveLocality(
-						db,
-						r.address ?? null,
-						r.gps_coordinates.latitude,
-						r.gps_coordinates.longitude,
-					);
-					const localityId = resolved?.id ?? locality.id;
-					let reserved = reservedSlugs.get(localityId);
-					if (!reserved) {
-						reserved = new Set<string>();
-						reservedSlugs.set(localityId, reserved);
-					}
-					const slug = await generateUniqueSlug(
-						r.title,
-						localityId,
-						db,
-						reserved,
-					);
-					reserved.add(slug);
-
-					businesses.push(toBusiness(r, slug, localityId, category));
+					rawResults.push({ result: r, category });
 				}
 			} catch (err) {
 				if (err instanceof SerpApiError) {
@@ -292,6 +272,7 @@ export async function runDiscovery(
 			}
 		}
 
+		const businesses = await buildBusinesses(db, locality.id, rawResults);
 		await batchInsert(db, businesses);
 		if (!hardStop) await markSearched(db, locality.id);
 
@@ -486,6 +467,92 @@ async function resolveLocality(
 	return null;
 }
 
+// Memoize resolution by parsed city (falling back to a GPS bucket when the
+// address has no city). A single discovery run is geographically focused on one
+// town, so results collapse to a handful of distinct keys — turning O(results)
+// locality queries into O(distinct cities). When several results share a city
+// the first one's coordinates settle any same-name disambiguation for the rest.
+async function resolveLocalityCached(
+	db: D1Database,
+	cache: Map<string, number>,
+	address: string | null,
+	lat: number | null,
+	lng: number | null,
+	fallbackLocalityId: number,
+): Promise<number> {
+	const city = parseCityFromAddress(address);
+	const key = city
+		? `n:${city.toLowerCase()}`
+		: lat != null && lng != null
+			? `g:${lat.toFixed(2)}:${lng.toFixed(2)}`
+			: "null";
+	const cached = cache.get(key);
+	if (cached !== undefined) return cached;
+	const match = await resolveLocality(db, address, lat, lng);
+	const localityId = match?.id ?? fallbackLocalityId;
+	cache.set(key, localityId);
+	return localityId;
+}
+
+// Turn raw scraped results into insert rows: resolve each result's locality
+// (memoized), then assign collision-free slugs per locality group with one
+// batched lookup instead of a query per result (#63).
+async function buildBusinesses(
+	db: D1Database,
+	fallbackLocalityId: number,
+	rawResults: Array<{ result: SerpApiLocalResult; category: string }>,
+): Promise<BusinessInsert[]> {
+	const resolveCache = new Map<string, number>();
+	const prepared: Array<{
+		result: SerpApiLocalResult;
+		category: string;
+		localityId: number;
+		base: string;
+	}> = [];
+	for (const { result, category } of rawResults) {
+		const localityId = await resolveLocalityCached(
+			db,
+			resolveCache,
+			result.address ?? null,
+			result.gps_coordinates.latitude,
+			result.gps_coordinates.longitude,
+			fallbackLocalityId,
+		);
+		prepared.push({
+			result,
+			category,
+			localityId,
+			base: businessSlugBase(result.title),
+		});
+	}
+
+	const byLocality = new Map<number, typeof prepared>();
+	for (const item of prepared) {
+		const group = byLocality.get(item.localityId);
+		if (group) group.push(item);
+		else byLocality.set(item.localityId, [item]);
+	}
+
+	const businesses: BusinessInsert[] = [];
+	for (const [localityId, group] of byLocality) {
+		const existing = await fetchExistingSlugs(
+			db,
+			localityId,
+			group.map((i) => i.base),
+		);
+		// Slugs handed out within this batch, so intra-run duplicates get
+		// -2/-3/… suffixes instead of silently colliding on the DB
+		// UNIQUE(slug, locality_id) via INSERT OR IGNORE.
+		const reserved = new Set<string>();
+		for (const item of group) {
+			const slug = assignSlug(item.base, existing, reserved);
+			reserved.add(slug);
+			businesses.push(toBusiness(item.result, slug, localityId, item.category));
+		}
+	}
+	return businesses;
+}
+
 // -- internal: slug --
 
 const MAX_SLUG_ATTEMPTS = 50;
@@ -498,34 +565,55 @@ function businessSlugBase(title: string): string {
 	return base || "firma";
 }
 
-async function generateUniqueSlug(
-	title: string,
-	localityId: number,
+// 45 bases × 2 range bounds + 1 locality = 91, under the D1 100-param-per-
+// statement cap. Chunk distinct bases so one locality needs only
+// ceil(distinctBases / 45) collision lookups instead of one query per result.
+const SLUG_BASE_CHUNK = 45;
+
+// Fetch every existing slug in this locality that could collide with one of the
+// desired bases — the base itself or any "base-N" suffix. Uses a range match
+// rather than LIKE: a base and its "base-N" suffixes all sort into
+// [base, base + "."), since "-" (0x2D) is the lowest slug char and "." (0x2E)
+// sits just above it (slugs are [a-z0-9-] under BINARY collation). LIKE would
+// trip D1's low LIKE-pattern-length cap on long scraped titles (#24).
+async function fetchExistingSlugs(
 	db: D1Database,
-	reserved: ReadonlySet<string> = new Set(),
-): Promise<string> {
-	const base = businessSlugBase(title);
-	const candidates = [
-		base,
-		...Array.from({ length: MAX_SLUG_ATTEMPTS }, (_, i) => `${base}-${i + 2}`),
-	];
-	const placeholders = candidates.map(() => "?").join(", ");
-	const { results } = await db
-		.prepare(
-			`SELECT slug FROM businesses WHERE locality_id = ? AND slug IN (${placeholders}) ORDER BY slug`,
-		)
-		.bind(localityId, ...candidates)
-		.all<{ slug: string }>();
-	const existing = new Set(results.map((r) => r.slug));
-	for (const slug of reserved) existing.add(slug);
-	if (!existing.has(base)) return base;
+	localityId: number,
+	bases: string[],
+): Promise<Set<string>> {
+	const distinct = [...new Set(bases)];
+	const existing = new Set<string>();
+	for (let i = 0; i < distinct.length; i += SLUG_BASE_CHUNK) {
+		const chunk = distinct.slice(i, i + SLUG_BASE_CHUNK);
+		const conds = chunk.map(() => "(slug >= ? AND slug < ?)").join(" OR ");
+		const params: string[] = [];
+		for (const base of chunk) params.push(base, `${base}.`);
+		const { results } = await db
+			.prepare(
+				`SELECT slug FROM businesses WHERE locality_id = ? AND (${conds})`,
+			)
+			.bind(localityId, ...params)
+			.all<{ slug: string }>();
+		for (const r of results) existing.add(r.slug);
+	}
+	return existing;
+}
+
+// Pick the first free slug for `base`: the base, else base-2, base-3, …, using
+// slugs already in the DB (`existing`) and those handed out earlier in this
+// batch (`reserved`). Mirrors the previous per-row suffixing behaviour.
+function assignSlug(
+	base: string,
+	existing: ReadonlySet<string>,
+	reserved: ReadonlySet<string>,
+): string {
+	const taken = (slug: string) => existing.has(slug) || reserved.has(slug);
+	if (!taken(base)) return base;
 	for (let suffix = 2; suffix <= MAX_SLUG_ATTEMPTS + 1; suffix++) {
 		const candidate = `${base}-${suffix}`;
-		if (!existing.has(candidate)) return candidate;
+		if (!taken(candidate)) return candidate;
 	}
-	throw new Error(
-		`slug collision limit exceeded: ${base} in locality ${localityId}`,
-	);
+	throw new Error(`slug collision limit exceeded: ${base}`);
 }
 
 // -- internal: DB helpers --

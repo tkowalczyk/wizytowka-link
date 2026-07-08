@@ -60,6 +60,30 @@ function makeDeps(overrides: Partial<DiscoveryDeps> = {}): DiscoveryDeps {
 	};
 }
 
+// Wraps a D1Database and counts every prepare() — each prepared statement in
+// this codebase is executed exactly once, so the count tracks D1 subrequests,
+// the resource bounded by the Workers per-invocation cap (issue #63).
+interface CountingD1 extends D1Database {
+	readonly statementCount: number;
+}
+
+function countingD1Proxy(db: D1Database): CountingD1 {
+	let count = 0;
+	return new Proxy(db, {
+		get(target, prop, receiver) {
+			if (prop === "statementCount") return count;
+			if (prop === "prepare") {
+				return (query: string) => {
+					count++;
+					return target.prepare(query);
+				};
+			}
+			const value = Reflect.get(target, prop, receiver);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	}) as unknown as CountingD1;
+}
+
 // -- tests --
 
 describe("discovery: createSerpApiSearch", () => {
@@ -737,5 +761,75 @@ describe("discovery: runDiscovery", () => {
 
 		expect(reportedStats).not.toBeNull();
 		expect(reportedStats).toEqual(stats);
+	});
+
+	it("stays within a bounded number of D1 statements regardless of result volume (#63)", async () => {
+		// A big locality can yield hundreds of unique results. If resolution +
+		// slug lookups run per result (2–4 D1 calls each) the run blows the
+		// Workers subrequest cap and persists nothing. Pin the design property:
+		// non-insert D1 work must be O(distinct cities + slug chunks), not
+		// O(results). The only term allowed to scale with volume is the
+		// INSERT chunking floor (ceil(N / BATCH_SIZE)).
+		const VOLUME = 200;
+		const results = Array.from({ length: VOLUME }, (_, i) =>
+			fakeResult({
+				place_id: `place_vol_${i}`,
+				title: `Firma Numer ${i}`,
+				address: "ul. Testowa 1, Kraków",
+				gps_coordinates: { latitude: 50.0647, longitude: 19.945 },
+			}),
+		);
+		const counted = countingD1Proxy(env.leadgen);
+		const deps = makeDeps({ db: counted, searchApi: staticSearch(results) });
+
+		await runDiscovery(deps);
+
+		// All rows persisted (nothing dropped by an aborted run).
+		const row = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS cnt FROM businesses WHERE place_id LIKE 'place_vol_%'",
+			)
+			.first<{ cnt: number }>();
+		expect(row?.cnt).toBe(VOLUME);
+
+		// Budget = the irreducible INSERT floor (200 rows / BATCH_SIZE 4 = 50
+		// statements) + a small overhead that must stay *sublinear* in result
+		// volume: resolution memoized to O(distinct cities), slug collisions to
+		// O(distinctBases / chunk) batched lookups, plus a few bookkeeping
+		// queries. Measured today: 59 (50 inserts + 5 slug chunks + 4 fixed).
+		// The pre-fix per-result path issued 453. Any surviving per-result DB
+		// call would add >= VOLUME (200) statements, so this threshold catches
+		// a regression while tolerating slug-chunk-size tuning.
+		const INSERT_FLOOR = Math.ceil(VOLUME / 4);
+		expect(counted.statementCount).toBeLessThan(INSERT_FLOOR + 20);
+	});
+
+	it("a 1,500-result locality completes within the Workers subrequest cap (#63)", async () => {
+		// The biggest cities come first in the locality queue, so a run must
+		// survive the worst realistic volume without blowing the 1000-subrequest
+		// cap (D1 calls count). Statement count is bounded by ceil(N/BATCH_SIZE)
+		// inserts + sublinear resolution/slug work, not the 2–4×N of the bug.
+		const VOLUME = 1500;
+		const SUBREQUEST_CAP = 1000;
+		const results = Array.from({ length: VOLUME }, (_, i) =>
+			fakeResult({
+				place_id: `place_big_${i}`,
+				title: `Wielki Biznes ${i}`,
+				address: "ul. Testowa 1, Kraków",
+				gps_coordinates: { latitude: 50.0647, longitude: 19.945 },
+			}),
+		);
+		const counted = countingD1Proxy(env.leadgen);
+		const deps = makeDeps({ db: counted, searchApi: staticSearch(results) });
+
+		await runDiscovery(deps);
+
+		const row = await env.leadgen
+			.prepare(
+				"SELECT COUNT(*) AS cnt FROM businesses WHERE place_id LIKE 'place_big_%'",
+			)
+			.first<{ cnt: number }>();
+		expect(row?.cnt).toBe(VOLUME);
+		expect(counted.statementCount).toBeLessThan(SUBREQUEST_CAP);
 	});
 });
