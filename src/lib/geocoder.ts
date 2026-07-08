@@ -88,7 +88,7 @@ async function nominatimGeocode(loc: LocalityRow): Promise<GeoResult | null> {
 	};
 }
 
-async function nominatimWithFallback(
+export async function nominatimWithFallback(
 	loc: LocalityRow,
 ): Promise<GeoResult | null> {
 	const primary = await nominatimGeocode(loc);
@@ -100,7 +100,10 @@ async function nominatimWithFallback(
 	const q = `${loc.name}, ${loc.woj_name}, Polska`;
 	const url = `${NOMINATIM_URL}?${new URLSearchParams({ q, format: "json", limit: "1" })}`;
 	const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
-	if (!res.ok) return null;
+	// Mirror the primary: a rate-limit / server error must stop the run, not be
+	// recorded as "not found" (which ratchets the locality's backoff to 7 days).
+	if (res.status === 429) throw new Error("RATE_LIMITED");
+	if (!res.ok) throw new Error(`HTTP_${res.status}`);
 
 	const data = (await res.json()) as NominatimResult[];
 	if (!data.length) return null;

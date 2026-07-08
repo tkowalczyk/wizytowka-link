@@ -531,6 +531,37 @@ describe("discovery: runDiscovery", () => {
 		expect(row?.searched_at).not.toBeNull();
 	});
 
+	it("counts only leads inserted by this run, not pre-existing same-day leads", async () => {
+		// A prior run today already produced a lead-shaped business (phone, no
+		// website). A second same-day run (e.g. manual POST /run-cron/discovery)
+		// must not attribute that earlier lead to itself.
+		await env.leadgen
+			.prepare(
+				"INSERT INTO businesses (locality_id, place_id, title, slug, phone, website, category, gps_lat, gps_lng, site_status) VALUES (?, ?, ?, ?, ?, NULL, ?, 0, 0, 'pending')",
+			)
+			.bind(
+				TEST_IDS.localities.krakow,
+				"place_prior_lead",
+				"Prior Lead",
+				"prior-lead",
+				"+48500500500",
+				"firma",
+			)
+			.run();
+
+		// This run scrapes only a non-lead (has a website).
+		const nonLead = fakeResult({
+			place_id: "place_run_nonlead",
+			phone: undefined,
+			website: "https://example.com",
+		});
+		const deps = makeDeps({ searchApi: staticSearch([nonLead]) });
+
+		const stats = await runDiscovery(deps);
+
+		expect(stats.totalNewLeads).toBe(0);
+	});
+
 	it("multi-locality retry: 0 leads in first locality → tries next", async () => {
 		// Push existing businesses to yesterday so countTodayLeads starts at 0
 		await env.leadgen

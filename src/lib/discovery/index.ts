@@ -232,6 +232,11 @@ export async function runDiscovery(
 	let errorKind: DiscoveryErrorKind | null = null;
 	let hardStop = false;
 
+	// Baseline the max business id so newLeads counts only rows inserted by THIS
+	// run — a same-day second run (e.g. manual /run-cron/discovery) must not
+	// inherit the morning run's leads via a global daily count.
+	const baselineBusinessId = await maxBusinessId(db);
+
 	for (let attempt = 0; attempt < MAX_LOCALITY_ATTEMPTS; attempt++) {
 		const locality = await getNextLocality(db);
 		if (!locality) break;
@@ -276,7 +281,7 @@ export async function runDiscovery(
 		await batchInsert(db, businesses);
 		if (!hardStop) await markSearched(db, locality.id);
 
-		const newLeads = await countTodayLeads(db);
+		const newLeads = await countNewLeads(db, baselineBusinessId);
 		totalApiCalls += apiCalls;
 		localityStats.push({
 			name: locality.name,
@@ -626,11 +631,23 @@ async function getNextLocality(db: D1Database): Promise<Locality | null> {
 		.first<Locality>();
 }
 
-async function countTodayLeads(db: D1Database): Promise<number> {
+async function maxBusinessId(db: D1Database): Promise<number> {
+	const r = await db
+		.prepare("SELECT MAX(id) as m FROM businesses")
+		.first<{ m: number | null }>();
+	return r?.m ?? 0;
+}
+
+// Leads inserted after `sinceId` — i.e. by the current run only. Since the
+// locality loop breaks on the first locality with newLeads > 0, and this count
+// is monotonic across localities, the run's single non-zero locality reports
+// exactly the leads it inserted.
+async function countNewLeads(db: D1Database, sinceId: number): Promise<number> {
 	const r = await db
 		.prepare(
-			"SELECT COUNT(*) as cnt FROM businesses WHERE website IS NULL AND phone IS NOT NULL AND created_at >= date('now')",
+			"SELECT COUNT(*) as cnt FROM businesses WHERE id > ? AND website IS NULL AND phone IS NOT NULL",
 		)
+		.bind(sinceId)
 		.first<{ cnt: number }>();
 	return r?.cnt ?? 0;
 }

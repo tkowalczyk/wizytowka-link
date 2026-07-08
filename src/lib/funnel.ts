@@ -28,7 +28,7 @@ export async function getFunnelStats(
 			`SELECT status, COUNT(*) as cnt
        FROM (
          SELECT status,
-           ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC) as rn
+           ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC, id DESC) as rn
          FROM call_log WHERE seller_id = ?
        ) WHERE rn = 1
        GROUP BY status`,
@@ -68,7 +68,7 @@ async function getWeekCounts(
 			`SELECT status, COUNT(*) as cnt
        FROM (
          SELECT status,
-           ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC) as rn
+           ROW_NUMBER() OVER (PARTITION BY business_id ORDER BY created_at DESC, id DESC) as rn
          FROM call_log
          WHERE seller_id = ?
            AND created_at >= datetime('now', ? || ' days')
