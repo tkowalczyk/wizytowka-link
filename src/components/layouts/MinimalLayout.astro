@@ -4,6 +4,7 @@ import type { PublicBusinessPageModel } from '../../lib/public-page';
 import AuditmosFooterLink from '../AuditmosFooterLink.astro';
 import AssistantChat from '../AssistantChat.astro';
 import CategoryLogo from '../CategoryLogo.astro';
+import { slugify } from '../../lib/slug';
 
 interface RelatedBusiness {
   title: string;
@@ -35,6 +36,15 @@ const { site, page, category, slug, locSlug, locName, locLabel, relatedBusinesse
       </div>
       <p class="hero-sub text-muted-foreground">{site.hero.subheadline}</p>
       <p class="text-sm text-muted-foreground mt-2">{locLabel}</p>
+      {category && (
+        <a
+          href={`/${locSlug}/kategoria/${slugify(category)}`}
+          class="mt-3 inline-flex items-center gap-1 text-sm text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+        >
+          <span aria-hidden="true">←</span>
+          Więcej firm z kategorii „{category}”
+        </a>
+      )}
       <span class="hero-divider !mx-0" aria-hidden="true"></span>
     </div>
   </section>
