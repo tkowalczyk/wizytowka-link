@@ -1,3 +1,5 @@
+import { formatOperatingHours } from "./operating-hours";
+
 export interface BizData {
 	title: string;
 	phone: string;
@@ -15,6 +17,7 @@ export function safeJsonScript(value: unknown): string {
 }
 
 export function buildLocalBusinessLd(biz: BizData, _url: string) {
+	const openingHours = formatOperatingHours(biz.operating_hours).schema;
 	return {
 		"@context": "https://schema.org",
 		"@type": "LocalBusiness",
@@ -24,7 +27,7 @@ export function buildLocalBusinessLd(biz: BizData, _url: string) {
 			streetAddress: biz.address,
 			addressCountry: "PL",
 		},
-		...(biz.operating_hours ? { openingHours: biz.operating_hours } : {}),
+		...(openingHours.length ? { openingHours } : {}),
 		geo: {
 			"@type": "GeoCoordinates",
 			latitude: biz.gps_lat,

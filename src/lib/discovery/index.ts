@@ -659,7 +659,9 @@ async function markSearched(db: D1Database, localityId: number): Promise<void> {
 		.run();
 }
 
-function toBusiness(
+// Exported for the operating-hours round-trip guard (#66): the shape this
+// serializes operating_hours into must stay parseable by formatOperatingHours.
+export function toBusiness(
 	r: SerpApiLocalResult,
 	slug: string,
 	localityId: number,

@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb, TEST_IDS } from "../../../test/seed";
 import type { Locality } from "../../types/business";
 import type { SerpApiLocalResult } from "../../types/serpapi";
+import { formatOperatingHours } from "../operating-hours";
 import { SerpApiError } from "./errors";
-import { createSerpApiSearch, runDiscovery } from "./index";
+import { createSerpApiSearch, runDiscovery, toBusiness } from "./index";
 import type { DiscoveryDeps, NotifyPort, SearchPort, StatePort } from "./ports";
 import { SKIP_FLAG_KEY } from "./preflight";
 
@@ -862,5 +863,33 @@ describe("discovery: runDiscovery", () => {
 			.first<{ cnt: number }>();
 		expect(row?.cnt).toBe(VOLUME);
 		expect(counted.statementCount).toBeLessThan(SUBREQUEST_CAP);
+	});
+});
+
+describe("discovery: toBusiness operating_hours round-trip", () => {
+	// Guards the contract between how discovery serializes operating_hours and
+	// how formatOperatingHours parses it — if toBusiness's shape drifts, the
+	// public page / JSON-LD would silently regress to a raw blob again (#66).
+	it("serializes hours in a shape formatOperatingHours can render", () => {
+		const result = fakeResult({
+			operating_hours: {
+				monday: "9 AM to 5 PM",
+				tuesday: "9 AM to 5 PM",
+			},
+		});
+
+		const business = toBusiness(result, "test-biznes", 1, "restauracja");
+		const { display, schema } = formatOperatingHours(business.operating_hours);
+
+		expect(business.operating_hours).not.toBeNull();
+		expect(display).not.toMatch(/^\{/);
+		expect(display).toContain("poniedziałek");
+		expect(schema).toEqual(["Mo-Tu 09:00-17:00"]);
+	});
+
+	it("stores null when a scraped result has no operating hours", () => {
+		const business = toBusiness(fakeResult(), "test-biznes", 1, "restauracja");
+		expect(business.operating_hours).toBeNull();
+		expect(formatOperatingHours(business.operating_hours).display).toBeNull();
 	});
 });

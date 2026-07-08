@@ -15,15 +15,24 @@ const baseBiz: BizData = {
 	gps_lng: 21.1100277,
 	rating: 4.7,
 	reviews_count: 98,
-	operating_hours: "Pon-Pt 09:00-17:00",
+	// The real persisted shape: JSON.stringify of the scraped
+	// Record<string, string> keyed by lowercase English day names.
+	operating_hours: JSON.stringify({
+		monday: "9 AM to 5 PM",
+		tuesday: "9 AM to 5 PM",
+		wednesday: "9 AM to 5 PM",
+		thursday: "9 AM to 5 PM",
+		friday: "9 AM to 5 PM",
+		saturday: "10 AM to 2 PM",
+		sunday: "Closed",
+	}),
 };
 
 describe("buildLocalBusinessLd", () => {
 	// Assumptions for issue #44:
 	// Input is the current business row shape used by generated pages.
 	// Output is LocalBusiness JSON-LD with no direct contact fields exposed.
-	// This iteration does not test full schema.org normalization of opening hours.
-	it("omits direct contact fields while preserving address and opening hours", () => {
+	it("omits direct contact fields and emits schema.org-format opening hours", () => {
 		const ld = buildLocalBusinessLd(
 			baseBiz,
 			"https://wizytowka.link/zabki/bistro",
@@ -37,7 +46,20 @@ describe("buildLocalBusinessLd", () => {
 			streetAddress: baseBiz.address,
 			addressCountry: "PL",
 		});
-		expect(ld.openingHours).toBe(baseBiz.operating_hours);
+		expect(ld.openingHours).toEqual(["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"]);
+		for (const entry of ld.openingHours as string[]) {
+			expect(entry).toMatch(
+				/^[A-Z][a-z](-[A-Z][a-z])? \d{2}:\d{2}-\d{2}:\d{2}$/,
+			);
+		}
+	});
+
+	it("omits openingHours entirely for unparseable input", () => {
+		const ld = buildLocalBusinessLd(
+			{ ...baseBiz, operating_hours: "call us maybe" },
+			"https://wizytowka.link/zabki/bistro",
+		);
+		expect(ld).not.toHaveProperty("openingHours");
 	});
 
 	it("includes ratingCount when both rating and reviews_count present", () => {
