@@ -71,4 +71,14 @@ describe("GET [slug].md", () => {
 
 		expect(res.status).toBe(404);
 	});
+
+	it("returns 410 when a live object outlives its D1 business row", async () => {
+		// A stale R2 key whose D1 join returns null (business removed/renamed)
+		// must not be served as machine-readable content — issue #81 biz-null hole.
+		await putSite(env.sites, "live", "warszawa", "ghost-business", STUB_SITE);
+
+		const res = await invoke("warszawa", "ghost-business");
+
+		expect(res.status).toBe(410);
+	});
 });

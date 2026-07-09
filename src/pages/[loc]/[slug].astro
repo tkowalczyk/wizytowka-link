@@ -32,11 +32,13 @@ const biz = await db.prepare(`
   site_status: string;
 }>();
 
-// Issue #72 gap 2: a live R2 object may outlive its 'done' status (owner
-// removal, GDPR erasure, re-classification). On the public (non-draft) path,
-// withhold anything not 'done' as 410 Gone so it stops being served + indexed.
-// The draft-preview path stays intentionally viewable via its token.
-if (!isDraft && biz && !isPubliclyServable(biz.site_status)) {
+// Issue #72 gap 2 + #81: a live R2 object may outlive its 'done' status (owner
+// removal, GDPR erasure, re-classification) or its D1 row entirely (stale R2 key
+// after a slug change). On the public (non-draft) path, withhold anything not
+// backed by a 'done' business as 410 Gone — a null join is a withdrawal, not a
+// self-canonical noindex 200 that Google recrawls forever. The draft-preview
+// path stays intentionally viewable via its token.
+if (!isDraft && !isPubliclyServable(biz?.site_status)) {
   return new Response('Gone', { status: 410 });
 }
 
@@ -73,4 +75,4 @@ if (isDraft) {
   </div>
 )}
 
-<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} locLabel={locLabel} relatedBusinesses={relatedBusinesses ?? []} isIndexable={!isDraft && !!biz} />
+<BusinessSite site={site} biz={biz} slug={slug} locSlug={loc} locName={locRow?.name ?? loc} locLabel={locLabel} relatedBusinesses={relatedBusinesses ?? []} isIndexable={!isDraft} />

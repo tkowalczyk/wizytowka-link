@@ -1,10 +1,11 @@
 import { handle } from "@astrojs/cloudflare/handler";
-import { goneResponse, isLegacyLocalityPath } from "./lib/legacy-slug";
+import { goneResponse } from "./lib/legacy-slug";
 import {
 	type PublicPageVisitInput,
 	recordPublicPageVisit,
 } from "./lib/public-page";
 import { runScheduledCron } from "./lib/scheduled";
+import { resolveStaleLocalityUrl } from "./lib/slug-redirect";
 
 function publicPageVisitInput(
 	request: Request,
@@ -33,7 +34,23 @@ export default {
 				headers: { Location: url.toString() },
 			});
 		}
-		if (await isLegacyLocalityPath(env.leadgen, url.pathname)) {
+		// Stale locality slugs (mutable across the Phase 2 migration) 301 to their
+		// canonical URL; genuinely-dead legacy URLs 410. See slug-redirect.
+		const staleResolution = await resolveStaleLocalityUrl(
+			env.leadgen,
+			url.pathname,
+		);
+		if (staleResolution.kind === "redirect") {
+			url.pathname = staleResolution.location;
+			return new Response(null, {
+				status: 301,
+				headers: {
+					Location: url.toString(),
+					"Cache-Control": "public, max-age=86400",
+				},
+			});
+		}
+		if (staleResolution.kind === "gone") {
 			return goneResponse();
 		}
 		const visitInput = publicPageVisitInput(request, url);

@@ -55,9 +55,11 @@ export const GET: APIRoute = async ({ params }) => {
 		.bind(loc, slug)
 		.first<{ title: string; site_status: string }>();
 
-	// Issue #72 gap 2: a live R2 object may outlive its 'done' status (owner
-	// removal, GDPR erasure, re-classification). Withhold anything not 'done'.
-	if (biz && !isPubliclyServable(biz.site_status)) {
+	// Issue #72 gap 2 + #81: a live R2 object may outlive its 'done' status (owner
+	// removal, GDPR erasure, re-classification) or its D1 row entirely (stale key
+	// after a slug change). Withhold anything not backed by a 'done' business —
+	// a null join is a withdrawal, not a 200.
+	if (!isPubliclyServable(biz?.site_status)) {
 		return new Response("Gone", { status: 410 });
 	}
 

@@ -216,3 +216,69 @@ describe("worker trailing-slash redirect", () => {
 		expect(handleMock).not.toHaveBeenCalled();
 	});
 });
+
+describe("worker stale-slug redirect", () => {
+	beforeEach(async () => {
+		await resetDb(env.leadgen);
+		handleMock.mockReset();
+		handleMock.mockResolvedValue(new Response(null, { status: 204 }));
+	});
+
+	async function seedStaleBusiness(): Promise<void> {
+		const loc = await env.leadgen
+			.prepare(
+				"INSERT INTO localities (name, slug, sym) VALUES (?, ?, ?) RETURNING id",
+			)
+			.bind("Zielonka", "zielonka-zielonka", "0921970")
+			.first<{ id: number }>();
+		if (!loc) throw new Error("failed to seed locality");
+		await env.leadgen
+			.prepare(
+				"INSERT INTO businesses (locality_id, place_id, title, slug, address, category, gps_lat, gps_lng, site_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'done')",
+			)
+			.bind(
+				loc.id,
+				"place_stale",
+				"Auto Salon",
+				"auto-salon-krzysztof-luniewski",
+				"ul. Testowa 1",
+				"warsztat",
+				52.0,
+				21.0,
+			)
+			.run();
+	}
+
+	it("301s a stale business URL to its canonical slug without invoking Astro", async () => {
+		await seedStaleBusiness();
+		const { ctx } = createExecutionContext();
+
+		const res = await worker.fetch(
+			workerRequest(
+				"https://wizytowka.link/zielonka-0921970/auto-salon-krzysztof-luniewski",
+			),
+			env,
+			ctx,
+		);
+
+		expect(res.status).toBe(301);
+		expect(res.headers.get("Location")).toBe(
+			"https://wizytowka.link/zielonka-zielonka/auto-salon-krzysztof-luniewski",
+		);
+		expect(res.headers.get("Cache-Control")).toContain("max-age=86400");
+		expect(handleMock).not.toHaveBeenCalled();
+	});
+
+	it("still 410s a legacy URL whose sym resolves to no locality", async () => {
+		const { ctx } = createExecutionContext();
+
+		const res = await worker.fetch(
+			workerRequest("https://wizytowka.link/foobar-9999999"),
+			env,
+			ctx,
+		);
+
+		expect(res.status).toBe(410);
+		expect(handleMock).not.toHaveBeenCalled();
+	});
+});

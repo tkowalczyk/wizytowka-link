@@ -1,31 +1,7 @@
-// Legacy locality slugs from the pre-2026-04-08 era used the `slugify(name)-{7-digit-sym}`
-// format. The Phase 2 migration (commits 54f0415, bfe56dd, 30a4ab6) replaced this with a
-// hierarchical algorithm whose sym fallback is `name-gmi-pow-woj-{sym}` — multi-segment.
-//
-// Old URLs Google still has indexed (e.g. /jozefow-0723566) now 404. To deindex them
-// faster and cleanly, we return 410 Gone when the path's first segment matches the legacy
-// shape AND no current locality has that slug. Current sym-fallback slugs also end in
-// `-{7 digits}` but are multi-segment, so they exist in D1 and fall through.
-
-const LEGACY_PATH_RE = /^\/([^/]+-\d{7})(?:\/[^/]+)?$/;
-
-export function extractLegacyLocalitySlug(pathname: string): string | null {
-	const m = LEGACY_PATH_RE.exec(pathname);
-	return m ? m[1] : null;
-}
-
-export async function isLegacyLocalityPath(
-	db: D1Database,
-	pathname: string,
-): Promise<boolean> {
-	const slug = extractLegacyLocalitySlug(pathname);
-	if (!slug) return false;
-	const row = await db
-		.prepare("SELECT 1 AS hit FROM localities WHERE slug = ? LIMIT 1")
-		.bind(slug)
-		.first<{ hit: number }>();
-	return row === null;
-}
+// 410 Gone response for locality/business URLs that are genuinely dead — i.e.
+// no current locality can be recovered from the path. The decision of *which*
+// stale URLs are dead (410) versus moved (301) now lives in slug-redirect.ts
+// (`resolveStaleLocalityUrl`); this module only owns the terminal 410 body.
 
 export function goneResponse(): Response {
 	const body = `<!DOCTYPE html>
