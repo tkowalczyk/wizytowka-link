@@ -272,6 +272,47 @@ describe("POST /api/chat/start", () => {
 		expect(telegramCalls(fetchMock)).toHaveLength(1);
 	});
 
+	it("sends a reopen notification when an active session is reopened after the quiet period", async () => {
+		const sessionId = "reopen-past-quiet-session";
+		await env.leadgen
+			.prepare(
+				`INSERT INTO chat_sessions (
+           id, business_id, locality_slug, business_slug, started_at, status,
+           referrer, user_agent, last_opened_at, telegram_start_sent_at
+         ) VALUES (?, ?, 'warszawa', 'hydraulik-warszawa', ?, 'active',
+                   'https://example.test/source', 'Vitest Agent', ?, ?)`,
+			)
+			.bind(
+				sessionId,
+				TEST_IDS.businesses.hydraulikWarszawa,
+				"2020-01-01T00:00:00.000Z",
+				"2020-01-01T00:00:00.000Z",
+				"2020-01-01T00:00:00.000Z",
+			)
+			.run();
+
+		const { response, settled } = await submitChatStart({
+			locSlug: "warszawa",
+			businessSlug: "hydraulik-warszawa",
+			sessionId,
+		});
+		const body = (await response.json()) as ChatStartResponse;
+		await settled;
+
+		expect(body.sessionId).toBe(sessionId);
+		const calls = telegramCalls(fetchMock);
+		expect(calls).toHaveLength(1);
+		const payload = JSON.parse(calls[0][1]?.body as string) as { text: string };
+		expect(payload.text).toContain("ponownie");
+		expect(payload.text).toContain("warszawa/hydraulik-warszawa");
+
+		const row = await env.leadgen
+			.prepare("SELECT last_reopen_notified_at FROM chat_sessions WHERE id = ?")
+			.bind(sessionId)
+			.first<{ last_reopen_notified_at: string | null }>();
+		expect(row?.last_reopen_notified_at).toEqual(expect.any(String));
+	});
+
 	it("does not mark a start notification as sent when Telegram rejects delivery", async () => {
 		globalThis.fetch = mockRejectedTelegramFetch() as unknown as typeof fetch;
 		const { response, settled } = await submitChatStart({

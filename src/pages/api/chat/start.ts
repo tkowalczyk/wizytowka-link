@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import type { APIRoute } from "astro";
 import {
 	parseStartChatInput,
+	sendChatReopenNotification,
 	sendChatStartNotification,
 	startChatSession,
 } from "../../../lib/chat";
@@ -37,7 +38,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
 	if (!result) return json({ error: "nie znaleziono strony" }, 404);
 
 	locals.cfContext.waitUntil(
-		sendChatStartNotification(env, result.sessionId).catch((error) => {
+		(result.reopened
+			? sendChatReopenNotification(env, result.sessionId)
+			: sendChatStartNotification(env, result.sessionId)
+		).catch((error) => {
 			console.error("chat start notification failed:", error);
 		}),
 	);
