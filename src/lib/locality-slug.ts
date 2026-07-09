@@ -6,9 +6,17 @@ export interface LocalityInput {
 	pow_name: string;
 	woj_name: string;
 	sym: string;
+	/**
+	 * A slug this locality is already published under and must keep across
+	 * recomputation (#83). Frozen slugs are pinned before the escalation contest
+	 * runs, so a later colliding locality escalates around them instead of
+	 * silently rebasing an already-indexed URL. Set for localities with any
+	 * `done` business.
+	 */
+	frozenSlug?: string;
 }
 
-export type EscalationLevel = 1 | 2 | 3 | 4 | "sym";
+export type EscalationLevel = 1 | 2 | 3 | 4 | "sym" | "frozen";
 
 export interface LocalityWithSlug extends LocalityInput {
 	slug: string;
@@ -64,7 +72,26 @@ export function assignLocalitySlugs(
 	const n = localities.length;
 	const chosen: (LocalityWithSlug | null)[] = new Array(n).fill(null);
 	const taken = new Set<string>();
-	let pending: number[] = localities.map((_, i) => i);
+
+	// Pin frozen slugs first, before the escalation contest. An already-published
+	// locality keeps its slug; the contest below routes colliders around it via
+	// the `taken` guard, so only unfrozen newcomers escalate (#83).
+	let pending: number[] = [];
+	for (let i = 0; i < n; i++) {
+		const frozen = localities[i].frozenSlug;
+		if (frozen === undefined) {
+			pending.push(i);
+			continue;
+		}
+		if (taken.has(frozen)) {
+			throw new Error(
+				`assignLocalitySlugs: two frozen localities claim slug "${frozen}" ` +
+					`(second: "${localities[i].name}", gm. ${localities[i].gmi_name}).`,
+			);
+		}
+		chosen[i] = { ...localities[i], slug: frozen, level: "frozen" };
+		taken.add(frozen);
+	}
 
 	for (const { level, build } of LEVELS) {
 		// Compute this level's key for every pending row + a count multiset.

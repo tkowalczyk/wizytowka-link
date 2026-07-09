@@ -470,3 +470,31 @@ describe("assignLocalitySlugs (phase 1 — name + gmi)", () => {
 		expect(result[2].slug).toBe("warszawa");
 	});
 });
+
+describe("assignLocalitySlugs — sticky slugs for published localities (#83)", () => {
+	it("keeps a frozen locality's slug and escalates only the newcomer on a later collision", () => {
+		// Radzymin (gm. Radzymin) is already published at the bare slug "radzymin"
+		// and marked frozen. A second Radzymin (gm. Wołomin) enters the set later.
+		// The published one must NOT re-escalate — only the newcomer takes a suffix.
+		const result = assignLocalitySlugs([
+			{
+				name: "Radzymin",
+				gmi_name: "Radzymin",
+				pow_name: "wołomiński",
+				woj_name: "mazowieckie",
+				sym: "1421052",
+				frozenSlug: "radzymin",
+			},
+			{
+				name: "Radzymin",
+				gmi_name: "Wołomin",
+				pow_name: "wołomiński",
+				woj_name: "mazowieckie",
+				sym: "1421999",
+			},
+		]);
+
+		expect(result[0].slug).toBe("radzymin");
+		expect(result[1].slug).toBe("radzymin-wolomin");
+	});
+});

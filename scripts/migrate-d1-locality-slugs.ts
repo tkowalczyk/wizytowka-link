@@ -24,6 +24,7 @@ import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
 	batchD1Updates,
+	batchHistoryInserts,
 	type LocalityRow,
 	planD1Migration,
 } from "../src/lib/migrations/locality-slug-d1.js";
@@ -71,7 +72,9 @@ function execBatch(sql: string, params: (number | string)[]): void {
 async function main() {
 	console.log(`Loading localities from D1 (${ENV_FLAG})...`);
 	const rows = d1Json<LocalityRow>(
-		"SELECT id, slug AS current_slug, name, gmi_name, pow_name, woj_name, sym FROM localities ORDER BY id",
+		"SELECT l.id, l.slug AS current_slug, l.name, l.gmi_name, l.pow_name, l.woj_name, l.sym, " +
+			"EXISTS(SELECT 1 FROM businesses b WHERE b.locality_id = l.id AND b.site_status = 'done') AS frozen " +
+			"FROM localities l ORDER BY l.id",
 	);
 	console.log(`  ${rows.length} rows`);
 
@@ -102,6 +105,19 @@ async function main() {
 	if (!APPLY) {
 		console.log("\nDry run. Re-run with --apply to execute.");
 		return;
+	}
+
+	// Record history rows BEFORE rewriting slugs so a crash never loses the
+	// old→new mapping; INSERT OR IGNORE keeps this idempotent across re-runs (#83).
+	const historyBatches = batchHistoryInserts(plan.updates);
+	console.log(`Recording ${plan.updates.length} slug-history rows...`);
+	let h = 0;
+	for (const b of historyBatches) {
+		h++;
+		console.log(
+			`  history batch ${h}/${historyBatches.length} (${b.params.length} params)`,
+		);
+		execBatch(b.sql, b.params);
 	}
 
 	console.log("Applying batches...");

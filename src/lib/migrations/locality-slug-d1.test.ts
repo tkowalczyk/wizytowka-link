@@ -25,7 +25,9 @@ describe("planD1Migration — tracer bullet", () => {
 		const plan = planD1Migration(rows);
 
 		expect(plan.unchangedCount).toBe(0);
-		expect(plan.updates).toEqual([{ id: 42, new_slug: "brzezie" }]);
+		expect(plan.updates).toEqual([
+			{ id: 42, new_slug: "brzezie", old_slug: "brzezie-1234567" },
+		]);
 	});
 
 	it("treats a row whose current slug already matches the algorithm output as unchanged", () => {
@@ -81,8 +83,8 @@ describe("planD1Migration — tracer bullet", () => {
 
 		expect(plan.unchangedCount).toBe(1);
 		expect(plan.updates).toEqual([
-			{ id: 1, new_slug: "brzezie-klaj" },
-			{ id: 2, new_slug: "brzezie-mosina" },
+			{ id: 1, new_slug: "brzezie-klaj", old_slug: "brzezie-1001" },
+			{ id: 2, new_slug: "brzezie-mosina", old_slug: "brzezie-2002" },
 		]);
 	});
 });
@@ -90,8 +92,8 @@ describe("planD1Migration — tracer bullet", () => {
 describe("batchD1Updates — D1 100-param limit", () => {
 	it("emits a single batch with CASE WHEN SQL and bound params for a small update set", () => {
 		const batches = batchD1Updates([
-			{ id: 1, new_slug: "brzezie-klaj" },
-			{ id: 2, new_slug: "brzezie-mosina" },
+			{ id: 1, new_slug: "brzezie-klaj", old_slug: "brzezie-1001" },
+			{ id: 2, new_slug: "brzezie-mosina", old_slug: "brzezie-2002" },
 		]);
 
 		expect(batches).toHaveLength(1);
@@ -106,6 +108,7 @@ describe("batchD1Updates — D1 100-param limit", () => {
 		const updates = Array.from({ length: 70 }, (_, i) => ({
 			id: i + 1,
 			new_slug: `slug-${i + 1}`,
+			old_slug: `old-${i + 1}`,
 		}));
 
 		const batches = batchD1Updates(updates);
@@ -206,5 +209,89 @@ describe("applyD1Migration — integration with real D1", () => {
 		expect(afterOwners?.c).toBe(beforeOwners?.c);
 		expect(afterSellers?.c).toBe(beforeSellers?.c);
 		expect(afterCallLog?.c).toBe(beforeCallLog?.c);
+	});
+
+	it("records every slug change in locality_slug_history, idempotently on re-run (#83)", async () => {
+		await env.leadgen
+			.prepare(
+				`INSERT INTO localities (name, slug, sym, sym_pod, woj, woj_name, pow, pow_name, gmi, gmi_name)
+				 VALUES
+				   ('Brzezie','brzezie-9001','9001','9001','12','małopolskie','12-15','wielicki','12-15-03','Kłaj'),
+				   ('Brzezie','brzezie-9002','9002','9002','30','wielkopolskie','30-21','poznański','30-21-04','Mosina')`,
+			)
+			.run();
+
+		const klajId = await env.leadgen
+			.prepare("SELECT id FROM localities WHERE sym = '9001'")
+			.first<{ id: number }>();
+		const mosinaId = await env.leadgen
+			.prepare("SELECT id FROM localities WHERE sym = '9002'")
+			.first<{ id: number }>();
+
+		const plan1 = planD1Migration(await loadLocalityRows(env.leadgen));
+		await applyD1Migration(env.leadgen, plan1);
+
+		const { results: history1 } = await env.leadgen
+			.prepare(
+				"SELECT old_slug, locality_id FROM locality_slug_history ORDER BY old_slug",
+			)
+			.all<{ old_slug: string; locality_id: number }>();
+
+		expect(history1).toEqual([
+			{ old_slug: "brzezie-9001", locality_id: klajId?.id },
+			{ old_slug: "brzezie-9002", locality_id: mosinaId?.id },
+		]);
+
+		// Re-running the whole migration must not duplicate history rows: the plan
+		// is now empty (slugs already migrated) AND the INSERT OR IGNORE is a no-op
+		// for any old_slug already recorded.
+		const plan2 = planD1Migration(await loadLocalityRows(env.leadgen));
+		await applyD1Migration(env.leadgen, plan2);
+
+		const count = await env.leadgen
+			.prepare("SELECT COUNT(*) AS c FROM locality_slug_history")
+			.first<{ c: number }>();
+		expect(count?.c).toBe(2);
+	});
+
+	it("never changes the slug of a locality with a done business, escalating only the newcomer (#83)", async () => {
+		// Brzezie (gm. Kłaj) is published at the bare slug 'brzezie' and owns a done
+		// business. A colliding Brzezie (gm. Mosina) enters later on a legacy slug.
+		// Recompute must keep the published slug and escalate only the newcomer.
+		await env.leadgen
+			.prepare(
+				`INSERT INTO localities (name, slug, sym, sym_pod, woj, woj_name, pow, pow_name, gmi, gmi_name)
+				 VALUES
+				   ('Brzezie','brzezie','9101','9101','12','małopolskie','12-15','wielicki','12-15-03','Kłaj'),
+				   ('Brzezie','brzezie-9102','9102','9102','30','wielkopolskie','30-21','poznański','30-21-04','Mosina')`,
+			)
+			.run();
+
+		const published = await env.leadgen
+			.prepare("SELECT id FROM localities WHERE sym = '9101'")
+			.first<{ id: number }>();
+		await env.leadgen
+			.prepare(
+				"INSERT INTO businesses (locality_id, place_id, title, slug, address, category, gps_lat, gps_lng, site_status) VALUES (?, 'place_brz', 'Zakład', 'zaklad-x', 'ul. 1', 'x', 50.0, 20.0, 'done')",
+			)
+			.bind(published?.id)
+			.run();
+
+		const plan = planD1Migration(await loadLocalityRows(env.leadgen));
+
+		// The published locality is frozen — no update targets it.
+		expect(plan.updates.find((u) => u.id === published?.id)).toBeUndefined();
+
+		await applyD1Migration(env.leadgen, plan);
+
+		const publishedAfter = await env.leadgen
+			.prepare("SELECT slug FROM localities WHERE sym = '9101'")
+			.first<{ slug: string }>();
+		const newcomerAfter = await env.leadgen
+			.prepare("SELECT slug FROM localities WHERE sym = '9102'")
+			.first<{ slug: string }>();
+
+		expect(publishedAfter?.slug).toBe("brzezie");
+		expect(newcomerAfter?.slug).toBe("brzezie-mosina");
 	});
 });

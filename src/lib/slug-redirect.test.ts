@@ -114,6 +114,60 @@ describe("resolveStaleLocalityUrl", () => {
 		});
 	});
 
+	it("redirects deterministically from a history row even when two same-name localities exist (#83)", async () => {
+		// Both Radzymin localities own a done business at the same slug, so the
+		// base-name heuristic is ambiguous (→ gone). A history row pins the old
+		// bare slug 'radzymin' to the specific locality it was published under.
+		const pinned = await insertLocality(
+			"radzymin-radzymin",
+			"1421052",
+			"Radzymin",
+		);
+		const other = await insertLocality(
+			"radzymin-wolomin",
+			"1421999",
+			"Radzymin",
+		);
+		await insertBusiness(pinned, "elektryk-krzysztof-gawinski", "done");
+		await insertBusiness(other, "elektryk-krzysztof-gawinski", "done");
+		await env.leadgen
+			.prepare(
+				"INSERT INTO locality_slug_history (old_slug, locality_id) VALUES (?, ?)",
+			)
+			.bind("radzymin", pinned)
+			.run();
+
+		const result = await resolveStaleLocalityUrl(
+			env.leadgen,
+			"/radzymin/elektryk-krzysztof-gawinski",
+		);
+
+		expect(result).toEqual({
+			kind: "redirect",
+			location: "/radzymin-radzymin/elektryk-krzysztof-gawinski",
+		});
+	});
+
+	it("redirects a bare locality index from a history row to the current slug (#83)", async () => {
+		const pinned = await insertLocality(
+			"radzymin-radzymin",
+			"1421052",
+			"Radzymin",
+		);
+		await insertLocality("radzymin-wolomin", "1421999", "Radzymin");
+		await env.leadgen
+			.prepare(
+				"INSERT INTO locality_slug_history (old_slug, locality_id) VALUES (?, ?)",
+			)
+			.bind("radzymin", pinned)
+			.run();
+
+		expect(await resolveStaleLocalityUrl(env.leadgen, "/radzymin")).toEqual({
+			kind: "redirect",
+			location: "/radzymin-radzymin",
+		});
+	});
+
 	it("returns gone when two localities share the base name and business slug", async () => {
 		const a = await insertLocality("biala-x", "0923001", "Biała");
 		const b = await insertLocality("biala-y", "0923002", "Biała");

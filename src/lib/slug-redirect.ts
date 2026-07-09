@@ -4,9 +4,11 @@
 // business actually lives — not 404, 410, or serve a self-canonical noindex
 // duplicate (issue #81). Only genuinely-dead legacy URLs return 410.
 //
-// #83 (slug history) will make this deterministic; until then this works against
-// production data as-is via the sym in the URL and the base-name → escalated-slug
-// relationship (`slugify(name)` is always a prefix of the current slug).
+// A `locality_slug_history` row (#83) makes resolution deterministic — it pins an
+// old slug to the exact locality it belonged to, even when two same-name
+// localities exist. Absent a history row, resolution falls back to the sym in the
+// URL and the base-name → escalated-slug relationship (`slugify(name)` is always
+// a prefix of the current slug), which stays ambiguous for repeated names.
 
 export type StaleUrlResolution =
 	| { kind: "redirect"; location: string }
@@ -40,7 +42,22 @@ export async function resolveStaleLocalityUrl(
 		.first<{ hit: number }>();
 	if (current) return { kind: "pass" };
 
-	// 2. Legacy `slugify(name)-{7-digit sym}` form: the sym deterministically
+	// 2. Slug-history match (#83) — authoritative. A recorded old_slug pins the
+	// exact locality a URL was published under, so it resolves even the ambiguous
+	// same-name case (two "Radzymin") that heuristics below can only return gone
+	// for. Checked before heuristics so history always wins.
+	const historic = await db
+		.prepare(
+			`SELECT l.id, l.slug
+			 FROM locality_slug_history h
+			 JOIN localities l ON l.id = h.locality_id
+			 WHERE h.old_slug = ? LIMIT 1`,
+		)
+		.bind(loc)
+		.first<{ id: number; slug: string }>();
+	if (historic) return redirectToLocality(db, historic, bizSlug);
+
+	// 3. Legacy `slugify(name)-{7-digit sym}` form: the sym deterministically
 	// identifies the current locality.
 	const symMatch = SYM_SUFFIX_RE.exec(loc);
 	if (symMatch) {
@@ -49,21 +66,10 @@ export async function resolveStaleLocalityUrl(
 			.bind(symMatch[1])
 			.first<{ id: number; slug: string }>();
 		if (!locality) return { kind: "gone" };
-		if (bizSlug === null) {
-			return { kind: "redirect", location: `/${locality.slug}` };
-		}
-		const biz = await db
-			.prepare(
-				"SELECT 1 AS hit FROM businesses WHERE locality_id = ? AND slug = ? AND site_status = 'done' LIMIT 1",
-			)
-			.bind(locality.id, bizSlug)
-			.first<{ hit: number }>();
-		return biz
-			? { kind: "redirect", location: `/${locality.slug}/${bizSlug}` }
-			: { kind: "gone" };
+		return redirectToLocality(db, locality, bizSlug);
 	}
 
-	// 3. Candidate match — a bare base name that escalated to a hierarchical slug.
+	// 4. Candidate match — a bare base name that escalated to a hierarchical slug.
 	// `slugify(name)` is always a prefix of the current slug, so the candidates
 	// are the current localities whose slug is `${loc}-…`.
 	if (bizSlug !== null) {
@@ -98,6 +104,28 @@ export async function resolveStaleLocalityUrl(
 	}
 	if (results.length > 1) return { kind: "gone" };
 	return { kind: "pass" };
+}
+
+// Redirect a URL whose locality was resolved deterministically (by history row
+// or by sym): a bare index → the locality's current slug; a business URL → that
+// slug only while the business still lives there and is published, else 410.
+async function redirectToLocality(
+	db: D1Database,
+	locality: { id: number; slug: string },
+	bizSlug: string | null,
+): Promise<StaleUrlResolution> {
+	if (bizSlug === null) {
+		return { kind: "redirect", location: `/${locality.slug}` };
+	}
+	const biz = await db
+		.prepare(
+			"SELECT 1 AS hit FROM businesses WHERE locality_id = ? AND slug = ? AND site_status = 'done' LIMIT 1",
+		)
+		.bind(locality.id, bizSlug)
+		.first<{ hit: number }>();
+	return biz
+		? { kind: "redirect", location: `/${locality.slug}/${bizSlug}` }
+		: { kind: "gone" };
 }
 
 // A stale base name that maps to a real escalated locality is a withdrawal → 410;

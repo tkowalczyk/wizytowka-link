@@ -78,6 +78,7 @@ export async function resetDb(db: D1Database): Promise<void> {
 		"DROP TABLE IF EXISTS alert_log",
 		"DROP TABLE IF EXISTS draft_preview_tokens",
 		"DROP TABLE IF EXISTS cron_log",
+		"DROP TABLE IF EXISTS locality_slug_history",
 		"DROP TABLE IF EXISTS call_log",
 		"DROP TABLE IF EXISTS business_owners",
 		"DROP TABLE IF EXISTS businesses",
