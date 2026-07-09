@@ -18,7 +18,7 @@
 		"seed:into-d1": "tsx scripts/parse-simc.ts",
 		"db:migrate:fresh": "rm -rf .wrangler/state/v3/d1 .wrangler/state/v3/r2 && pnpm db:migrate",
 		"seed": "pnpm db:migrate:fresh && pnpm tsx scripts/seed-local-test.ts",
-		"deploy": "wrangler deploy",
+		"deploy": "wrangler deploy --secrets-file .production.vars",
 		"audit:prod": "pnpm audit --prod",
 		"deps": "taze",
 		"deps:major": "taze major",

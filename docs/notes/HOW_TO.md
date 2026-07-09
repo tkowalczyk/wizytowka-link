@@ -29,7 +29,7 @@ Cel biznesowy: sprzedawcy dzwonia do firm bez stron www, oferuja gotowa wizytowk
 | Geokodowanie | Nominatim (OpenStreetMap) |
 | Scraping firm | SerpAPI (Google Maps) |
 | Powiadomienia | Telegram Bot API |
-| Deploy | wrangler deploy |
+| Deploy | pnpm run deploy (`wrangler deploy --secrets-file .production.vars`) |
 
 ---
 
@@ -311,8 +311,10 @@ Endpoint: `POST /api/contact` -- przyjmuje numer telefonu z formularza na stroni
 
 **Deploy:**
 ```bash
-pnpm run build && pnpm wrangler deploy
+pnpm run build && pnpm run deploy   # deploy = `wrangler deploy --secrets-file .production.vars`
 ```
+
+> `pnpm run deploy` przesyła sekrety z `.production.vars` razem z kodem (format dotenv; pominięte klucze są zachowywane, nigdy nie kasowane). Uruchamiaj `pnpm run deploy`, **nie** `pnpm wrangler deploy` — bezpośrednie wywołanie pomija flagę `--secrets-file`. Wymaga Node ≥22.15 (`nvm use`).
 
 **Sekrety (`.production.vars`, nigdy w repo):**
 
@@ -340,7 +342,7 @@ pnpm run build && pnpm wrangler deploy
 | Raporty Telegram | Po scrape'ie | -- |
 | Dodanie sprzedawcy | -- | INSERT do D1 + link TG |
 | Obdzwanianie leadow | -- | Sprzedawca przez panel |
-| Deploy | -- | `pnpm wrangler deploy` |
+| Deploy | -- | `pnpm run deploy` |
 | Monitoring | Podstawowy (CF Dashboard) | Manualna kontrola MVP |
 
 ---
@@ -351,7 +353,7 @@ pnpm run build && pnpm wrangler deploy
 
 - Konfiguracja: `wrangler.jsonc`, sekrety, domena
 - Jednorazowy seed TERYT (`npx tsx seed/parse-simc.ts`)
-- Deploy (`pnpm wrangler deploy`)
+- Deploy (`pnpm run deploy`)
 - Dodawanie sellerow (INSERT do D1 + generowanie link TG)
 - Monitoring logow (`pnpm wrangler tail`)
 - Migracje D1 (`wrangler d1 execute`)
@@ -534,7 +536,7 @@ wrangler.jsonc           # konfiguracja CF Worker
 pnpm dev              # Astro dev server (lokalnie)
 pnpm build            # build SSR do dist/
 pnpm preview          # wrangler dev (lokalna emulacja CF)
-pnpm deploy           # wrangler deploy (produkcja)
+pnpm run deploy       # wrangler deploy --secrets-file .production.vars (produkcja; Node >=22.15)
 pnpm db:migrate       # migracje D1
 
 # Cron trigger (lokalne testowanie):

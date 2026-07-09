@@ -9,6 +9,7 @@ Lead-gen platform: scrapes Polish businesses via SerpAPI, generates static "wizy
 - **Styling**: TailwindCSS 4 via `@tailwindcss/vite`, `@theme inline` tokens in `src/styles/base.css` (no tailwind.config)
 - **Lint/format**: Biome (not ESLint/Prettier) — `biome.json`
 - **Tests**: Vitest + `@cloudflare/vitest-pool-workers` (real D1/R2 via Miniflare), co-located `foo.test.ts` next to `foo.ts`
+- **Node**: requires **≥22.15** (pinned to 24 via `.nvmrc` — run `nvm use`). Older Node breaks `astro build`/`astro check` with `node:module ... registerHooks` because the `@astrojs/cloudflare` build path uses Vite's module-runner.
 
 ## Project structure
 
@@ -78,7 +79,8 @@ docs/design/                     # Numbered design docs (read before implementin
 <important if="you need to run non-trivial commands (standard dev/build/test are in package.json)">
 ```bash
 pnpm seed                          # WIPES local D1+R2, re-migrates, re-seeds
-pnpm db:migrate:remote             # Apply D1 migrations to production
+pnpm db:migrate:remote             # Apply D1 migrations to production (run BEFORE deploying code that uses new columns)
+pnpm run build && pnpm run deploy  # Build, then deploy — deploy = `wrangler deploy --secrets-file .production.vars`
 curl http://localhost:8787/cdn-cgi/handler/scheduled  # Trigger crons locally (requires pnpm preview, NOT pnpm dev)
 ```
 
@@ -141,7 +143,7 @@ Files: `src/lib/themes.ts` (palettes), `src/lib/category.ts` (category → palet
 - **Admin auth**: single `ADMIN_TOKEN` secret, `x-admin-token` header — only for `/api/admin/run-cron/{name}`. Fail-closed (500 if secret not set). Compared via `timingSafeCompare` (`src/lib/auth.ts`).
 - **Telegram webhook secrets**: `/api/telegram/{bot}/[secret]` path param compared via `timingSafeCompare` to prevent timing oracles.
 - **Draft preview links**: `src/lib/draft-preview.ts` — 32-byte hex tokens, SHA-256 stored in D1, 24h TTL.
-- **Secrets files**: `.dev.vars` / `.production.vars` are gitignored — never commit. Production secrets via `wrangler secret put`.
+- **Secrets files**: `.dev.vars` (local dev + `astro build` runtime emulation) and `.production.vars` (production values) are gitignored — never commit. `pnpm run deploy` = `wrangler deploy --secrets-file .production.vars`, which uploads those secrets **alongside the code on every deploy** (dotenv format; omitted keys are preserved, never deleted). So keep `.production.vars` complete and current — a deploy overwrites live secrets with its contents. `wrangler deploy` never auto-loads any vars file; the `Using secrets defined in .dev.vars` line printed during `astro build` is **local emulation only** and does not reach production. One-off secret changes can still use `wrangler secret put`.
 </important>
 
 <important if="you are implementing a new feature">
