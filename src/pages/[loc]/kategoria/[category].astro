@@ -3,6 +3,7 @@ import "../../../styles/base.css";
 import { env } from "cloudflare:workers";
 import AuditmosFooterLink from "../../../components/AuditmosFooterLink.astro";
 import { findCategoryBusinesses } from "../../../lib/category";
+import { canonicalFor, robotsForListing } from "../../../lib/indexability";
 import { pluralizeFirma } from "../../../lib/pluralize";
 import { buildBreadcrumbLd, safeJsonScript } from "../../../lib/structured-data";
 
@@ -18,7 +19,8 @@ if (!data) return new Response("Not Found", { status: 404 });
 
 const { locality, categoryName, businesses } = data;
 
-const url = `https://wizytowka.link/${loc}/kategoria/${category}`;
+const url = canonicalFor(`/${loc}/kategoria/${category}`);
+const robots = robotsForListing(businesses.length);
 const title = `${categoryName} w ${locality.name} — wizytowka.link`;
 const description = `Firmy z kategorii ${categoryName} w ${locality.name}. Znajdź lokalnych fachowców i usługodawców.`;
 
@@ -50,7 +52,7 @@ Astro.response.headers.set(
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
 
-    <meta name="robots" content="index, follow" />
+    <meta name="robots" content={robots} />
     <meta name="theme-color" content="#2563eb" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

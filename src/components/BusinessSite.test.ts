@@ -16,3 +16,19 @@ describe("BusinessSite presentation overrides", () => {
 		);
 	});
 });
+
+// Issue #84: the robots + canonical decision (indexable → `index, follow`;
+// withheld → `noindex, nofollow`; canonical = https apex, no trailing slash) had
+// no behavioral test — the #81 blind spot. The decision itself is covered in
+// src/lib/indexability.test.ts (robotsForBusiness / canonicalFor); here we guard
+// that the page delegates to those helpers instead of re-inlining the strings.
+describe("BusinessSite robots + canonical wiring", () => {
+	it("derives robots from robotsForBusiness(isIndexable)", () => {
+		expect(source).toContain("robotsForBusiness(isIndexable)");
+		expect(source).not.toContain("'index, follow'");
+	});
+
+	it("derives the canonical URL from canonicalFor(Astro.url.pathname)", () => {
+		expect(source).toContain("canonicalFor(Astro.url.pathname)");
+	});
+});

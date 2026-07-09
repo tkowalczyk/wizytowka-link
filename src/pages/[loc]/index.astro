@@ -4,6 +4,7 @@ import { env } from 'cloudflare:workers';
 import AuditmosFooterLink from '../../components/AuditmosFooterLink.astro';
 import type { LocalityRow, BusinessRow } from '../../types/business';
 import { findLocalityCategories } from '../../lib/category';
+import { canonicalFor, robotsForListing } from '../../lib/indexability';
 import { pluralizeFirma } from '../../lib/pluralize';
 import { safeJsonScript } from '../../lib/structured-data';
 
@@ -29,10 +30,10 @@ const { results: businesses } = await db
 
 const categories = await findLocalityCategories(db, loc);
 
-const url = `https://wizytowka.link/${loc}`;
+const url = canonicalFor(`/${loc}`);
 const title = `Firmy w ${locality.name} — wizytowka.link`;
 const description = `Katalog firm i usług w ${locality.name}. Znajdź lokalne firmy, rzemieślników i usługodawców.`;
-const robots = businesses.length > 0 ? 'index, follow' : 'noindex, follow';
+const robots = robotsForListing(businesses.length);
 
 const breadcrumbLd = safeJsonScript({
   '@context': 'https://schema.org',

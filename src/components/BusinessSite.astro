@@ -3,6 +3,7 @@ import type { SiteData } from '../types/site';
 import { resolveTheme, getPaletteById, paletteToCSS, isLayoutVariant, isStyleVariant } from '../lib/themes';
 import { buildLocalBusinessLd, buildBreadcrumbLd, safeJsonScript, type BizData } from '../lib/structured-data';
 import { buildPublicBusinessPageModel } from '../lib/public-page';
+import { canonicalFor, robotsForBusiness } from '../lib/indexability';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
@@ -34,8 +35,8 @@ const style = isStyleVariant(site.style) ? site.style : resolved.style;
 const cssVars = paletteToCSS(palette);
 const page = buildPublicBusinessPageModel(site, biz);
 
-const canonicalUrl = `https://wizytowka.link${Astro.url.pathname.replace(/\/+$/, '')}`;
-const robots = isIndexable ? 'index, follow' : 'noindex, nofollow';
+const canonicalUrl = canonicalFor(Astro.url.pathname);
+const robots = robotsForBusiness(isIndexable);
 const jsonLd = biz ? safeJsonScript(buildLocalBusinessLd(biz, canonicalUrl)) : null;
 
 const breadcrumbLd = safeJsonScript(buildBreadcrumbLd(page.seo.title, locSlug, locName));
