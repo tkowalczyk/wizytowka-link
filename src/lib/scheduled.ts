@@ -8,6 +8,7 @@ export const CRON_PATTERNS = {
 	generate: "*/5 * * * *",
 	chatTimeout: "*/10 * * * *",
 	funnel: "0 9 * * 1",
+	reconcile: "0 4 * * 1",
 } as const satisfies Record<string, string>;
 
 export type CronName = keyof typeof CRON_PATTERNS;
@@ -67,6 +68,10 @@ async function executeCron(env: Env, cron: string): Promise<RunResult> {
 		case CRON_PATTERNS.funnel: {
 			const { runFunnelReport } = await import("./funnel");
 			return runFunnelReport(env);
+		}
+		case CRON_PATTERNS.reconcile: {
+			const { reconcileSites } = await import("./site-reconcile");
+			return reconcileSites(env);
 		}
 		default:
 			return { processed: 0, failed: 0 };
