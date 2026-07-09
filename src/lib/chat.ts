@@ -18,6 +18,7 @@ export interface StartChatMeta {
 export interface StartChatResult {
 	sessionId: string;
 	status: "active";
+	reopened: boolean;
 }
 
 export interface ChatMessageInput {
@@ -107,6 +108,18 @@ interface ChatNotificationSessionRow {
 	started_at: string;
 	referrer: string | null;
 	telegram_start_sent_at: string | null;
+}
+
+interface ChatReopenNotificationSessionRow {
+	id: string;
+	locality_slug: string;
+	business_slug: string;
+	status: "active" | "ended";
+	referrer: string | null;
+	started_at: string;
+	last_opened_at: string | null;
+	telegram_start_sent_at: string | null;
+	last_reopen_notified_at: string | null;
 }
 
 interface ChatEndNotificationSessionRow {
@@ -248,7 +261,7 @@ async function findBusinessPage(
 async function findActiveSession(
 	db: D1Database,
 	input: StartChatInput,
-): Promise<StartChatResult | null> {
+): Promise<{ sessionId: string; status: "active" } | null> {
 	if (!input.sessionId) return null;
 	const row = await db
 		.prepare(
@@ -297,6 +310,10 @@ export async function startChatSession(
 	const startedAt = meta.startedAt ?? new Date().toISOString();
 	const existing = await findActiveSession(db, input);
 	if (existing) {
+		await db
+			.prepare("UPDATE chat_sessions SET last_opened_at = ? WHERE id = ?")
+			.bind(startedAt, existing.sessionId)
+			.run();
 		await recordChatStartEvent(db, {
 			input,
 			sessionId: existing.sessionId,
@@ -304,7 +321,7 @@ export async function startChatSession(
 			referrer: meta.referrer,
 			userAgent: meta.userAgent,
 		});
-		return existing;
+		return { ...existing, reopened: true };
 	}
 
 	const business = await findBusinessPage(db, input);
@@ -316,8 +333,8 @@ export async function startChatSession(
 		.prepare(
 			`INSERT INTO chat_sessions (
          id, business_id, locality_slug, business_slug, started_at,
-         status, referrer, user_agent
-       ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)`,
+         status, referrer, user_agent, last_opened_at
+       ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
 		)
 		.bind(
 			sessionId,
@@ -327,6 +344,7 @@ export async function startChatSession(
 			startedAt,
 			meta.referrer,
 			meta.userAgent,
+			startedAt,
 		)
 		.run();
 
@@ -338,7 +356,7 @@ export async function startChatSession(
 		userAgent: meta.userAgent,
 	});
 
-	return { sessionId, status: "active" };
+	return { sessionId, status: "active", reopened: false };
 }
 
 const CHAT_MODEL = "glm-5";
@@ -346,6 +364,7 @@ const CHAT_TEMPERATURE = 0.2;
 const CHAT_MAX_TOKENS = 300;
 const PROVIDER_ERROR_BODY_CAP_BYTES = 2048;
 export const CHAT_INACTIVITY_TIMEOUT_MINUTES = 30;
+export const CHAT_REOPEN_QUIET_PERIOD_MINUTES = 15;
 const ZAI_CHAT_COMPLETIONS_URL =
 	"https://api.z.ai/api/coding/paas/v4/chat/completions";
 const CHAT_SYSTEM_PROMPT = `Jestes polskim asystentem informacyjnym strony wizytowkowej.
@@ -992,6 +1011,24 @@ function formatChatStartedMessage(
 	].join("\n");
 }
 
+function formatChatReopenedMessage(
+	session: ChatReopenNotificationSessionRow,
+	sellerToken: string,
+	adminPanelUrl?: string,
+): string {
+	const pageSlug = `${session.locality_slug}/${session.business_slug}`;
+	const transcript = transcriptUrl(session.id, sellerToken, adminPanelUrl);
+	const reopenedAt = session.last_opened_at ?? session.started_at;
+	return [
+		"🔁 <b>Chat ponownie otwarty</b>",
+		"",
+		`Strona: ${escapeHtml(pageSlug)}`,
+		`Ponownie otwarto: ${escapeHtml(reopenedAt)}`,
+		`Referrer: ${escapeHtml(session.referrer ?? "brak")}`,
+		`Transkrypt: ${escapeHtml(transcript)}`,
+	].join("\n");
+}
+
 function formatChatEndedMessage(
 	session: ChatEndNotificationSessionRow,
 	sellerToken: string,
@@ -1043,6 +1080,83 @@ export async function sendChatStartNotification(
 			"UPDATE chat_sessions SET telegram_start_sent_at = ? WHERE id = ? AND telegram_start_sent_at IS NULL",
 		)
 		.bind(new Date().toISOString(), session.id)
+		.run();
+}
+
+export async function sendChatReopenNotification(
+	env: ChatNotificationEnv,
+	sessionId: string,
+	now = new Date(),
+): Promise<void> {
+	const session = await env.leadgen
+		.prepare(
+			`SELECT id, locality_slug, business_slug, status, referrer, started_at,
+              last_opened_at, telegram_start_sent_at, last_reopen_notified_at
+       FROM chat_sessions WHERE id = ?`,
+		)
+		.bind(sessionId)
+		.first<ChatReopenNotificationSessionRow>();
+	if (!session || session.status !== "active") return;
+
+	const cutoff = new Date(
+		now.getTime() - CHAT_REOPEN_QUIET_PERIOD_MINUTES * 60 * 1000,
+	).toISOString();
+	const lastNotifiedAt =
+		session.last_reopen_notified_at ??
+		session.telegram_start_sent_at ??
+		session.started_at;
+	if (lastNotifiedAt > cutoff) return;
+
+	const recipient = await env.leadgen
+		.prepare(
+			"SELECT notify_chat_id, token FROM sellers WHERE notify_chat_id IS NOT NULL ORDER BY id LIMIT 1",
+		)
+		.first<{ notify_chat_id: string; token: string }>();
+	if (!recipient) return;
+
+	const notifiedAt = now.toISOString();
+	const previous = session.last_reopen_notified_at;
+	const claim = await env.leadgen
+		.prepare(
+			`UPDATE chat_sessions SET last_reopen_notified_at = ?
+       WHERE id = ? AND status = 'active'
+         AND COALESCE(last_reopen_notified_at, telegram_start_sent_at, started_at) <= ?`,
+		)
+		.bind(notifiedAt, session.id, cutoff)
+		.run();
+	if (claim.meta.changes !== 1) return;
+
+	try {
+		const delivery = await sendMessage(
+			env.TG_NOTIFY_BOT_TOKEN,
+			recipient.notify_chat_id,
+			formatChatReopenedMessage(session, recipient.token, env.ADMIN_PANEL_URL),
+		);
+		if (delivery.ok) return;
+	} catch (error) {
+		await restoreReopenNotifiedAt(
+			env.leadgen,
+			session.id,
+			notifiedAt,
+			previous,
+		);
+		throw error;
+	}
+
+	await restoreReopenNotifiedAt(env.leadgen, session.id, notifiedAt, previous);
+}
+
+async function restoreReopenNotifiedAt(
+	db: D1Database,
+	sessionId: string,
+	claimedAt: string,
+	previous: string | null,
+): Promise<void> {
+	await db
+		.prepare(
+			"UPDATE chat_sessions SET last_reopen_notified_at = ? WHERE id = ? AND last_reopen_notified_at = ?",
+		)
+		.bind(previous, sessionId, claimedAt)
 		.run();
 }
 
