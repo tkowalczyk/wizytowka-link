@@ -33,14 +33,27 @@ export async function resolveStaleLocalityUrl(
 	if (!SLUG_RE.test(loc)) return { kind: "pass" };
 	if (bizSlug !== null && !SLUG_RE.test(bizSlug)) return { kind: "pass" };
 
-	// 1. Exact current-slug match — a live URL. Guarded before candidate matching
-	// so a current slug with escalated siblings (`krakow` next to `krakow-xxx`)
-	// is never mistaken for a stale base name.
+	// 1. Exact current-slug match — a live locality URL. For a business-shaped
+	// path, the locality only owns the URL when it has that business row (in any
+	// status). This distinction matters when an old bare locality slug was later
+	// claimed by a different, empty same-name locality: `/ruszowice/autoserwis`
+	// must keep resolving to the unique published `ruszowice-*` sibling, while
+	// the bare `/ruszowice` index and withdrawn current businesses stay put.
 	const current = await db
-		.prepare("SELECT 1 AS hit FROM localities WHERE slug = ? LIMIT 1")
-		.bind(loc)
-		.first<{ hit: number }>();
-	if (current) return { kind: "pass" };
+		.prepare(
+			`SELECT l.id,
+			        EXISTS(
+			          SELECT 1 FROM businesses b
+			          WHERE b.locality_id = l.id AND b.slug = ?
+			        ) AS owns_business
+			 FROM localities l
+			 WHERE l.slug = ? LIMIT 1`,
+		)
+		.bind(bizSlug ?? "", loc)
+		.first<{ id: number; owns_business: number }>();
+	if (current && (bizSlug === null || current.owns_business === 1)) {
+		return { kind: "pass" };
+	}
 
 	// 2. Slug-history match (#83) — authoritative. A recorded old_slug pins the
 	// exact locality a URL was published under, so it resolves even the ambiguous

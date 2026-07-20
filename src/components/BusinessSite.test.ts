@@ -32,3 +32,13 @@ describe("BusinessSite robots + canonical wiring", () => {
 		expect(source).toContain("canonicalFor(Astro.url.pathname)");
 	});
 });
+
+describe("BusinessSite social metadata", () => {
+	it("uses the shared social image and complete OpenGraph/Twitter fields", () => {
+		expect(source).toContain("SOCIAL_IMAGE");
+		expect(source).toContain('property="og:image"');
+		expect(source).toContain('name="twitter:title"');
+		expect(source).toContain('name="twitter:description"');
+		expect(source).toContain('name="twitter:image"');
+	});
+});

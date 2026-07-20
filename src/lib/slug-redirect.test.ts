@@ -100,6 +100,11 @@ describe("resolveStaleLocalityUrl", () => {
 	});
 
 	it("redirects the reported ruszowice business URL to its glogow slug", async () => {
+		// Production also has an empty, current locality at the bare slug
+		// `ruszowice` (Kłodzko). The resolver must not stop at that locality when
+		// it does not own `autoserwis`; the unique done sibling is the stale URL's
+		// actual target.
+		await insertLocality("ruszowice", "0853004", "Ruszowice");
 		const id = await insertLocality("ruszowice-glogow", "0922222", "Ruszowice");
 		await insertBusiness(id, "autoserwis", "done");
 
@@ -112,6 +117,35 @@ describe("resolveStaleLocalityUrl", () => {
 			kind: "redirect",
 			location: "/ruszowice-glogow/autoserwis",
 		});
+	});
+
+	it("keeps the bare current locality index when an escalated sibling exists", async () => {
+		await insertLocality("ruszowice", "0853004", "Ruszowice");
+		const sibling = await insertLocality(
+			"ruszowice-glogow",
+			"0922222",
+			"Ruszowice",
+		);
+		await insertBusiness(sibling, "autoserwis", "done");
+
+		expect(await resolveStaleLocalityUrl(env.leadgen, "/ruszowice")).toEqual({
+			kind: "pass",
+		});
+	});
+
+	it("does not redirect a withdrawn business from the current locality to a sibling", async () => {
+		const current = await insertLocality("ruszowice", "0853004", "Ruszowice");
+		const sibling = await insertLocality(
+			"ruszowice-glogow",
+			"0922222",
+			"Ruszowice",
+		);
+		await insertBusiness(current, "autoserwis", "ineligible");
+		await insertBusiness(sibling, "autoserwis", "done");
+
+		expect(
+			await resolveStaleLocalityUrl(env.leadgen, "/ruszowice/autoserwis"),
+		).toEqual({ kind: "pass" });
 	});
 
 	it("redirects deterministically from a history row even when two same-name localities exist (#83)", async () => {

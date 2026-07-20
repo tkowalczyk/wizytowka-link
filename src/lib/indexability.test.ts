@@ -3,6 +3,7 @@ import {
 	canonicalFor,
 	robotsForBusiness,
 	robotsForListing,
+	SOCIAL_IMAGE,
 } from "./indexability";
 
 // Issue #84: robots decisions were copy-pasted across page types and untested —
@@ -45,5 +46,14 @@ describe("canonicalFor", () => {
 		);
 		// The landing page: root path collapses to the bare apex, no trailing "/".
 		expect(canonicalFor("/")).toBe("https://wizytowka.link");
+	});
+});
+
+describe("SOCIAL_IMAGE", () => {
+	it("uses one absolute, correctly sized share image across public pages", () => {
+		expect(SOCIAL_IMAGE.url).toBe("https://wizytowka.link/og-default.png");
+		expect(SOCIAL_IMAGE.width).toBe("1200");
+		expect(SOCIAL_IMAGE.height).toBe("630");
+		expect(SOCIAL_IMAGE.alt).toContain("wizytowka.link");
 	});
 });

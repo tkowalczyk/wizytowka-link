@@ -3,7 +3,7 @@ import '../styles/base.css';
 import { env } from 'cloudflare:workers';
 import AuditmosFooterLink from '../components/AuditmosFooterLink.astro';
 import { safeJsonScript } from '../lib/structured-data';
-import { canonicalFor } from '../lib/indexability';
+import { canonicalFor, SOCIAL_IMAGE } from '../lib/indexability';
 
 const title = "wizytowka.link — wizytówki z asystentem AI"
 const description =
@@ -25,10 +25,17 @@ const turnstileSiteKey = env.TURNSTILE_SITE_KEY ?? ""
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:locale" content="pl_PL" />
+    <meta property="og:site_name" content="wizytowka.link" />
+    <meta property="og:image" content={SOCIAL_IMAGE.url} />
+    <meta property="og:image:width" content={SOCIAL_IMAGE.width} />
+    <meta property="og:image:height" content={SOCIAL_IMAGE.height} />
+    <meta property="og:image:alt" content={SOCIAL_IMAGE.alt} />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={SOCIAL_IMAGE.url} />
+    <meta name="twitter:image:alt" content={SOCIAL_IMAGE.alt} />
 
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#2563eb" />

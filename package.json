@@ -20,6 +20,7 @@
 		"seed": "pnpm db:migrate:fresh && pnpm tsx scripts/seed-local-test.ts",
 		"deploy": "wrangler deploy --secrets-file .production.vars",
 		"audit:prod": "pnpm audit --prod",
+		"audit:seo": "node scripts/audit-seo.mjs",
 		"deps": "taze",
 		"deps:major": "taze major",
 		"deps:up": "taze -w && pnpm i",

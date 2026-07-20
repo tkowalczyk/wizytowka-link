@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { resetDb } from "../../test/seed";
 import { assembleSitemapUrls, buildCategoryUrls, GET } from "./sitemap.xml";
 
@@ -30,8 +30,7 @@ describe("assembleSitemapUrls", () => {
 	it("never assembles more than 50,000 URLs", () => {
 		const urls = assembleSitemapUrls({
 			domain: DOMAIN,
-			today: "2026-07-08",
-			staticPages: [{ loc: "/", priority: "1.0" }],
+			staticPages: [{ loc: "/", changefreq: "weekly", priority: "1.0" }],
 			localities: fakeLocalities(2000),
 			businesses: fakeBusinesses(49_000),
 			categoryRows: fakeCategoryPairs(500),
@@ -41,37 +40,31 @@ describe("assembleSitemapUrls", () => {
 	});
 });
 
-const getHomepageLastmod = (xml: string) => {
-	const match = xml.match(
-		/<loc>https:\/\/wizytowka\.link\/<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/,
-	);
-	if (!match) throw new Error("Expected homepage sitemap entry with lastmod");
-	return match[1];
-};
-
 describe("GET sitemap.xml", () => {
 	beforeEach(async () => {
 		await resetDb(env.leadgen);
 	});
 
-	afterEach(() => {
-		vi.useRealTimers();
+	it("submits every indexable static page", async () => {
+		const response = await GET({} as Parameters<typeof GET>[0]);
+		const xml = await response.text();
+
+		expect(xml).toContain("<loc>https://wizytowka.link/</loc>");
+		expect(xml).toContain("<loc>https://wizytowka.link/regulamin</loc>");
+		expect(xml).toContain(
+			"<loc>https://wizytowka.link/polityka-prywatnosci</loc>",
+		);
 	});
 
-	it("stamps static lastmod at request time", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-07-08T12:00:00.000Z"));
+	it("does not claim a changing lastmod date for unchanged static pages", async () => {
+		const response = await GET({} as Parameters<typeof GET>[0]);
+		const xml = await response.text();
+		const homepageEntry = xml.match(
+			/<url>\s*<loc>https:\/\/wizytowka\.link\/<\/loc>[\s\S]*?<\/url>/,
+		)?.[0];
 
-		const firstResponse = await GET({} as Parameters<typeof GET>[0]);
-		const firstXml = await firstResponse.text();
-
-		vi.setSystemTime(new Date("2026-07-10T12:00:00.000Z"));
-
-		const secondResponse = await GET({} as Parameters<typeof GET>[0]);
-		const secondXml = await secondResponse.text();
-
-		expect(getHomepageLastmod(firstXml)).toBe("2026-07-08");
-		expect(getHomepageLastmod(secondXml)).toBe("2026-07-10");
+		expect(homepageEntry).toBeDefined();
+		expect(homepageEntry).not.toContain("<lastmod>");
 	});
 });
 

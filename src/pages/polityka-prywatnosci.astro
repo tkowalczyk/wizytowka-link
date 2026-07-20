@@ -1,9 +1,11 @@
 ---
 import '../styles/base.css';
 import AuditmosFooterLink from '../components/AuditmosFooterLink.astro';
+import { SOCIAL_IMAGE } from '../lib/indexability';
 
 const title = "Polityka prywatności — wizytowka.link"
 const url = "https://wizytowka.link/polityka-prywatnosci"
+const description = "Polityka prywatności wizytowka.link — jakie dane przetwarzamy, prawa właścicieli firm, bezpieczeństwo, RODO."
 ---
 
 <html lang="pl" dir="ltr">
@@ -11,10 +13,27 @@ const url = "https://wizytowka.link/polityka-prywatnosci"
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
-    <meta name="description" content="Polityka prywatności wizytowka.link — jakie dane przetwarzamy, prawa właścicieli firm, bezpieczeństwo, RODO." />
+    <meta name="description" content={description} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="canonical" href={url} />
-    <meta name="robots" content="noindex" />
+    <meta name="robots" content="index, follow" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:site_name" content="wizytowka.link" />
+    <meta property="og:image" content={SOCIAL_IMAGE.url} />
+    <meta property="og:image:width" content={SOCIAL_IMAGE.width} />
+    <meta property="og:image:height" content={SOCIAL_IMAGE.height} />
+    <meta property="og:image:alt" content={SOCIAL_IMAGE.alt} />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={SOCIAL_IMAGE.url} />
+    <meta name="twitter:image:alt" content={SOCIAL_IMAGE.alt} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" media="print" onload={`

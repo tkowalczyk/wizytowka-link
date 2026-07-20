@@ -3,7 +3,7 @@ import type { SiteData } from '../types/site';
 import { resolveTheme, getPaletteById, paletteToCSS, isLayoutVariant, isStyleVariant } from '../lib/themes';
 import { buildLocalBusinessLd, buildBreadcrumbLd, safeJsonScript, type BizData } from '../lib/structured-data';
 import { buildPublicBusinessPageModel } from '../lib/public-page';
-import { canonicalFor, robotsForBusiness } from '../lib/indexability';
+import { canonicalFor, robotsForBusiness, SOCIAL_IMAGE } from '../lib/indexability';
 import CenteredLayout from './layouts/CenteredLayout.astro';
 import SplitLayout from './layouts/SplitLayout.astro';
 import MinimalLayout from './layouts/MinimalLayout.astro';
@@ -68,7 +68,17 @@ const fontLink = style === 'elegant'
   <meta property="og:type" content="website" />
   <meta property="og:url" content={canonicalUrl} />
   <meta property="og:locale" content="pl_PL" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:site_name" content="wizytowka.link" />
+  <meta property="og:image" content={SOCIAL_IMAGE.url} />
+  <meta property="og:image:width" content={SOCIAL_IMAGE.width} />
+  <meta property="og:image:height" content={SOCIAL_IMAGE.height} />
+  <meta property="og:image:alt" content={SOCIAL_IMAGE.alt} />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={page.seo.title} />
+  <meta name="twitter:description" content={page.seo.description} />
+  <meta name="twitter:image" content={SOCIAL_IMAGE.url} />
+  <meta name="twitter:image:alt" content={SOCIAL_IMAGE.alt} />
 
   <Fragment set:html={fontLink} />
   <style set:html={cssVars} />

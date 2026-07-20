@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">wizytowka.link — lokalne firmy i usługi</title>
+  <desc id="desc">Niebieska karta wizytowka.link z ikoną wizytówki i opisem lokalnych firm.</desc>
+  <rect width="1200" height="630" fill="#eff6ff"/>
+  <path d="M0 48H1200M0 96H1200M0 144H1200M0 192H1200M0 240H1200M0 288H1200M0 336H1200M0 384H1200M0 432H1200M0 480H1200M0 528H1200M0 576H1200" fill="none" stroke="#dbeafe"/>
+  <path d="M48 0V630M96 0V630M144 0V630M192 0V630M240 0V630M288 0V630M336 0V630M384 0V630M432 0V630M480 0V630M528 0V630M576 0V630M624 0V630M672 0V630M720 0V630M768 0V630M816 0V630M864 0V630M912 0V630M960 0V630M1008 0V630M1056 0V630M1104 0V630M1152 0V630" fill="none" stroke="#dbeafe"/>
+  <circle cx="1110" cy="70" r="190" fill="#bfdbfe"/>
+  <circle cx="90" cy="590" r="155" fill="#dbeafe"/>
+
+  <g transform="translate(92 126)">
+    <rect x="12" y="16" width="312" height="224" rx="32" fill="#1e3a8a" fill-opacity="0.16"/>
+    <rect width="312" height="224" rx="32" fill="#2563eb"/>
+    <rect x="48" y="54" width="112" height="18" rx="9" fill="#fff"/>
+    <rect x="48" y="96" width="190" height="15" rx="7.5" fill="#bfdbfe"/>
+    <rect x="48" y="132" width="152" height="15" rx="7.5" fill="#bfdbfe"/>
+    <rect x="48" y="168" width="96" height="15" rx="7.5" fill="#bfdbfe"/>
+    <circle cx="259" cy="65" r="20" fill="#dbeafe" fill-opacity="0.9"/>
+  </g>
+
+  <text x="476" y="244" fill="#2563eb" font-family="Arial" font-size="68" font-weight="700">wizytowka</text>
+  <text x="786" y="244" fill="#1e293b" font-family="Arial" font-size="68" font-weight="700">.link</text>
+  <text x="480" y="305" fill="#334155" font-family="Arial" font-size="30" font-weight="600">Lokalne firmy i usługi</text>
+  <text x="480" y="356" fill="#64748b" font-family="Arial" font-size="23">Informacje, mapa i pomocny asystent AI</text>
+
+  <rect x="92" y="512" width="1016" height="2" rx="1" fill="#2563eb" fill-opacity="0.18"/>
+  <text x="92" y="558" fill="#475569" font-family="Arial" font-size="21" font-weight="600">Niezależne wizytówki polskich firm</text>
+</svg>

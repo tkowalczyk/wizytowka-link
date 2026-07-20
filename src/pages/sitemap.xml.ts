@@ -19,12 +19,12 @@ interface CategoryRow {
 
 interface StaticPage {
 	loc: string;
+	changefreq: "weekly" | "yearly";
 	priority: string;
 }
 
 interface AssembleSitemapUrlsInput {
 	domain: string;
-	today: string;
 	staticPages: StaticPage[];
 	localities: LocalityRow[];
 	businesses: SitemapRow[];
@@ -55,11 +55,18 @@ export function buildCategoryUrls(
 
 const DOMAIN = "https://wizytowka.link";
 
-const staticPages = [{ loc: "/", priority: "1.0" }];
+const staticPages: StaticPage[] = [
+	{ loc: "/", changefreq: "weekly", priority: "1.0" },
+	{ loc: "/regulamin", changefreq: "yearly", priority: "0.3" },
+	{
+		loc: "/polityka-prywatnosci",
+		changefreq: "yearly",
+		priority: "0.3",
+	},
+];
 
 export function assembleSitemapUrls({
 	domain,
-	today,
 	staticPages,
 	localities,
 	businesses,
@@ -73,8 +80,7 @@ export function assembleSitemapUrls({
 	for (const p of staticPages) {
 		append(`  <url>
     <loc>${domain}${p.loc}</loc>
-    <lastmod>${today}</lastmod>
-    <changefreq>weekly</changefreq>
+    <changefreq>${p.changefreq}</changefreq>
     <priority>${p.priority}</priority>
   </url>`);
 	}
@@ -106,7 +112,6 @@ export function assembleSitemapUrls({
 
 export const GET: APIRoute = async () => {
 	const db = env.leadgen as D1Database;
-	const today = new Date().toISOString().split("T")[0];
 
 	const [localities, rows, categoryRows] = await Promise.all([
 		db
@@ -140,7 +145,6 @@ export const GET: APIRoute = async () => {
 
 	const urls = assembleSitemapUrls({
 		domain: DOMAIN,
-		today,
 		staticPages,
 		localities: localities.results,
 		businesses: rows.results,

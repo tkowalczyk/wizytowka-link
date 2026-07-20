@@ -10,6 +10,18 @@
 export const SITE_ORIGIN = "https://wizytowka.link";
 
 /**
+ * Shared social card for every indexable page type. Keeping this deterministic
+ * avoids pages drifting into incomplete OpenGraph/Twitter metadata and gives
+ * crawlers one stable, cacheable 1200×630 raster asset.
+ */
+export const SOCIAL_IMAGE = {
+	url: `${SITE_ORIGIN}/og-default.png`,
+	width: "1200",
+	height: "630",
+	alt: "wizytowka.link — lokalne firmy i usługi",
+} as const;
+
+/**
  * Robots directive for a *listing* page (locality index, category listing).
  * An empty listing is a thin page that invites GSC "Soft 404" / "Crawled —
  * currently not indexed", so it is noindexed — but kept `follow` so its

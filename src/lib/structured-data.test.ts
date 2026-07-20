@@ -33,14 +33,12 @@ describe("buildLocalBusinessLd", () => {
 	// Input is the current business row shape used by generated pages.
 	// Output is LocalBusiness JSON-LD with no direct contact fields exposed.
 	it("omits direct contact fields and emits schema.org-format opening hours", () => {
-		const ld = buildLocalBusinessLd(
-			baseBiz,
-			"https://wizytowka.link/zabki/bistro",
-		);
+		const url = "https://wizytowka.link/zabki/bistro";
+		const ld = buildLocalBusinessLd(baseBiz, url);
 
 		expect(ld).not.toHaveProperty("telephone");
 		expect(ld).not.toHaveProperty("email");
-		expect(ld).not.toHaveProperty("url");
+		expect(ld.url).toBe(url);
 		expect(ld.address).toEqual({
 			"@type": "PostalAddress",
 			streetAddress: baseBiz.address,
@@ -62,17 +60,12 @@ describe("buildLocalBusinessLd", () => {
 		expect(ld).not.toHaveProperty("openingHours");
 	});
 
-	it("includes ratingCount when both rating and reviews_count present", () => {
+	it("does not republish third-party aggregate ratings as first-party schema", () => {
 		const ld = buildLocalBusinessLd(
 			baseBiz,
 			"https://wizytowka.link/zabki/bistro",
 		);
-		expect(ld.aggregateRating).toEqual({
-			"@type": "AggregateRating",
-			ratingValue: 4.7,
-			bestRating: 5,
-			ratingCount: 98,
-		});
+		expect(ld).not.toHaveProperty("aggregateRating");
 	});
 
 	it("omits aggregateRating when reviews_count is null", () => {
@@ -120,10 +113,10 @@ describe("buildLocalBusinessLd", () => {
 		});
 	});
 
-	it("omits url from LocalBusiness metadata", () => {
+	it("sets the canonical page URL on LocalBusiness metadata", () => {
 		const url = "https://wizytowka.link/zabki/bistro";
 		const ld = buildLocalBusinessLd(baseBiz, url);
-		expect(ld).not.toHaveProperty("url");
+		expect(ld.url).toBe(url);
 	});
 });
 

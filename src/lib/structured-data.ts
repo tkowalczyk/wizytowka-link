@@ -16,12 +16,13 @@ export function safeJsonScript(value: unknown): string {
 	return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
-export function buildLocalBusinessLd(biz: BizData, _url: string) {
+export function buildLocalBusinessLd(biz: BizData, url: string) {
 	const openingHours = formatOperatingHours(biz.operating_hours).schema;
 	return {
 		"@context": "https://schema.org",
 		"@type": "LocalBusiness",
 		name: biz.title,
+		url,
 		address: {
 			"@type": "PostalAddress",
 			streetAddress: biz.address,
@@ -33,16 +34,6 @@ export function buildLocalBusinessLd(biz: BizData, _url: string) {
 			latitude: biz.gps_lat,
 			longitude: biz.gps_lng,
 		},
-		...(biz.rating && biz.reviews_count
-			? {
-					aggregateRating: {
-						"@type": "AggregateRating",
-						ratingValue: biz.rating,
-						bestRating: 5,
-						ratingCount: biz.reviews_count,
-					},
-				}
-			: {}),
 	};
 }
 
