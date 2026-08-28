@@ -81,6 +81,10 @@ docs/design/                     # Numbered design docs (read before implementin
 pnpm seed                          # WIPES local D1+R2, re-migrates, re-seeds
 pnpm db:migrate:remote             # Apply D1 migrations to production (run BEFORE deploying code that uses new columns)
 pnpm run build && pnpm run deploy  # Build, then deploy — deploy = `wrangler deploy --secrets-file .production.vars`
+
+# NEVER `pnpm run deploy` alone after editing wrangler.jsonc. `wrangler deploy` reads the
+# REDIRECTED config `dist/server/wrangler.json` — a build artifact — not wrangler.jsonc, so a
+# bare deploy silently ships the PREVIOUS build's crons, bindings, vars and routes. Always build first.
 curl http://localhost:8787/cdn-cgi/handler/scheduled  # Trigger crons locally (requires pnpm preview, NOT pnpm dev)
 ```
 
