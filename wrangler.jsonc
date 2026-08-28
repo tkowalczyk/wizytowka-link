@@ -34,16 +34,19 @@
 	"vars": {
 		"DISCOVERY_MIN_QUOTA": "200"
 	},
+	// PAUSED 2026-08-28 — project on hold, all cron triggers disabled.
+	// To resume: restore the list below and run `npx wrangler triggers deploy`.
+	// "crons": [
+	//   "0 * * * *",     // geocoder
+	//   "55 7 * * *",    // preflight
+	//   "0 8 * * *",     // discovery
+	//   "*/5 * * * *",   // generate
+	//   "*/10 * * * *",  // chatTimeout
+	//   "0 9 * * 1",     // funnel
+	//   "0 4 * * 1",     // reconcile
+	// ]
 	"triggers": {
-		"crons": [
-			"0 * * * *",
-			"55 7 * * *",
-			"0 8 * * *",
-			"*/5 * * * *",
-			"*/10 * * * *",
-			"0 9 * * 1",
-			"0 4 * * 1"
-		]
+		"crons": []
 	},
 	"routes": [
 		{
