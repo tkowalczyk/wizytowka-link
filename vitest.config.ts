@@ -1,4 +1,4 @@
-import { cloudflarePool } from "@cloudflare/vitest-pool-workers";
+import { cloudflarePool } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
